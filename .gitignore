@@ -218,3 +218,15 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# IEUM AI - Additional security settings
+
+# Environment variable files
+.env.*
+!.env.example
+
+# macOS system files
+.DS_Store
+
+# Local private data
+data/private/
