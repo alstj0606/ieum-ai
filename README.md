@@ -19,6 +19,8 @@ AI 실패 진단과 대체 검색, 최신 입력창 수정 및 배포 확인 사
 
 최신 질문 이해 공급자는 Gemini입니다. [Gemini Secrets·무료 티어·검증 안내](docs/gemini-setup.md)를 먼저 확인해 주세요. OpenAI 키는 음성에만 사용합니다.
 
+404 또는 model_access 점검: [Gemini 모델·API 경로 진단](docs/gemini-model-diagnostics.md).
+
 ## 실행
 
 ```bash

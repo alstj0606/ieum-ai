@@ -65,6 +65,24 @@ async function main(){
   if(await fallback.getByText(reported,{exact:true}).count()!==1)throw Error('Original question lost');
   console.log('PASS mock Gemini SDK HTTP429 -> safe diagnostic/official fallback -> followup/history');await fallback.close();
 
+  const probe=await browser.newPage({viewport:{width:390,height:850}});await ready(probe);
+  await send(probe,'강서구 국악');await concert(probe);
+  await probe.getByRole('button',{name:'＋ 보조 메뉴',exact:false}).click();
+  await probe.getByText('Gemini 모델 연결 점검',{exact:true}).click();
+  await probe.getByRole('button',{name:'모델 정보 확인',exact:true}).click();
+  await probe.getByText('모델 정보: metadata_ok',{exact:true}).waitFor();
+  await probe.getByText('모델 목록: list_ok',{exact:true}).waitFor();
+  await probe.getByText('무료 티어·잔여 한도는 미확인입니다.',{exact:false}).waitFor();
+  await probe.getByRole('button',{name:'＋ 보조 메뉴',exact:false}).click();
+  if(await probe.getByText('강서구 국악',{exact:true}).count()!==1)throw Error('Model probe changed conversation');
+  console.log('PASS read-only model metadata/list -> quota unverified -> conversation preserved');
+  await send(probe,'강서구 운동을 추천해줘');
+  await probe.getByRole('heading',{name:'서남센터 파크골프장(18홀)',exact:true}).waitFor();
+  await probe.getByText('연결 상태 확인',{exact:true}).last().click();
+  await probe.getByText('진단 코드: generation_not_found',{exact:true}).waitFor();
+  if((await probe.locator('body').innerText()).includes('private-provider-canary'))throw Error('404 raw error leaked');
+  console.log('PASS mock generation 404 -> unresolved diagnostic -> official fallback');await probe.close();
+
   const voice=await browser.newPage({viewport:{width:390,height:850},isMobile:true,hasTouch:true});
   await ready(voice);
   await voice.getByRole('button',{name:'마이크로 말하기',exact:true}).click();

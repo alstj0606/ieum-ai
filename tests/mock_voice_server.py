@@ -27,6 +27,19 @@ class Handler(BaseHTTPRequestHandler):
     def log_message(self, *args):
         pass
 
+    def do_GET(self):
+        if self.path.split('?')[0] == '/v1beta/models':
+            data={'models':[{'name':'models/gemini-2.5-flash','supportedGenerationMethods':['generateContent']}]}
+        elif self.path == '/v1beta/models/gemini-2.5-flash':
+            data={'name':'models/gemini-2.5-flash','supportedGenerationMethods':['generateContent']}
+        else:
+            self.send_error(404)
+            return
+        self.send_response(200)
+        self.send_header('Content-Type','application/json')
+        self.end_headers()
+        self.wfile.write(json.dumps(data).encode())
+
     def do_POST(self):
         body = self.rfile.read(int(self.headers.get("Content-Length", "0")))
         content_type = "application/json"
@@ -39,6 +52,12 @@ class Handler(BaseHTTPRequestHandler):
                 self.end_headers()
                 self.wfile.write(json.dumps({"error":{"code":429,"status":"RESOURCE_EXHAUSTED",
                     "message":"provider-private-canary-no-log"}}).encode())
+                return
+            if context["current_utterance"] == "강서구 운동을 추천해줘":
+                self.send_response(404)
+                self.send_header('Content-Type','application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({'error':{'code':404,'status':'NOT_FOUND','message':'private-provider-canary'}}).encode())
                 return
             request = basic_extract(context["current_utterance"], {
                 "pending": context["pending"], "conditions": context["current_conditions"],

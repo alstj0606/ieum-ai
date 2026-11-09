@@ -3,7 +3,8 @@
 import json
 import logging
 
-from services.config import Settings
+from services.config import (Settings, normalize_model, ModelSettingError,
+                             GEMINI_API_BASE, GEMINI_API_VERSION)
 from services.diagnostics import DIAGNOSTICS, classify_error
 
 
@@ -70,7 +71,7 @@ def make_client(settings: Settings):
             logging.getLogger(name).setLevel(logging.CRITICAL)
         return genai.Client(
             api_key=settings.gemini_api_key, vertexai=False, enterprise=False,
-            http_options=types.HttpOptions(api_version="v1beta", timeout=30000,
+            http_options=types.HttpOptions(base_url=GEMINI_API_BASE, api_version=GEMINI_API_VERSION, timeout=30000,
                                           retry_options=types.HttpRetryOptions(attempts=1)),
         )
     except Exception:
@@ -133,6 +134,10 @@ def empty_extraction(intent="search"):
 def extract_conditions(text, state, activities, settings, *, client=None):
     if not text.strip() or len(text) > 1500:
         raise AIError("질문은 1~1,500자로 입력해 주세요.")
+    try:
+        model = normalize_model(settings.model)
+    except ModelSettingError:
+        raise AIError(code="model_config") from None
     owned = client is None
     client = client or make_client(settings)
     context = {
@@ -146,13 +151,13 @@ def extract_conditions(text, state, activities, settings, *, client=None):
     try:
         from google.genai import types
         response = client.models.generate_content(
-            model=settings.model,
+            model=model,
             contents=json.dumps(context, ensure_ascii=False),
             config=types.GenerateContentConfig(
                 system_instruction=PROMPT, response_mime_type="application/json",
                 response_json_schema=SCHEMA, max_output_tokens=2000, temperature=0,
                 thinking_config=types.ThinkingConfig(thinking_budget=0)
-                if settings.model == "gemini-2.5-flash" else None,
+                if model == "gemini-2.5-flash" else None,
                 automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
             ),
         )

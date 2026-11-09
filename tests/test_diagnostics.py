@@ -24,7 +24,7 @@ class DiagnosticsTest(TestCase):
                (errors.ClientError(400,{'error':{'message':SECRET,'details':[{'reason':'API_KEY_INVALID'}]}}),'authentication'),
                (errors.ClientError(403,{'error':{'message':SECRET}}),'permission'),
                (errors.ClientError(429,{'error':{'message':SECRET,'status':'RESOURCE_EXHAUSTED'}}),'rate_limit'),
-               (errors.ClientError(404,{'error':{'message':SECRET}}),'model_access'),
+               (errors.ClientError(404,{'error':{'message':SECRET}}),'generation_not_found'),
                (errors.ClientError(400,{'error':{'message':SECRET}}),'request'),
                (errors.ServerError(503,{'error':{'message':SECRET}}),'service'),
                (httpx2.ReadTimeout(SECRET),'timeout'),(httpx2.ConnectError(SECRET),'connection'),
