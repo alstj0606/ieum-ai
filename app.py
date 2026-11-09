@@ -12,7 +12,7 @@ from services.config import load_settings
 from services.diagnostics import DIAGNOSTICS
 from services.model_probe import inspect_models, STATUS_LABELS
 from services.generation_probe import inspect_generation, COMPARISON_LABELS
-from services.dialogue import new_state, handle_turn, manual_search, application_guide, basic_extract, choose_idea
+from services.dialogue import new_state, handle_turn, manual_search, application_guide, basic_extract, choose_idea, choose_alternative
 from services.recommendations import activity_facts, speech_text
 from services.voice import transcribe, synthesize, VoiceError
 
@@ -71,6 +71,11 @@ def select_idea(idea_id):
     remember(name+' 프로그램을 찾아주세요',updated)
 
 
+def select_alternative(activity_type):
+    updated=choose_alternative(st.session_state.dialog,activity_type,activities,settings)
+    remember(activity_type+' 대안 프로그램을 볼게요',updated)
+
+
 def submit_voice(audio):
     st.session_state.voice_error = None
     try:
@@ -112,6 +117,8 @@ def prepare(index):
     if state["selected_id"]:
         rows = [row for row in rows if row["id"] == state["selected_id"]]
     spoken = speech_text(state["message"], rows)
+    if state.get('alternatives'):
+        spoken+=' 같은 지역의 공식 자료가 있는 대안이에요. '+ ' '.join(x['activity_type']+'. '+x['reason']+' '.join(row['name']+'. '+dict(activity_facts(row))['접수 상태'] for row in x['rows']) for x in state['alternatives'])
     if state.get('ideas'):
         spoken+=' 일반 활동 제안이며 실제 모집 강좌가 아니에요. '+ ' '.join(x['name']+'. '+x['reason'] for x in state['ideas'])
     if state.get('facilities'):
@@ -138,7 +145,7 @@ def card(row, index, position, *, reference=False, latest=False):
             display_value = value.replace("~", "\\~")  # Preserve official date/time ranges in Markdown.
             st.write(f"**{label}** · {display_value}")
         with st.expander("자세히 보기"):
-            for label in ("주소","대상","신청 방법","정보 확인일","접수 참고","비용 참고"):
+            for label in ("지역","주소","대상","접수 기간","신청 방법","정보 확인일","접수 참고","비용 참고"):
                 if label in facts:
                     st.write(f"**{label}** · {facts[label]}")
             st.write("**준비물** · 확인 필요")
@@ -258,6 +265,16 @@ for index, turn in enumerate(st.session_state.turns):
             if state.get("notice"):
                 st.info(state["notice"])
             st.write(state["message"])
+            if state.get('alternatives'):
+                st.markdown('**같은 지역의 대안 · 공식 자료 있음**')
+                for option in state['alternatives']:
+                    st.write(option['reason'])
+                    for candidate in option['rows']:
+                        facts=dict(activity_facts(candidate))
+                        st.write(candidate['name']+' · '+facts['접수 상태'])
+                    if latest:
+                        st.button(option['activity_type']+' 대안 보기',key='alternative_'+option['activity_type'],
+                                  on_click=select_alternative,args=(option['activity_type'],),use_container_width=True)
             if state["code"]=="demo":
                 demo=state["demo"]
                 st.subheader(demo["name"])
@@ -285,12 +302,26 @@ for index, turn in enumerate(st.session_state.turns):
                     if latest:
                         st.button(idea['name']+' 알아보기',key='idea_'+idea['id'],on_click=select_idea,
                                   args=(idea['id'],),use_container_width=True)
+            if latest and state.get('ideas') and not state['results']:
+                with st.expander('공식 페이지에서 직접 더 찾아보기'):
+                    st.write('실시간 검색 결과가 아니에요. 보유 자료의 공식 페이지를 열어 기관의 다른 공고를 직접 확인해 주세요.')
+                    seen=set()
+                    for source in activities:
+                        from urllib.parse import urlsplit
+                        host=urlsplit(source['source_url']).hostname
+                        if host in seen:continue
+                        seen.add(host)
+                        st.link_button('공식 자료 · '+source['facility_name'],source['source_url'],use_container_width=True)
+                        if len(seen)==3:break
             if latest and state.get('ideas') and state['conditions'].get('time_slot'):
                 st.button('시간 조건 풀기',key='relax_time',on_click=send,args=('시간은 상관없어요',),kwargs={'fixed':True},use_container_width=True)
             if latest and state['code']=='unsupported_region':
                 st.button('서울 강서구 자료로 찾기',key='supported_region',on_click=send,args=('서울 강서구요',),kwargs={'fixed':True},use_container_width=True)
             if latest and state["code"] not in {"demo","start"}:
-                if state["pending"]=="region":
+                if state['pending']=='expand_region':
+                    st.button('네, 인접 지역도 확인',key='expand_yes',on_click=send,args=('인접 지역도 확인',),kwargs={'fixed':True},use_container_width=True)
+                    st.button('아니요, 이 지역만 볼게요',key='expand_no',on_click=send,args=('이 지역만 볼게요',),kwargs={'fixed':True},use_container_width=True)
+                elif state["pending"]=="region":
                     st.button("서울 강서구에서 찾기",key="choose_region",on_click=send,args=("서울 강서구요",),kwargs={"fixed":True},use_container_width=True)
                 elif state["pending"]=="time_slot":
                     for name in ("오전","오후","저녁","상관없어요"):

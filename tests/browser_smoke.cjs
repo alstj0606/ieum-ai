@@ -73,7 +73,7 @@ async function main(){
    await guide.getByRole('link',{name:'시설 근거 공식 출처',exact:true}).waitFor();
    await guide.getByText('현재 이용 가능 여부 미확인',{exact:false}).waitFor();
    await send(guide,'강서구에서 수영 배우고 싶어');
-   await guide.getByText('수영에 대해 확인한 결과예요.',{exact:false}).waitFor();
+   await guide.getByText('수영에 정확히 맞는 신청 가능한 강좌는 확인하지 못했어요.',{exact:false}).waitFor();
    await guide.getByRole('button',{name:'수중운동 알아보기',exact:true}).waitFor();
    await send(guide,'다른 운동도 추천해 줘');
    await guide.getByRole('button',{name:'파크골프 알아보기',exact:true}).waitFor();await idle(guide);

@@ -163,11 +163,12 @@ def activity_facts(item, *, as_of=None):
         f"{item['fee_amount']:,}원 · {known(item['fee_unit'])}"
     )
     return [
-        ("장소", known(item["facility_name"])), ("주소", known(item["address"])),
+        ("장소", known(item["facility_name"])), ("지역", known(item["region"])), ("주소", known(item["address"])),
         ("일정", known(item["schedule"]["text"])), ("비용", fee),
         ("비용 참고", known(item.get("fee_notes"))), ("대상", known(item["target"])),
         ("접수 상태", STATUS_LABELS[availability_status(item, as_of=as_of)]),
         ("접수 참고", known(item["status_notes"])),
+        ("접수 기간", " ~ ".join(known((item['registration_period'] or {}).get(key)) for key in ('starts_at','ends_at'))),
         ("신청 방법", known(item["registration_method"])), ("정보 확인일", item["verified_at"]),
     ]
 
