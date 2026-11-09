@@ -67,7 +67,7 @@ class Handler(BaseHTTPRequestHandler):
                 self.wfile.write(json.dumps({"error":{"code":429,"status":"RESOURCE_EXHAUSTED",
                     "message":"provider-private-canary-no-log"}}).encode())
                 return
-            if context["current_utterance"] == "강서구 운동을 추천해줘":
+            if context["current_utterance"] == "강서구에서 파크골프 프로그램 찾아줘":
                 self.send_response(404)
                 self.send_header('Content-Type','application/json')
                 self.end_headers()

@@ -12,7 +12,7 @@ from services.config import load_settings
 from services.diagnostics import DIAGNOSTICS
 from services.model_probe import inspect_models, STATUS_LABELS
 from services.generation_probe import inspect_generation, COMPARISON_LABELS
-from services.dialogue import new_state, handle_turn, manual_search, application_guide, basic_extract
+from services.dialogue import new_state, handle_turn, manual_search, application_guide, basic_extract, choose_idea
 from services.recommendations import activity_facts, speech_text
 from services.voice import transcribe, synthesize, VoiceError
 
@@ -31,7 +31,7 @@ except (OSError, ValueError):
     activities = []
     st.error("공식 자료를 읽지 못했어요. 잠시 후 다시 찾아주세요.")
 for key, value in {"dialog":new_state(), "turns":[], "speech":None, "auto_read":None,
-                   "turn_seq":0, "speech_error":None, "voice_error":None, "transcript":None, "upload_seen":None, "edit_voice":False}.items():
+                   "close_menu":False, "turn_seq":0, "speech_error":None, "voice_error":None, "transcript":None, "upload_seen":None, "edit_voice":False}.items():
     if key not in st.session_state:
         st.session_state[key] = value
 
@@ -64,6 +64,13 @@ def send(text, *, voice=False, fixed=False):
         remember(text, state, voice=voice)
 
 
+def select_idea(idea_id):
+    state=st.session_state.dialog
+    updated=choose_idea(state,idea_id,activities,settings)
+    name=next(row['name'] for row in state['ideas'] if row['id']==idea_id)
+    remember(name+' 프로그램을 찾아주세요',updated)
+
+
 def submit_voice(audio):
     st.session_state.voice_error = None
     try:
@@ -83,6 +90,7 @@ def edit_transcript():
 
 
 def reset():
+    st.session_state.close_menu = True
     st.session_state.dialog = new_state()
     st.session_state.turns = []
     st.session_state.speech = None
@@ -104,6 +112,10 @@ def prepare(index):
     if state["selected_id"]:
         rows = [row for row in rows if row["id"] == state["selected_id"]]
     spoken = speech_text(state["message"], rows)
+    if state.get('ideas'):
+        spoken+=' 일반 활동 제안이며 실제 모집 강좌가 아니에요. '+ ' '.join(x['name']+'. '+x['reason'] for x in state['ideas'])
+    if state.get('facilities'):
+        spoken+=' '.join(x['name']+'. '+x['note'] for x in state['facilities'])
     if state.get("notice"):
         spoken = state["notice"] + " " + spoken
     try:
@@ -148,7 +160,7 @@ if not st.session_state.turns:
     with st.chat_message("assistant"):
         st.write("안녕하세요. 어떤 활동을 하고 싶으세요? 글로 적거나 마이크를 눌러 말씀해 주세요.")
         if not settings.gemini_api_key:
-            st.caption("Gemini 질문 이해가 미설정되어 기본 글 검색으로 찾아드려요.")
+            st.caption("Gemini 질문 이해가 미설정되어 기본 규칙으로 안내해요.")
         st.caption("질문 이해: Gemini · 음성 입력·안내: OpenAI(별도 키와 사용량 필요).")
 
 with st.popover("＋ 보조 메뉴", use_container_width=False):
@@ -157,6 +169,7 @@ with st.popover("＋ 보조 메뉴", use_container_width=False):
             category=st.selectbox("활동 분류",["전체","체육","문화·취미","평생학습"],key="manual_category")
             slot=st.selectbox("편한 시간",["상관없음","오전","오후","저녁"],key="manual_time")
             if st.form_submit_button("선택한 조건으로 찾기",key="manual_submit"):
+                st.session_state.close_menu = True
                 state=manual_search(st.session_state.dialog,activities,category=None if category=="전체" else category,
                                     time_slot=None if slot=="상관없음" else slot)
                 remember("선택한 조건으로 찾아주세요",state)
@@ -168,9 +181,11 @@ with st.popover("＋ 보조 메뉴", use_container_width=False):
             token=hashlib.sha256(uploaded.getvalue()).hexdigest()
             if token != st.session_state.upload_seen:
                 st.session_state.upload_seen=token
+                st.session_state.close_menu = True
                 submit_voice(uploaded)
     with st.expander("예시 체험 · 가상 수영 프로그램"):
         if st.button("초보 수영 찾기",key="demo_example"):
+            st.session_state.close_menu = True
             demo=json.loads((ROOT/"data/demo_program.json").read_text())
             state=new_state()
             state.update(message="시연용 데이터 · 가상 프로그램 · 실제 신청 불가",code="demo",demo=demo)
@@ -181,6 +196,13 @@ with st.popover("＋ 보조 메뉴", use_container_width=False):
         st.write("녹음 종료 후 OpenAI로 음성을 보내 글로 바꾸고 검색해요. 조용해져도 자동 종료하지 않아요. 1분 이내로 말씀해 주세요.")
         st.write("Gemini는 조건만 이해해요. 음성 입력·안내는 기존 OpenAI API이며 Gemini 무료 한도와 별개예요. 실제 신청·예약·결제는 하지 않아요.")
         st.write("마이크 권한을 허용하고 HTTPS 주소를 직접 열어주세요. 마이크가 안 되면 글로 계속 질문할 수 있어요.")
+    with st.expander("연결 상태 확인"):
+        diagnostic=st.session_state.dialog.get('diagnostic')
+        if diagnostic:
+            code=diagnostic['code']
+            st.write(f"진단 코드: {code}")
+            st.write(DIAGNOSTICS.get(code,DIAGNOSTICS['unknown']))
+        else:st.write("현재 대화에 기록된 연결 오류가 없어요.")
     with st.expander("Gemini 모델 연결 점검"):
         st.write("읽기 전용 모델 정보·목록을 조회해요. 질문·음성은 전송하지 않으며 생성 요청은 하지 않아요. 목록에 있어도 무료 이용이나 생성 성공을 보장하지 않아요.")
         if st.button("모델 정보 확인",key="inspect_models",disabled=not bool(settings.gemini_api_key)):
@@ -235,11 +257,6 @@ for index, turn in enumerate(st.session_state.turns):
         else:
             if state.get("notice"):
                 st.info(state["notice"])
-            if state.get("diagnostic"):
-                with st.expander("연결 상태 확인"):
-                    code = state["diagnostic"]["code"]
-                    st.write(f"진단 코드: {code}")
-                    st.write(DIAGNOSTICS.get(code, DIAGNOSTICS["unknown"]))
             st.write(state["message"])
             if state["code"]=="demo":
                 demo=state["demo"]
@@ -250,6 +267,28 @@ for index, turn in enumerate(st.session_state.turns):
                 rows=state["results"] or state["references"]
                 for position,row in enumerate(rows[:3]):
                     card(row,index,position,reference=not bool(state["results"]),latest=latest)
+            if state.get('facilities'):
+                for facility in state['facilities']:
+                    with st.container(border=True):
+                        st.subheader(facility['name'])
+                        st.write('공식 프로그램 자료에 등장하는 시설 · 현재 이용 가능 여부 미확인')
+                        st.write('주소: '+(facility['address'] or '확인 필요'))
+                        st.write('확인일: '+facility['verified_at'])
+                        st.write('근거 프로그램: '+facility['source_program'])
+                        st.write('근거 프로그램 접수 상태: '+facility['source_status'])
+                        st.write(facility['note'])
+                        st.link_button('시설 근거 공식 출처',facility['source_url'],use_container_width=True)
+            if state.get('ideas'):
+                st.markdown('**일반 활동 제안 · 실제 모집 프로그램 아님**')
+                for idea in state['ideas']:
+                    st.write('**'+idea['name']+'** · '+idea['reason'])
+                    if latest:
+                        st.button(idea['name']+' 알아보기',key='idea_'+idea['id'],on_click=select_idea,
+                                  args=(idea['id'],),use_container_width=True)
+            if latest and state.get('ideas') and state['conditions'].get('time_slot'):
+                st.button('시간 조건 풀기',key='relax_time',on_click=send,args=('시간은 상관없어요',),kwargs={'fixed':True},use_container_width=True)
+            if latest and state['code']=='unsupported_region':
+                st.button('서울 강서구 자료로 찾기',key='supported_region',on_click=send,args=('서울 강서구요',),kwargs={'fixed':True},use_container_width=True)
             if latest and state["code"] not in {"demo","start"}:
                 if state["pending"]=="region":
                     st.button("서울 강서구에서 찾기",key="choose_region",on_click=send,args=("서울 강서구요",),kwargs={"fixed":True},use_container_width=True)
@@ -313,9 +352,14 @@ if request:
         send(request if isinstance(request,str) else request.text)
     st.rerun()
 st.html(f'<script>{(ROOT/"ui/chat.js").read_text()}</script>',unsafe_allow_javascript=True)
+if st.session_state.close_menu:
+    st.session_state.close_menu = False
+    st.html("<script>document.querySelector('[data-testid=stPopoverButton][aria-expanded=true]')?.click();</script>",unsafe_allow_javascript=True)
 if st.session_state.turns:
     seq=st.session_state.turn_seq
     st.html(f'''<script>if(window.ieumLatest!=={seq}){{window.ieumLatest={seq};
-    document.querySelector('[data-testid=stPopoverButton][aria-expanded=true]')?.click();
-    const show=()=>document.getElementById('latest-reply-{seq}')?.scrollIntoView({{block:'start'}});
+    const interaction=window.ieumInteractionSeq||0;
+    const show=()=>{{if((window.ieumInteractionSeq||0)!==interaction)return;
+    if(document.querySelector('[data-testid=stPopoverButton][aria-expanded=true]'))return;
+    document.getElementById('latest-reply-{seq}')?.scrollIntoView({{block:'start'}});}};
     setTimeout(show,150);setTimeout(show,600);}}</script>''',unsafe_allow_javascript=True)

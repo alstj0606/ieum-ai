@@ -54,7 +54,7 @@ class AppFlowTest(TestCase):
             self.assertEqual(app.session_state['turns'][-1]['user'],'다른 시간에요')
             self.assertEqual(app.session_state['dialog']['mode'],'fallback')
             self.assertEqual(app.session_state['dialog']['diagnostic']['code'],'timeout')
-            self.assertTrue(any('기본 키워드' in x.value for x in app.info))
+            self.assertTrue(any('기본 규칙' in x.value for x in app.info))
             self.assertFalse(any('sensitive response' in x.value for x in app.warning))
 
     def test_stt_failure_allows_text_search(self):
@@ -173,9 +173,10 @@ class AppFlowTest(TestCase):
             self.assertFalse(app.exception)
             state=app.session_state['dialog']
             self.assertEqual(state['diagnostic']['code'],'authentication')
-            self.assertTrue(state['results'])
+            self.assertTrue(state['ideas'])
+            self.assertEqual(state['code'],'ideas')
             self.assertEqual(app.session_state['turns'][-1]['user'],text)
-            self.assertTrue(any('기본 키워드' in x.value for x in app.chat_message[-1].info))
+            self.assertTrue(any('기본 규칙' in x.value for x in app.chat_message[-1].info))
             self.assertFalse(any('private-provider-canary' in x.value for x in app.markdown))
 
     def test_gemini_only_key_supports_text_without_openai_voice(self):
@@ -241,3 +242,29 @@ class AppFlowTest(TestCase):
             self.assertTrue(any('단순 생성: ok' in x.value for x in app.markdown))
             self.assertTrue(any('구조화 추출: generation_not_found' in x.value for x in app.markdown))
             probe.assert_called_once()
+
+    def test_general_idea_button_continues_chat_and_program_no_match_offers_choices(self):
+        with patch('services.config.load_settings',return_value=Settings()):
+            app=AppTest.from_file(APP).run()
+            app.chat_input(key='chat').set_value('노인이 할 수 있는 운동 추천해 줘').run()
+            self.assertEqual(app.session_state['dialog']['code'],'ideas')
+            self.assertTrue(any('일반 활동 제안' in x.value for x in app.chat_message[-1].markdown))
+            app.button(key='idea_water').click().run()
+            self.assertEqual(app.session_state['dialog']['conditions']['activity_type'],'아쿠아로빅')
+            self.assertEqual(app.session_state['dialog']['pending'],'region')
+            app.button(key='choose_region').click().run()
+            self.assertFalse(app.exception)
+            self.assertEqual(app.session_state['dialog']['code'],'unknown')
+            self.assertTrue(app.session_state['dialog']['ideas'])
+            self.assertFalse(app.session_state['dialog']['results'])
+
+    def test_facility_answer_has_source_and_verification_without_program_booking(self):
+        with patch('services.config.load_settings',return_value=Settings()):
+            app=AppTest.from_file(APP).run()
+            app.chat_input(key='chat').set_value('근처 수영장 찾아줘').run()
+            app.button(key='choose_region').click().run()
+            state=app.session_state['dialog']
+            self.assertEqual(state['code'],'facilities')
+            self.assertTrue(any('현재 이용 가능 여부 미확인' in x.value for x in app.chat_message[-1].markdown))
+            self.assertTrue(any('확인일:' in x.value for x in app.chat_message[-1].markdown))
+            self.assertFalse(any(x.key and x.key.startswith('apply_') for x in app.button))

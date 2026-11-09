@@ -1,3 +1,9 @@
+// Cancel deferred reply scrolling after a new user action; record no event content.
+if(!window.ieumInteractionTracking){
+  window.ieumInteractionTracking=true;
+  for(const event of ['pointerdown','touchstart','keydown','wheel'])
+    document.addEventListener(event,()=>{window.ieumInteractionSeq=(window.ieumInteractionSeq||0)+1},{capture:true,passive:true});
+}
 // Fixed UI code only. Never interpolate a transcript or provider response here.
 (() => {
   if (window.ieumChatObserver) window.ieumChatObserver.disconnect();
@@ -68,6 +74,7 @@
   window.ieumViewportHandler=()=>{
     clearTimeout(window.ieumViewportTimer);
     window.ieumViewportTimer=setTimeout(()=>{
+      if(document.querySelector('[data-testid=stPopoverButton][aria-expanded=true]'))return;
       if(document.activeElement?.matches('[data-testid="stChatInputTextArea"]')) {
         [...document.querySelectorAll('[id^="latest-reply-"]')].at(-1)?.scrollIntoView({block:'start'});
       }

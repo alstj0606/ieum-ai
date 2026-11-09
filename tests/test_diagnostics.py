@@ -103,10 +103,10 @@ class DiagnosticsTest(TestCase):
         client=Mock();client.models.generate_content.side_effect=TimeoutError(SECRET)
         state=handle_turn(new_state(),text,load_activities(),Settings(gemini_api_key='mock'),client=client,as_of=DAY)
         self.assertEqual(state['conditions'],{'region':'강서구','category':'체육'})
-        self.assertTrue(state['results'])
-        self.assertTrue(all(x['category']=='체육' for x in state['results']))
+        self.assertTrue(state['ideas'])
+        self.assertTrue(all(x['category']=='체육' for x in state['ideas']))
         self.assertEqual(state['history'][-2]['content'],text)
-        self.assertLessEqual(len(state['results']),3)
+        self.assertLessEqual(len(state['ideas']),3)
 
     def test_unrecognized_fallback_keeps_history_and_conditions_without_reusing_stale_cards(self):
         previous=handle_turn(new_state(),'강서구 국악',load_activities(),Settings(),as_of=DAY)
