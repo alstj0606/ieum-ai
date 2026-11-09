@@ -40,9 +40,11 @@
 
 ## 검증과 설정
 
-자동 테스트 **112개**, Chromium/Playwright **19개 흐름**을 로컬/모의 API로 검사합니다. 실제 Gemini/OpenAI 실호출·한국어 품질·iPad/iPhone Safari·Android Chrome 실기기·이번 변경의 Community Cloud 배포는 미검증입니다. 화면 크기 검사를 실기기 검증으로 간주하지 않습니다.
+자동 테스트 **114개**, Chromium/Playwright **19개 흐름**을 로컬/모의 API로 검사합니다. 실제 Gemini/OpenAI 실호출·한국어 품질·iPad/iPhone Safari·Android Chrome 실기기·이번 변경의 Community Cloud 배포는 미검증입니다. 화면 크기 검사를 실기기 검증으로 간주하지 않습니다.
 
-[활동 추천 흐름·데이터 경계·검증](docs/activity-guidance.md) · [Gemini Secrets](docs/gemini-setup.md) · [404 진단](docs/gemini-model-diagnostics.md) · [고정 문장 생성 비교](docs/gemini-generation-probe.md)
+[배포 ImportError 점검·재시작 안내](docs/deployment-startup.md) · [활동 추천 흐름·데이터 경계·검증](docs/activity-guidance.md) · [Gemini Secrets](docs/gemini-setup.md) · [404 진단](docs/gemini-model-diagnostics.md) · [고정 문장 생성 비교](docs/gemini-generation-probe.md)
+
+새 프로세스 import/AppTest 검사와 실제 Streamlit 서버·Chromium 시작 스모크도 추가했습니다. 배포 오류 조사에서 114개 자동 테스트와 시작 스모크 1개를 실행했으며, 기존 19개 브라우저 흐름 전체를 재실행한 것은 아닙니다.
 
 ## 실행
 
