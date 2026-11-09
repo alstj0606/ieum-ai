@@ -1,5 +1,6 @@
 """공식 활동 데이터와 대화·음성 입력을 연결하는 이음 AI."""
 
+import hashlib
 import json
 from pathlib import Path
 
@@ -31,6 +32,7 @@ st.markdown(
         font-size: 1.25rem !important; line-height: 1.75;
         padding: 0.85rem;
     }
+    .stMain [data-testid="stCaptionContainer"] p { color: #384454; }
     .stSelectbox [data-baseweb="select"] { font-size: 1.25rem; }
     .stMain .stText pre {
         font-size: 1.25rem; line-height: 1.75; font-family: inherit;
@@ -54,6 +56,32 @@ st.markdown(
     .stMain [data-testid="stVerticalBlock"] { gap: 1.25rem; }
     .stMain [data-testid="stVerticalBlockBorderWrapper"] {
         border-radius: 16px;
+    }
+    /* Native recorder keeps browser permission handling and keyboard support.
+       Accessible Korean instructions remain visible even if selectors change. */
+    [data-testid="stAudioInput"] { width: 100%; height: auto; }
+    [data-testid="stAudioInput"] > div { flex-wrap: wrap; height: auto; gap: 8px; }
+    [data-testid="stAudioInput"] > div > div:has(> button[data-testid="stAudioInputActionButton"]) {
+        width: 100%;
+    }
+    [data-testid="stAudioInput"] button[data-testid="stAudioInputActionButton"] {
+        width: 100%;
+        min-height: 100px; min-width: 100px; border: 3px solid #1671c5;
+        background: #eaf4ff; color: #102f50; gap: 10px;
+        font-size: 1.35rem; font-weight: 700;
+    }
+    [data-testid="stAudioInput"] button[aria-label="Record"]::after {
+        content: "눌러서 말하기";
+    }
+    [data-testid="stAudioInput"] button[aria-label="Stop recording"]::after {
+        content: "말하기 끝내기";
+    }
+    [data-testid="stAudioInput"]:has(button[aria-label="Stop recording"])::before {
+        content: "🔴 듣고 있어요 · 말씀을 마치면 말하기 끝내기를 누르세요";
+        display: block; font-size: 1.25rem; font-weight: 700; padding: 12px 0;
+    }
+    [data-testid="stAudioInput"] button:focus-visible {
+        outline: 3px solid #102f50; outline-offset: 3px;
     }
     @media (max-width: 480px) {
         .stMainBlockContainer { padding: 5rem 1rem 3rem; }
@@ -86,18 +114,23 @@ except (OSError, ValueError):
 for key, default in {
     "dialog": new_state(), "question": "", "demo_visible": False,
     "speech_bytes": None, "speech_source": None, "voice_error": None,
-    "voice_notice": None, "clear_input": False,
+    "clear_input": False,
+    "input_mode": "voice", "voice_version": 0, "processed_audio": {},
+    "transcript": None, "auto_speech": False,
 }.items():
     if key not in st.session_state:
         st.session_state[key] = default
 if st.session_state.clear_input:
     st.session_state.question = ""
     st.session_state.clear_input = False
+# Preserve a draft when its conditional text widget is temporarily hidden.
+st.session_state.question = st.session_state.question
 
 
 def clear_speech():
     st.session_state.speech_bytes = None
     st.session_state.speech_source = None
+    st.session_state.auto_speech = False
 
 
 def reset_dialog():
@@ -105,8 +138,48 @@ def reset_dialog():
     st.session_state.question = ""
     st.session_state.demo_visible = False
     st.session_state.voice_error = None
-    st.session_state.voice_notice = None
+    st.session_state.transcript = None
+    start_voice()
     clear_speech()
+
+
+def start_voice():
+    clear_speech()
+    st.session_state.input_mode = "voice"
+    st.session_state.voice_version += 1
+    st.session_state.processed_audio = {}
+    st.session_state.voice_error = None
+
+
+def edit_transcript():
+    st.session_state.input_mode = "text"
+    st.session_state.question = st.session_state.transcript or st.session_state.question
+
+
+def set_input_mode(mode):
+    st.session_state.input_mode = mode
+
+
+def process_audio(audio, source):
+    """One upload event -> one STT/dialogue turn; ordinary reruns never resend it."""
+    data = audio.getvalue()
+    token = (source, st.session_state.voice_version, hashlib.sha256(data).hexdigest())
+    if token == st.session_state.processed_audio.get(source):
+        return
+    st.session_state.processed_audio[source] = token
+    st.session_state.voice_error = None
+    clear_speech()
+    try:
+        with st.spinner("말씀을 알아듣고 활동을 찾고 있어요…"):
+            text = transcribe(data, settings, filename=audio.name)
+            st.session_state.transcript = text
+            st.session_state.question = text
+            st.session_state.dialog = handle_turn(
+                st.session_state.dialog, text, activities, settings
+            )
+        st.session_state.auto_speech = not bool(st.session_state.dialog["error"])
+    except VoiceError as error:
+        st.session_state.voice_error = str(error)
 
 
 def quick_turn(text):
@@ -134,60 +207,61 @@ def show_example():
 
 st.title("이음 AI")
 st.header("오늘은 어떤 활동을 찾으세요?")
-st.write("운동, 만들기, 공연, 배움까지 함께 찾아봐요.")
-st.info(f"서울 강서구 공식 자료 {len(activities)}건 · 실시간 접수 정보가 아니에요.")
-if not settings.api_key:
-    st.info("기본 검색 모드 · 글이나 조건 선택으로 찾아요. AI·음성은 연결 설정 후 이용할 수 있어요.")
-else:
-    st.write("질문을 보내면 AI가 조건을 정리해요. 활동 정보는 공식 자료에서만 보여드려요.")
+st.caption("녹음을 끝내면 OpenAI로 보내 글로 바꾸고 활동을 찾아요.")
+recording = st.audio_input(
+    "마이크 · 시작은 눌러서 말하기, 녹음 중에는 말하기 끝내기",
+    key=f"voice_recording_{st.session_state.voice_version}",
+    disabled=not bool(settings.api_key), label_visibility="collapsed",
+)
+if recording is not None:
+    process_audio(recording, "recording")
 
-with st.expander("🎤 말로 입력하기"):
-    st.write("녹음 시작을 누르고 말씀한 뒤 녹음을 끝내세요. 1분 이내로 말씀해 주세요.")
-    st.write("‘음성을 글로 바꾸기’를 누르면 녹음을 OpenAI에 보내 변환해요. 변환된 글을 확인·수정한 뒤 질문을 보내세요.")
-    recording = st.audio_input("마이크로 질문 녹음", key="voice_recording", disabled=not bool(settings.api_key))
+st.write("🎤 눌러서 말하기 → 말씀한 뒤 말하기 끝내기")
+st.caption("1분 이내로 말씀해 주세요. 조용해져도 자동 종료하지 않아요.")
+if not settings.api_key:
+    st.info("기본 검색 모드 · 아래 ‘글자로 질문하기’로 찾아요. 음성은 연결 설정 후 이용할 수 있어요.")
+st.button("음성파일 올리기", key="show_upload", on_click=set_input_mode,
+          args=("upload",), use_container_width=True)
+st.button("글자로 질문하기", key="show_text", on_click=set_input_mode,
+          args=("text",), use_container_width=True)
+if st.session_state.input_mode == "upload":
     uploaded = st.file_uploader(
-        "녹음이 안 되면 음성 파일 선택 (선택 사항)", type=["wav", "m4a", "mp3", "webm"],
-        key="voice_upload", disabled=not bool(settings.api_key),
+        "음성파일을 선택하면 바로 활동을 찾아요 (1분·5MB 이내)",
+        type=["wav", "m4a", "mp3", "webm"], key="voice_upload",
+        disabled=not bool(settings.api_key),
     )
-    if st.button("음성을 글로 바꾸기", key="transcribe", use_container_width=True,
-                 disabled=not bool(settings.api_key) or (recording is None and uploaded is None)):
-        st.session_state.voice_error = None
-        audio = recording if recording is not None else uploaded
-        if audio is None:
-            st.session_state.voice_error = "녹음을 먼저 해주세요. 마이크가 안 되면 아래에 글로 적어도 돼요."
-        else:
-            try:
-                with st.spinner("말씀을 글로 바꾸고 있어요…"):
-                    st.session_state.question = transcribe(
-                        audio.getvalue(), settings, filename=audio.name
-                    )
-                st.session_state.voice_notice = "아래 입력창의 글이 맞는지 확인하고 고쳐주세요. 아직 질문을 보내지는 않았어요."
-            except VoiceError as error:
-                st.session_state.voice_error = str(error)
-    st.write("녹음이 안 되나요? Safari·브라우저 설정에서 마이크 권한을 허용하고 HTTPS의 앱 주소를 직접 열어주세요. 지원하지 않는 기기에서는 글 입력이나 파일 선택을 이용해 주세요.")
+    if uploaded is not None:
+        process_audio(uploaded, "upload")
 if st.session_state.voice_error:
     st.warning(st.session_state.voice_error)
-if st.session_state.voice_notice:
-    st.info(st.session_state.voice_notice)
+    if not st.session_state.transcript:
+        st.button("다시 말하기", key="retry_failed_voice", on_click=start_voice, use_container_width=True)
+st.caption("마이크가 안 되면 ‘글자로 질문하기’를 누르세요. 마이크 권한을 허용하고 HTTPS 앱 주소를 직접 열어주세요. 녹음 오류·미지원 기기에서도 글 입력은 사용할 수 있어요.")
+if st.session_state.transcript:
+    st.markdown("**이렇게 들었어요**")
+    st.write(st.session_state.transcript)
+    st.button("다시 말하기", key="retry_voice", on_click=start_voice, use_container_width=True)
+    st.button("글자 수정하기", key="edit_transcript", on_click=edit_transcript, use_container_width=True)
 
-st.subheader("궁금한 내용을 적어주세요")
-with st.container(border=False):
+if st.session_state.input_mode == "text":
+    st.subheader("궁금한 내용을 적어주세요")
     st.text_area(
-        "어떤 활동을 하고 싶으세요?", placeholder="예: 오전에 사람들과 식물을 가꾸고 싶어요",
+        "어떤 활동을 하고 싶으세요?", placeholder="예: 오후에 사람들과 식물을 가꾸고 싶어요",
         key="question", height=150, max_chars=1500,
     )
-    submitted = st.button(
-        "프로그램 찾아보기", type="primary", use_container_width=True, key="submit_question"
-    )
-if submitted:
-    with st.spinner("말씀하신 조건을 확인하고 있어요…"):
-        st.session_state.dialog = handle_turn(
-            st.session_state.dialog, st.session_state.question, activities, settings
-        )
-    clear_speech()
-    st.session_state.clear_input = not bool(st.session_state.dialog["error"])
-    st.session_state.voice_notice = None
-    st.rerun()
+    if st.button("프로그램 찾아보기", type="primary", use_container_width=True, key="submit_question"):
+        with st.spinner("말씀하신 조건을 확인하고 있어요…"):
+            st.session_state.dialog = handle_turn(
+                st.session_state.dialog, st.session_state.question, activities, settings
+            )
+        clear_speech()
+        st.session_state.clear_input = not bool(st.session_state.dialog["error"])
+        st.rerun()
+
+with st.expander("공식 자료와 AI 이용 안내"):
+    st.write("운동, 만들기, 공연, 배움까지 함께 찾아봐요.")
+    st.write(f"서울 강서구 공식 자료 {len(activities)}건 · 실시간 접수 정보가 아니에요.")
+    st.write("AI는 조건만 정리해요. 활동 정보는 공식 자료에서만 보여드려요.")
 
 state = st.session_state.dialog
 if state["error"]:
@@ -274,12 +348,26 @@ if state["code"] != "start":
     spoken = speech_text(state["message"], spoken_results)
     with st.expander("음성으로 읽는 내용 · 화면에서도 확인"):
         st.text(spoken)
-    st.write("AI가 만든 음성으로 읽어드려요. 준비 후 재생(▶)을 눌러주세요. 자동 재생하지 않아요.")
-    if st.button("답변 듣기", key="prepare_speech", use_container_width=True, disabled=not bool(settings.api_key)):
+    st.write("AI가 만든 음성이에요. 소리가 안 나면 ‘답변 듣기’ 또는 재생기 ▶를 눌러주세요.")
+    auto_attempt = st.session_state.auto_speech
+    if auto_attempt:
+        # Attempt once after a voice turn. Browser autoplay permission is not assumed.
+        st.session_state.auto_speech = False
         try:
-            with st.spinner("읽어드릴 음성을 준비하고 있어요…"):
+            with st.spinner("음성 안내를 준비하고 있어요…"):
                 st.session_state.speech_bytes = synthesize(spoken, settings)
                 st.session_state.speech_source = spoken
+        except VoiceError as error:
+            clear_speech()
+            st.warning(str(error))
+    has_speech = bool(st.session_state.speech_bytes and st.session_state.speech_source == spoken)
+    if not has_speech and st.button("답변 듣기", key="prepare_speech", use_container_width=True, disabled=not bool(settings.api_key)):
+        try:
+            with st.spinner("읽어드릴 음성을 준비하고 있어요…"):
+                if not st.session_state.speech_bytes or st.session_state.speech_source != spoken:
+                    st.session_state.speech_bytes = synthesize(spoken, settings)
+                    st.session_state.speech_source = spoken
+                auto_attempt = True
         except VoiceError as error:
             clear_speech()
             st.warning(str(error))
@@ -287,7 +375,33 @@ if state["code"] != "start":
         if st.button("음성 중지", key="stop_speech", use_container_width=True):
             clear_speech()
             st.rerun()
-        st.audio(st.session_state.speech_bytes, format="audio/mp3", autoplay=False)
+        st.audio(st.session_state.speech_bytes, format="audio/mp3", autoplay=auto_attempt)
+        # Direct user gesture, without a server round trip, for mobile playback.
+        # Only fixed markup/script: no transcript, URL, secret or model text is interpolated.
+        st.html("""
+            <button id="ieum-listen" type="button" style="width:100%;min-height:72px;
+              font-size:22px;border:2px solid #1671c5;border-radius:12px;
+              background:#eaf4ff;color:#102f50;cursor:pointer">▶ 답변 듣기</button>
+            <p id="ieum-play-status" role="status" aria-live="polite"
+               style="font-size:20px;color:#384454"></p>
+            <script>
+            (() => {
+              const button = document.getElementById('ieum-listen');
+              const status = document.getElementById('ieum-play-status');
+              button.onclick = async () => {
+                const audio = document.querySelector('audio[data-testid="stAudio"]');
+                try {
+                  if (!audio) throw new Error('player unavailable');
+                  if (audio.ended) audio.currentTime = 0;
+                  await audio.play();
+                  status.textContent = '🔊 답변을 읽고 있어요. 위의 음성 중지로 멈출 수 있어요.';
+                } catch (_) {
+                  status.textContent = '소리를 재생하지 못했어요. 위 재생기의 ▶를 누르거나 화면의 글을 확인해 주세요.';
+                }
+              };
+            })();
+            </script>
+        """, unsafe_allow_javascript=True)
         st.write("재생·일시정지는 위 재생기에서 할 수 있어요. 소리가 안 나면 화면의 글을 확인해 주세요.")
 
 if state["results"]:

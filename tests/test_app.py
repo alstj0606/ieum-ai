@@ -50,6 +50,7 @@ class AppFlowTest(TestCase):
         with patch("services.config.load_settings", return_value=Settings(api_key="mock-test-only")), \
                 patch("services.ai.make_client", return_value=client):
             app = AppTest.from_file(APP).run()
+            app.button(key="show_text").click().run()
             app.text_area(key="question").input("강서구에서 식물 키우기")
             app.button(key="submit_question").click().run()
             self.assertFalse(app.exception)
@@ -70,8 +71,8 @@ class AppFlowTest(TestCase):
                 patch("streamlit.audio_input", return_value=recording), \
                 patch("services.voice.transcribe", side_effect=VoiceError("음성 인식 실패. 글로 적어주세요.")):
             app = AppTest.from_file(APP).run()
-            app.text_area(key="question").input("이전 질문")
-            app.button(key="transcribe").click().run()
+            app.button(key="show_text").click().run()
+            app.text_area(key="question").input("이전 질문").run()
             self.assertFalse(app.exception)
             self.assertEqual(app.text_area(key="question").value, "이전 질문")
             self.assertTrue(any("음성 인식 실패" in item.value for item in app.warning))
@@ -107,3 +108,71 @@ class AppFlowTest(TestCase):
             read_text = synth.call_args.args[0]
             self.assertIn(selected["name"], read_text)
             self.assertNotIn(state["results"][0]["name"], read_text)
+
+    def test_voice_automatically_searches_once_and_can_edit(self):
+        recording = SimpleNamespace(name="question.wav", getvalue=lambda: b"test")
+        payload = empty_extraction()
+        payload["conditions"].update(region="강서구", activity_type="국악공연")
+        payload["update_fields"] = ["region", "activity_type"]
+        client = Mock()
+        client.responses.create.return_value = SimpleNamespace(
+            status="completed", output_text=json.dumps(payload, ensure_ascii=False)
+        )
+        with patch("services.config.load_settings", return_value=Settings(api_key="mock-test-only")), \
+                patch("streamlit.audio_input", return_value=recording), \
+                patch("services.voice.transcribe", return_value="강서구 국악") as stt, \
+                patch("services.ai.make_client", return_value=client), \
+                patch("services.voice.synthesize", return_value=b"mock") as tts:
+            app = AppTest.from_file(APP).run()
+            self.assertFalse(app.exception)
+            self.assertEqual(app.session_state["transcript"], "강서구 국악")
+            self.assertTrue(app.session_state["dialog"]["results"])
+            app.run()
+            self.assertEqual(stt.call_count, 1)
+            self.assertEqual(client.responses.create.call_count, 1)
+            self.assertEqual(tts.call_count, 1)
+            app.button(key="edit_transcript").click().run()
+            self.assertEqual(app.text_area(key="question").value, "강서구 국악")
+            app.button(key="retry_voice").click().run()
+            self.assertEqual(stt.call_count, 2)
+
+    def test_automatic_tts_failure_keeps_transcript_and_results(self):
+        recording = SimpleNamespace(name="question.wav", getvalue=lambda: b"test")
+        with patch("services.config.load_settings", return_value=Settings()), \
+                patch("streamlit.audio_input", return_value=recording), \
+                patch("services.voice.transcribe", return_value="강서구 국악"), \
+                patch("services.voice.synthesize", side_effect=VoiceError("음성 안내 실패")) as tts:
+            app = AppTest.from_file(APP).run()
+            self.assertFalse(app.exception)
+            self.assertTrue(app.session_state["dialog"]["results"])
+            self.assertEqual(app.session_state["transcript"], "강서구 국악")
+            self.assertTrue(any("음성 안내 실패" in item.value for item in app.warning))
+            app.run()
+            self.assertEqual(tts.call_count, 1)  # never retry a paid API on ordinary rerun
+
+    def test_first_screen_hides_auxiliary_inputs(self):
+        with patch("services.config.load_settings", return_value=Settings()):
+            app = AppTest.from_file(APP).run()
+            self.assertFalse(app.text_area)
+            self.assertFalse(app.get("file_uploader"))
+            app.button(key="show_text").click().run()
+            self.assertTrue(app.text_area)
+            app.text_area(key="question").input("작성 중인 질문").run()
+            app.button(key="show_upload").click().run()
+            app.button(key="show_text").click().run()
+            self.assertEqual(app.text_area(key="question").value, "작성 중인 질문")
+
+    def test_recording_and_upload_never_resend_each_other(self):
+        recording = SimpleNamespace(name="question.wav", getvalue=lambda: b"recording")
+        upload = SimpleNamespace(name="upload.wav", getvalue=lambda: b"upload")
+        with patch("services.config.load_settings", return_value=Settings()), \
+                patch("streamlit.audio_input", return_value=recording), \
+                patch("streamlit.file_uploader", return_value=upload), \
+                patch("services.voice.transcribe", side_effect=["강서구 국악", "강서구 가드닝"]) as stt, \
+                patch("services.voice.synthesize", return_value=b"mock"):
+            app = AppTest.from_file(APP).run()
+            app.button(key="show_upload").click().run()
+            app.run()
+            self.assertFalse(app.exception)
+            self.assertEqual(stt.call_count, 2)
+            self.assertEqual(app.session_state["transcript"], "강서구 가드닝")
