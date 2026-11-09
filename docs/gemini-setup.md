@@ -1,5 +1,7 @@
 # Gemini 질문 이해 전환과 배포 설정
 
+> 최신 404 분류·고정 API 주소·모델 정보 확인 절차는 [모델 진단 안내](gemini-model-diagnostics.md)를 따른다. 아래 PR #6 기록의 404→model_access 분류와 테스트용 GOOGLE_GEMINI_BASE_URL 사용은 최신 수정에서 대체했다.
+
 확인일: 2026-11-09 (한국 시간). 최신 main `50a74a7`에서 `feat/gemini-intent-extraction` 생성.
 
 ## Streamlit Community Cloud Secrets

@@ -206,3 +206,21 @@ class AppFlowTest(TestCase):
             self.assertEqual(app.session_state['dialog']['diagnostic']['code'],'key_missing')
             self.assertTrue(app.session_state['dialog']['results'])
             gemini.assert_not_called()
+
+    def test_model_inspection_preserves_dialogue_and_does_not_generate(self):
+        report={'model':'gemini-2.5-flash','model_source':'기본값',
+                'api_base':'https://generativelanguage.googleapis.com','api_version':'v1beta',
+                'model_setting':'ok','metadata_code':'metadata_ok','list_code':'list_ok',
+                'custom_base_ignored':False,'models':['gemini-2.5-flash']}
+        with patch('services.config.load_settings',return_value=Settings(gemini_api_key='mock')),\
+                patch('services.model_probe.inspect_models',return_value=report) as probe,\
+                patch('services.ai.make_client') as generate:
+            app=AppTest.from_file(APP).run()
+            self.seed(app)
+            before=app.session_state['dialog']
+            app.button(key='inspect_models').click().run()
+            self.assertFalse(app.exception)
+            self.assertEqual(app.session_state['dialog'],before)
+            self.assertEqual(len(app.session_state['turns']),1)
+            probe.assert_called_once()
+            generate.assert_not_called()

@@ -10,6 +10,7 @@ import streamlit as st
 from services.activities import load_activities
 from services.config import load_settings
 from services.diagnostics import DIAGNOSTICS
+from services.model_probe import inspect_models, STATUS_LABELS
 from services.dialogue import new_state, handle_turn, manual_search, application_guide, basic_extract
 from services.recommendations import activity_facts, speech_text
 from services.voice import transcribe, synthesize, VoiceError
@@ -179,6 +180,28 @@ with st.popover("＋ 보조 메뉴", use_container_width=False):
         st.write("녹음 종료 후 OpenAI로 음성을 보내 글로 바꾸고 검색해요. 조용해져도 자동 종료하지 않아요. 1분 이내로 말씀해 주세요.")
         st.write("Gemini는 조건만 이해해요. 음성 입력·안내는 기존 OpenAI API이며 Gemini 무료 한도와 별개예요. 실제 신청·예약·결제는 하지 않아요.")
         st.write("마이크 권한을 허용하고 HTTPS 주소를 직접 열어주세요. 마이크가 안 되면 글로 계속 질문할 수 있어요.")
+    with st.expander("Gemini 모델 연결 점검"):
+        st.write("읽기 전용 모델 정보·목록을 조회해요. 질문·음성은 전송하지 않으며 생성 요청은 하지 않아요. 목록에 있어도 무료 이용이나 생성 성공을 보장하지 않아요.")
+        if st.button("모델 정보 확인",key="inspect_models",disabled=not bool(settings.gemini_api_key)):
+            with st.spinner("모델 정보를 확인하고 있어요…"):
+                st.session_state.model_report = inspect_models(settings)
+        if "model_report" in st.session_state:
+            report = st.session_state.model_report
+            st.write("모델: " + (report["model"] or "설정 형식 확인 필요"))
+            st.write("설정 출처: " + report["model_source"])
+            st.write("공식 API: " + report["api_base"] + "/" + report["api_version"])
+            if report["model_setting"] == "model_config":
+                st.warning(DIAGNOSTICS["model_config"])
+            for label, key in (("모델 정보", "metadata_code"),("모델 목록", "list_code")):
+                code = report[key]
+                st.write(f"{label}: {code}")
+                st.write(STATUS_LABELS.get(code, DIAGNOSTICS.get(code,"확인 필요")))
+            if report["custom_base_ignored"]:
+                st.write("대체 서버 주소 환경변수가 있지만 이 앱은 공식 주소로 고정해 사용해요. 환경변수 값은 표시하지 않아요.")
+            if report["models"]:
+                st.write("첫 페이지에서 generateContent 지원이 표시된 Gemini 모델 ID예요. 자동으로 선택하거나 전환하지 않아요.")
+                st.code("\n".join(report["models"]),language=None)
+            st.write("무료 티어·잔여 한도는 미확인입니다. AI Studio에서 같은 프로젝트의 모델별 한도를 확인해 주세요.")
     st.button("처음부터 다시 찾기",key="reset",on_click=reset)
 
 for index, turn in enumerate(st.session_state.turns):
