@@ -3,7 +3,22 @@
 from io import BytesIO
 import wave
 
-from services.ai import AIError, make_client
+import logging
+
+from services.ai import AIError
+
+
+def make_voice_client(settings):
+    if not settings.api_key:
+        raise AIError("OpenAI 음성 API 키가 없어요.", code="key_missing")
+    try:
+        from openai import OpenAI
+        # SDK debug logging may include request bodies. Diagnostics are fixed codes instead.
+        for name in ("openai", "openai._base_client", "httpx", "httpcore", "httpx2", "httpcore2"):
+            logging.getLogger(name).setLevel(logging.CRITICAL)
+        return OpenAI(api_key=settings.api_key, timeout=30.0, max_retries=0)
+    except Exception:
+        raise AIError("OpenAI 음성 연결 설정을 확인해 주세요.", code="configuration") from None
 
 
 class VoiceError(Exception):
@@ -33,7 +48,7 @@ def validate_audio(data, filename):
 def transcribe(data, settings, *, filename="question.wav", client=None):
     extension = validate_audio(data, filename)
     try:
-        client = client or make_client(settings)
+        client = client or make_voice_client(settings)
         response = client.audio.transcriptions.create(
             file=(f"question.{extension}", data), model=settings.stt_model,
             language="ko", response_format="json",
@@ -46,9 +61,9 @@ def transcribe(data, settings, *, filename="question.wav", client=None):
     except VoiceError:
         raise
     except AIError:
-        raise VoiceError("음성 변환 연결이 설정되지 않았어요. 글로 적거나 조건 검색을 이용해 주세요.") from None
+        raise VoiceError("OpenAI 음성 입력 연결이 설정되지 않았어요. Gemini 질문 이해와 별개예요. 글로 질문해 주세요.") from None
     except Exception:
-        raise VoiceError("음성 변환이 지연되거나 실패했어요. 다시 녹음하거나 글로 적어주세요.") from None
+        raise VoiceError("OpenAI 음성 변환이 지연되거나 실패했어요. 다시 녹음하거나 글로 적어주세요.") from None
 
 
 def synthesize(text, settings, *, client=None, speed=0.9):
@@ -57,7 +72,7 @@ def synthesize(text, settings, *, client=None, speed=0.9):
     if not isinstance(text, str) or not text.strip() or len(text) > 4000:
         raise VoiceError("안내가 비어 있거나 너무 길어요. 화면의 글을 확인해 주세요.")
     try:
-        client = client or make_client(settings)
+        client = client or make_voice_client(settings)
         response = client.audio.speech.create(
             model=settings.tts_model, voice="coral", input=text,
             instructions="한국어로 천천히 또렷하게 읽으세요. 입력 문장을 바꾸거나 정보를 추가하지 마세요.",
@@ -70,6 +85,6 @@ def synthesize(text, settings, *, client=None, speed=0.9):
     except VoiceError:
         raise
     except AIError:
-        raise VoiceError("음성 안내 연결이 설정되지 않았어요. 같은 내용을 화면에서 읽을 수 있어요.") from None
+        raise VoiceError("OpenAI 음성 안내 연결이 설정되지 않았어요. Gemini와 별개예요. 화면의 글을 확인해 주세요.") from None
     except Exception:
-        raise VoiceError("음성 안내를 준비하지 못했어요. 다시 시도하거나 화면의 글을 확인해 주세요.") from None
+        raise VoiceError("OpenAI 음성 안내를 준비하지 못했어요. 다시 시도하거나 화면의 글을 확인해 주세요.") from None

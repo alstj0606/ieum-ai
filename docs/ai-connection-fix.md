@@ -1,5 +1,7 @@
 # AI 연결 진단·대체 검색과 입력창 정렬 수정
 
+> 이 문서는 OpenAI 질문 이해를 사용하던 PR #5 당시 기록이다. 최신 질문 이해 공급자·설정은 [Gemini 전환 안내](gemini-setup.md)를 따른다.
+
 확인일: 2026-11-09 (한국 시간). PR #4가 병합된 main `ce8edc4`에서 `fix/ai-fallback-chat-input` 생성.
 사용자가 Community Cloud에서 확인한 오류를 바탕으로 코드와 공식 문서를 점검했다. 배포 서버의 Secrets·결제·모델 권한·실패 응답은 직접 열람하지 않았다.
 

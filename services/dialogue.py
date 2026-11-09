@@ -162,9 +162,9 @@ def handle_turn(state, text, activities, settings, *, client=None, as_of=None, e
         if extraction is not None:
             request = validate_extraction(extraction)
             state["mode"] = "basic"
-        elif settings.api_key:
+        elif settings.gemini_api_key:
             request = extract_conditions(text, state, activities, settings, client=client)
-            state["mode"] = "openai"
+            state["mode"] = "gemini"
         else:
             request = basic_extract(text, state)
             state["mode"] = "basic"

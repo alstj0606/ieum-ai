@@ -39,16 +39,16 @@ class AppFlowTest(TestCase):
         payload['conditions'].update(region='강서구',activity_type='가드닝')
         payload['update_fields']=['region','activity_type']
         client=Mock()
-        client.responses.create.return_value=SimpleNamespace(status='completed',output_text=json.dumps(payload,ensure_ascii=False))
-        with patch('services.config.load_settings',return_value=Settings(api_key='mock-test-only')),patch('services.ai.make_client',return_value=client):
+        client.models.generate_content.return_value=SimpleNamespace(candidates=[SimpleNamespace(finish_reason='STOP')],prompt_feedback=None,text=json.dumps(payload,ensure_ascii=False))
+        with patch('services.config.load_settings',return_value=Settings(gemini_api_key='mock-intent-only',api_key='mock-test-only')),patch('services.ai.make_client',return_value=client):
             app=AppTest.from_file(APP).run()
             app.chat_input(key='chat').set_value('강서구 식물 키우기').run()
             self.assertFalse(app.exception)
             self.assertEqual(app.session_state['dialog']['code'],'found')
             app.run()
-            self.assertEqual(client.responses.create.call_count,1)
+            self.assertEqual(client.models.generate_content.call_count,1)
             before=app.session_state['dialog']['conditions']
-            client.responses.create.side_effect=TimeoutError('sensitive response')
+            client.models.generate_content.side_effect=TimeoutError('sensitive response')
             app.chat_input(key='chat').set_value('다른 시간에요').run()
             self.assertEqual(app.session_state['dialog']['conditions'],before)
             self.assertEqual(app.session_state['turns'][-1]['user'],'다른 시간에요')
@@ -77,7 +77,7 @@ class AppFlowTest(TestCase):
         return state
 
     def test_tts_failure_preserves_results_and_stop_clears_media(self):
-        with patch('services.config.load_settings',return_value=Settings(api_key='mock-test-only')),patch('services.voice.synthesize',side_effect=VoiceError('음성 안내 실패')) as synth:
+        with patch('services.config.load_settings',return_value=Settings(gemini_api_key='mock-intent-only',api_key='mock-test-only')),patch('services.voice.synthesize',side_effect=VoiceError('음성 안내 실패')) as synth:
             app=AppTest.from_file(APP).run()
             self.seed(app)
             app.button(key='listen_0').click().run()
@@ -90,7 +90,7 @@ class AppFlowTest(TestCase):
             self.assertIsNone(app.session_state['speech'])
 
     def test_second_selection_reads_selected_activity(self):
-        with patch('services.config.load_settings',return_value=Settings(api_key='mock-test-only')),patch('services.voice.synthesize',return_value=b'mock-audio') as synth:
+        with patch('services.config.load_settings',return_value=Settings(gemini_api_key='mock-intent-only',api_key='mock-test-only')),patch('services.voice.synthesize',return_value=b'mock-audio') as synth:
             app=AppTest.from_file(APP).run()
             state=self.seed(app)
             selected=state['results'][1]
@@ -163,15 +163,11 @@ class AppFlowTest(TestCase):
             self.assertEqual(tts.call_count,1)
 
     def test_reported_question_auth_failure_shows_safe_fallback_inside_chat(self):
-        import httpx2
-        from openai import AuthenticationError
+        from google.genai.errors import ClientError
         client=Mock()
-        client.responses.create.side_effect=AuthenticationError(
-            'private-provider-canary',
-            response=httpx2.Response(401,request=httpx2.Request('POST','https://api.openai.com/v1/responses')),
-            body={'code':'invalid_api_key','message':'private-provider-canary'})
+        client.models.generate_content.side_effect=ClientError(401,{'error':{'message':'private-provider-canary'}})
         text='강서구에서 어르신이 참여할 수 있는 운동을 추천해줘'
-        with patch('services.config.load_settings',return_value=Settings(api_key='mock-test-only')),patch('services.ai.make_client',return_value=client):
+        with patch('services.config.load_settings',return_value=Settings(gemini_api_key='mock-intent-only',api_key='mock-test-only')),patch('services.ai.make_client',return_value=client):
             app=AppTest.from_file(APP).run()
             app.chat_input(key='chat').set_value(text).run()
             self.assertFalse(app.exception)
@@ -181,3 +177,32 @@ class AppFlowTest(TestCase):
             self.assertEqual(app.session_state['turns'][-1]['user'],text)
             self.assertTrue(any('기본 키워드' in x.value for x in app.chat_message[-1].info))
             self.assertFalse(any('private-provider-canary' in x.value for x in app.markdown))
+
+    def test_gemini_only_key_supports_text_without_openai_voice(self):
+        payload=empty_extraction()
+        payload['conditions'].update(region='강서구',activity_type='국악공연')
+        payload['update_fields']=['region','activity_type']
+        client=Mock()
+        client.models.generate_content.return_value=SimpleNamespace(
+            candidates=[SimpleNamespace(finish_reason='STOP')],prompt_feedback=None,text=json.dumps(payload))
+        with patch('services.config.load_settings',return_value=Settings(gemini_api_key='gemini-only')), \
+                patch('services.ai.make_client',return_value=client), \
+                patch('services.voice.make_voice_client') as voice:
+            app=AppTest.from_file(APP).run()
+            self.assertTrue(any('Gemini' in x.value and 'OpenAI' in x.value for x in app.caption))
+            app.chat_input(key='chat').set_value('강서구 국악').run()
+            self.assertFalse(app.exception)
+            self.assertEqual(app.session_state['dialog']['mode'],'gemini')
+            self.assertTrue(app.session_state['dialog']['results'])
+            self.assertTrue(app.button(key='listen_0').disabled)
+            voice.assert_not_called()
+
+    def test_openai_voice_key_does_not_enable_gemini_intent(self):
+        with patch('services.config.load_settings',return_value=Settings(api_key='voice-only')), \
+                patch('services.ai.make_client') as gemini:
+            app=AppTest.from_file(APP).run()
+            app.chat_input(key='chat').set_value('강서구 국악').run()
+            self.assertEqual(app.session_state['dialog']['mode'],'basic')
+            self.assertEqual(app.session_state['dialog']['diagnostic']['code'],'key_missing')
+            self.assertTrue(app.session_state['dialog']['results'])
+            gemini.assert_not_called()

@@ -6,9 +6,9 @@ import os
 
 @dataclass(frozen=True)
 class Settings:
-    api_key: str = field(default="", repr=False)
-    # Official snapshot ID verified 2026-11-09; access still depends on the project.
-    model: str = "gpt-5.4-mini-2026-03-17"
+    gemini_api_key: str = field(default="", repr=False)
+    model: str = "gemini-2.5-flash"
+    api_key: str = field(default="", repr=False)  # OPENAI_API_KEY: voice only
     stt_model: str = "gpt-transcribe"
     tts_model: str = "gpt-4o-mini-tts"
 
@@ -21,8 +21,9 @@ def load_settings(secrets=None):
         return default
 
     return Settings(
+        gemini_api_key=value("GEMINI_API_KEY"),
+        model=value("GEMINI_MODEL", Settings.model),
         api_key=value("OPENAI_API_KEY"),
-        model=value("OPENAI_MODEL", Settings.model),
         stt_model=value("OPENAI_STT_MODEL", Settings.stt_model),
         tts_model=value("OPENAI_TTS_MODEL", Settings.tts_model),
     )

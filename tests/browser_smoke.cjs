@@ -2,8 +2,9 @@
 const {chromium}=require('playwright');
 const URL='http://127.0.0.1:18504';
 async function ready(page,url=URL){await page.goto(url);await page.getByRole('button',{name:'마이크로 말하기',exact:true}).waitFor();}
-async function send(page,text){await page.getByRole('textbox').fill(text);await page.getByRole('button',{name:'질문 전송',exact:true}).click();}
-async function concert(page){await page.getByRole('heading',{name:'2026 제27회 강서국악한마당',exact:true}).last().waitFor();}
+async function idle(page){await page.waitForFunction(()=>document.querySelector('[data-testid=stApp]')?.getAttribute('data-test-script-state')==='notRunning');}
+async function send(page,text){await page.getByRole('textbox').fill(text);await page.getByRole('button',{name:'질문 전송',exact:true}).click();await page.getByText(text,{exact:true}).last().waitFor();await idle(page);}
+async function concert(page){await page.getByRole('heading',{name:'2026 제27회 강서국악한마당',exact:true}).last().waitFor();await idle(page);}
 async function details(page){await page.getByText('자세히 보기',{exact:true}).last().click();}
 async function main(){
  const browser=await chromium.launch({executablePath:process.env.CHROMIUM_PATH||'/usr/bin/chromium',headless:true,args:['--no-sandbox','--use-fake-device-for-media-stream','--use-fake-ui-for-media-stream']});
@@ -34,6 +35,9 @@ async function main(){
    await details(page);
    await page.getByRole('button',{name:'이 활동 신청 방법',exact:true}).click();
    await page.getByText('아직 신청·예약·결제가 완료된 것은 아니에요.',{exact:false}).last().waitFor();
+   // Wait for the server render and its deferred latest-answer scroll before viewport testing.
+   await page.waitForFunction(()=>document.querySelector('[data-testid=stApp]')?.getAttribute('data-test-script-state')==='notRunning');
+   await page.waitForTimeout(700);
    await page.getByRole('textbox').focus();
    await page.setViewportSize({width,height:480});
    await page.waitForTimeout(800);
@@ -54,12 +58,12 @@ async function main(){
   await fallback.getByRole('heading',{name:'서남센터 파크골프장(18홀)',exact:true}).waitFor();
   await fallback.getByText('2023-04-01~2026-12-31',{exact:false}).waitFor();
   await fallback.getByText('연결 상태 확인',{exact:true}).click();
-  await fallback.getByText('진단 코드: authentication',{exact:true}).waitFor();
+  await fallback.getByText('진단 코드: rate_limit',{exact:true}).waitFor();
   if((await fallback.locator('body').innerText()).includes('provider-private-canary-no-log'))throw Error('Provider error leaked');
   await send(fallback,'오후요');
   await fallback.getByText('오후요',{exact:true}).waitFor();
   if(await fallback.getByText(reported,{exact:true}).count()!==1)throw Error('Original question lost');
-  console.log('PASS mock SDK HTTP401 -> safe diagnostic/official fallback -> followup/history');await fallback.close();
+  console.log('PASS mock Gemini SDK HTTP429 -> safe diagnostic/official fallback -> followup/history');await fallback.close();
 
   const voice=await browser.newPage({viewport:{width:390,height:850},isMobile:true,hasTouch:true});
   await ready(voice);
