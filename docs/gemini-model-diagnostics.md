@@ -1,5 +1,7 @@
 # Gemini model_access / 404 점검
 
+> 모델 조회는 성공하나 생성만 실패하는 경우의 추가 진단은 [단순/구조화 생성 비교](gemini-generation-probe.md)를 따른다. 아래 모델 정보 확인 버튼은 계속 읽기 전용이며 새 생성 점검 버튼과 구분된다.
+
 확인일: 2026-11-09 (한국 시간). PR #6 병합 후 main `c954065`에서 `fix/gemini-model-diagnostics` 생성.
 
 ## 확인된 사실

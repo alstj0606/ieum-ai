@@ -83,6 +83,18 @@ async function main(){
   if((await probe.locator('body').innerText()).includes('private-provider-canary'))throw Error('404 raw error leaked');
   console.log('PASS mock generation 404 -> unresolved diagnostic -> official fallback');await probe.close();
 
+  const generation=await browser.newPage({viewport:{width:390,height:850}});await ready(generation);
+  await send(generation,'강서구 국악');await concert(generation);
+  await generation.getByRole('button',{name:'＋ 보조 메뉴',exact:false}).click();
+  await generation.getByText('Gemini 생성 요청 점검',{exact:true}).click();
+  await generation.getByRole('button',{name:'고정 인사말로 생성 점검',exact:true}).click();
+  await generation.getByText('단순 생성: ok',{exact:true}).waitFor();
+  await generation.getByText('구조화 추출: generation_not_found',{exact:true}).waitFor();
+  const diagBody=await generation.locator('body').innerText();
+  if(diagBody.includes('private-response-canary'))throw Error('Generation probe exposed raw body');
+  if(await generation.getByText('강서구 국악',{exact:true}).count()!==1)throw Error('Generation probe changed conversation');
+  console.log('PASS fixed greeting success / structured 404 -> safe comparison / original dialogue');await generation.close();
+
   const voice=await browser.newPage({viewport:{width:390,height:850},isMobile:true,hasTouch:true});
   await ready(voice);
   await voice.getByRole('button',{name:'마이크로 말하기',exact:true}).click();
