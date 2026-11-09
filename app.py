@@ -1,324 +1,268 @@
-"""공식 활동 데이터와 대화·음성 입력을 연결하는 이음 AI."""
-
+"""어르신을 위한 하나의 대화창. 사실은 공식 JSON, AI는 조건만 이해한다."""
+import hashlib
 import json
+from copy import deepcopy
 from pathlib import Path
+import re
 
 import streamlit as st
 
 from services.activities import load_activities
 from services.config import load_settings
 from services.dialogue import new_state, handle_turn, manual_search, application_guide, basic_extract
-from services.recommendations import activity_facts, speech_text, known
+from services.recommendations import activity_facts, speech_text
 from services.voice import transcribe, synthesize, VoiceError
 
-
-st.set_page_config(page_title="이음 AI · 활동 찾기", page_icon="🌊")
-st.markdown(
-    """
-    <style>
-    .stMainBlockContainer {
-        max-width: 760px; padding: 5rem 1rem 4rem;
-    }
-    .stMain h1 { font-size: 2.5rem !important; line-height: 1.3; }
-    .stMain h2 { font-size: 1.75rem !important; line-height: 1.5; }
-    .stMain h3 { font-size: 1.5rem !important; line-height: 1.5; }
-    .stMain .stMarkdown p, .stTextArea label p, .stSelectbox label p,
-    .stMain .stAlert p, .stMain .stExpander summary p,
-    .stButton button p, .stFormSubmitButton button p {
-        font-size: 1.25rem !important; line-height: 1.75;
-    }
-    .stTextArea textarea {
-        font-size: 1.25rem !important; line-height: 1.75;
-        padding: 0.85rem;
-    }
-    .stSelectbox [data-baseweb="select"] { font-size: 1.25rem; }
-    .stMain .stText pre {
-        font-size: 1.25rem; line-height: 1.75; font-family: inherit;
-        white-space: pre-wrap; overflow-wrap: anywhere;
-    }
-    .stMain .stExpander summary { min-height: 56px; }
-    .stLinkButton a p { font-size: 1.25rem !important; }
-    .stTextArea textarea::placeholder { opacity: 1; }
-    .stButton button, .stFormSubmitButton button, .stLinkButton a,
-    [data-testid="stAudioInput"] button {
-        min-height: 64px; height: auto; padding: 0.85rem 1rem;
-        border-radius: 12px;
-    }
-    .stButton button:focus-visible, .stFormSubmitButton button:focus-visible,
-    .stTextArea textarea:focus-visible {
-        outline: 3px solid #1671c5; outline-offset: 3px;
-    }
-    .stMain .stMarkdown p, .stMain h1, .stMain h2, .stMain h3, button p {
-        overflow-wrap: anywhere; word-break: normal; white-space: normal;
-    }
-    .stMain [data-testid="stVerticalBlock"] { gap: 1.25rem; }
-    .stMain [data-testid="stVerticalBlockBorderWrapper"] {
-        border-radius: 16px;
-    }
-    @media (max-width: 480px) {
-        .stMainBlockContainer { padding: 5rem 1rem 3rem; }
-        .stMain h1 { font-size: 2.25rem !important; }
-    }
-    </style>
-    """,
-    unsafe_allow_html=True,
-)
-
-program = json.loads(
-    (Path(__file__).parent / "data" / "demo_program.json").read_text(encoding="utf-8")
-)
+ROOT = Path(__file__).parent
+st.set_page_config(page_title="이음 AI · 활동 찾기", page_icon="💬")
+st.markdown(f"<style>{(ROOT/'ui/chat.css').read_text()}</style>", unsafe_allow_html=True)
 try:
-    secret_values = dict(st.secrets)
-except (FileNotFoundError, st.errors.StreamlitSecretNotFoundError):
-    secret_values = {}
+    secrets = dict(st.secrets)
 except Exception:
-    # 설정 파싱 오류 원문에 비밀 값이 포함될 수 있어 그대로 출력하지 않는다.
-    secret_values = {}
-    st.warning("서버 연결 설정을 읽지 못했어요. 기본 검색은 계속 이용할 수 있어요.")
-settings = load_settings(secret_values)
-del secret_values
+    secrets = {}  # Never display secret parser errors.
+settings = load_settings(secrets)
+del secrets
 try:
     activities = load_activities()
 except (OSError, ValueError):
-    st.error("공식 자료를 읽지 못했어요. 잠시 후 다시 시도해 주세요. 예시 체험은 계속 이용할 수 있어요.")
     activities = []
-
-for key, default in {
-    "dialog": new_state(), "question": "", "demo_visible": False,
-    "speech_bytes": None, "speech_source": None, "voice_error": None,
-    "voice_notice": None, "clear_input": False,
-}.items():
+    st.error("공식 자료를 읽지 못했어요. 잠시 후 다시 찾아주세요.")
+for key, value in {"dialog":new_state(), "turns":[], "speech":None, "auto_read":None,
+                   "turn_seq":0, "speech_error":None, "voice_error":None, "transcript":None, "upload_seen":None, "edit_voice":False}.items():
     if key not in st.session_state:
-        st.session_state[key] = default
-if st.session_state.clear_input:
-    st.session_state.question = ""
-    st.session_state.clear_input = False
+        st.session_state[key] = value
 
 
-def clear_speech():
-    st.session_state.speech_bytes = None
-    st.session_state.speech_source = None
+def remember(text, state, *, voice=False, preserve=False):
+    if not preserve:
+        st.session_state.dialog = state
+    st.session_state.turn_seq += 1
+    st.session_state.speech = None
+    st.session_state.speech_error = None
+    st.session_state.turns.append({"user":text,"state":deepcopy(state)})
+    st.session_state.turns = st.session_state.turns[-20:]
+    st.session_state.auto_read = len(st.session_state.turns)-1 if voice and not state["error"] else None
 
 
-def reset_dialog():
-    st.session_state.dialog = new_state()
-    st.session_state.question = ""
-    st.session_state.demo_visible = False
+def send(text, *, voice=False, fixed=False):
     st.session_state.voice_error = None
-    st.session_state.voice_notice = None
-    clear_speech()
-
-
-def quick_turn(text):
-    # 화면의 고정 선택 버튼은 LLM 없이 처리해 연결 오류 때도 동작하게 한다.
     state = st.session_state.dialog
-    st.session_state.dialog = handle_turn(
-        state, text, activities, settings, extraction=basic_extract(text, state)
-    )
-    st.session_state.question = ""
-    clear_speech()
+    compact = text.replace(" ", "").rstrip(".!?")
+    if compact in {"다시말해줘", "다시들려줘", "천천히알려줘", "천천히말해줘"} and state["code"] != "start":
+        state = deepcopy(state)
+        state["history"] += [{"role":"user","content":text}, {"role":"assistant","content":state["message"]}]
+        state["history"] = state["history"][-20:]
+        # The exact verified answer is repeated; slow mode changes only synthesis speed.
+        state["slow_read"] = "천천히" in compact
+        remember(text, state, voice=True)
+    else:
+        state = handle_turn(state, text, activities, settings,
+                            extraction=basic_extract(text, state) if fixed else None)
+        remember(text, state, voice=voice)
 
 
-def choose_activity(activity_id):
-    st.session_state.dialog = application_guide(
-        st.session_state.dialog, activities, selected_id=activity_id
-    )
-    clear_speech()
+def submit_voice(audio):
+    st.session_state.voice_error = None
+    try:
+        with st.spinner("말씀을 알아듣고 있어요…"):
+            text = transcribe(audio.getvalue(), settings, filename=audio.name)
+        st.session_state.transcript = text
+        st.session_state.edit_voice = False
+        send(text, voice=True)
+    except VoiceError as error:
+        st.session_state.voice_error = str(error)
 
 
-def show_example():
-    # 실제 검색 상태를 가상 결과로 바꾸지 않는 독립 체험이다.
-    st.session_state.demo_visible = True
-    st.session_state.question = "수영을 처음 배우는데 할 수 있어?"
+def edit_transcript():
+    # Callback runs before widgets: each recording starts with its own transcript.
+    st.session_state.corrected = st.session_state.transcript
+    st.session_state.edit_voice = True
+
+
+def reset():
+    st.session_state.dialog = new_state()
+    st.session_state.turns = []
+    st.session_state.speech = None
+    st.session_state.transcript = None
+    st.session_state.voice_error = None
+    st.session_state.upload_seen = None
+
+
+def apply(activity_id):
+    state = application_guide(st.session_state.dialog, activities, selected_id=activity_id)
+    remember("이 활동 신청 방법을 알려주세요", state)
+
+
+def prepare(index):
+    turn = st.session_state.turns[index]
+    state = turn["state"]
+    st.session_state.speech_error = None
+    rows = state["results"] or state["references"]
+    if state["selected_id"]:
+        rows = [row for row in rows if row["id"] == state["selected_id"]]
+    spoken = speech_text(state["message"], rows)
+    try:
+        with st.spinner("음성 안내를 준비하고 있어요…"):
+            data = synthesize(spoken, settings, speed=0.7 if state.get("slow_read") else 0.9)
+        st.session_state.speech = {"index":index,"data":data,"text":spoken,"autoplay":True}
+    except VoiceError as error:
+        st.session_state.speech = None
+        st.session_state.speech_error = (index, str(error))
+
+
+def card(row, index, position, *, reference=False, latest=False):
+    facts = dict(activity_facts(row))
+    with st.container(border=True):
+        st.subheader(row["name"])
+        if reference:
+            st.warning("참고 자료예요. 지금 신청 가능하다고 확인된 활동은 아니에요.")
+        for label, value in (("장소",row["facility_name"] or "확인 필요"),
+                             ("시간",facts["일정"]),("비용",facts["비용"]),("접수 상태",facts["접수 상태"])):
+            st.write(f"**{label}** · {value}")
+        with st.expander("자세히 보기"):
+            for label in ("주소","대상","신청 방법","정보 확인일","접수 참고","비용 참고"):
+                if label in facts:
+                    st.write(f"**{label}** · {facts[label]}")
+            st.write("**준비물** · 확인 필요")
+            for note in row.get("condition_notes", []) + row.get("verification_notes", []):
+                st.write(note)
+            st.link_button("공식 출처 확인",row["source_url"],use_container_width=True)
+            if row["official_url"]:
+                st.link_button("공식 안내·신청 페이지 열기",row["official_url"],use_container_width=True)
+            # Only phone strings literally present in the verified record are linkified.
+            phones = sorted(set(re.findall(r"(?<!\d)0\d{1,2}-\d{3,4}-\d{4}(?!\d)",row.get("registration_method") or "")))
+            for phone in phones:
+                st.markdown(f"[📞 {phone} 전화하기](tel:{phone.replace('-', '')})")
+            if latest and not reference:
+                st.button("이 활동 신청 방법",key=f"apply_{row['id']}",on_click=apply,args=(row["id"],),use_container_width=True)
 
 
 st.title("이음 AI")
-st.header("오늘은 어떤 활동을 찾으세요?")
-st.write("운동, 만들기, 공연, 배움까지 함께 찾아봐요.")
-st.info(f"서울 강서구 공식 자료 {len(activities)}건 · 실시간 접수 정보가 아니에요.")
-if not settings.api_key:
-    st.info("기본 검색 모드 · 글이나 조건 선택으로 찾아요. AI·음성은 연결 설정 후 이용할 수 있어요.")
-else:
-    st.write("질문을 보내면 AI가 조건을 정리해요. 활동 정보는 공식 자료에서만 보여드려요.")
+if not st.session_state.turns:
+    with st.chat_message("assistant"):
+        st.write("안녕하세요. 어떤 활동을 하고 싶으세요? 글로 적거나 마이크를 눌러 말씀해 주세요.")
+        if not settings.api_key:
+            st.caption("지금은 기본 글 검색을 이용할 수 있어요. AI·음성은 연결 설정 후 사용할 수 있어요.")
 
-with st.expander("🎤 말로 입력하기"):
-    st.write("녹음 시작을 누르고 말씀한 뒤 녹음을 끝내세요. 1분 이내로 말씀해 주세요.")
-    st.write("‘음성을 글로 바꾸기’를 누르면 녹음을 OpenAI에 보내 변환해요. 변환된 글을 확인·수정한 뒤 질문을 보내세요.")
-    recording = st.audio_input("마이크로 질문 녹음", key="voice_recording", disabled=not bool(settings.api_key))
-    uploaded = st.file_uploader(
-        "녹음이 안 되면 음성 파일 선택 (선택 사항)", type=["wav", "m4a", "mp3", "webm"],
-        key="voice_upload", disabled=not bool(settings.api_key),
-    )
-    if st.button("음성을 글로 바꾸기", key="transcribe", use_container_width=True,
-                 disabled=not bool(settings.api_key) or (recording is None and uploaded is None)):
-        st.session_state.voice_error = None
-        audio = recording if recording is not None else uploaded
-        if audio is None:
-            st.session_state.voice_error = "녹음을 먼저 해주세요. 마이크가 안 되면 아래에 글로 적어도 돼요."
+with st.popover("＋ 보조 메뉴", use_container_width=False):
+    with st.expander("AI 도움 없이 찾아보기"):
+        with st.form("manual_form"):
+            category=st.selectbox("활동 분류",["전체","체육","문화·취미","평생학습"],key="manual_category")
+            slot=st.selectbox("편한 시간",["상관없음","오전","오후","저녁"],key="manual_time")
+            if st.form_submit_button("선택한 조건으로 찾기",key="manual_submit"):
+                state=manual_search(st.session_state.dialog,activities,category=None if category=="전체" else category,
+                                    time_slot=None if slot=="상관없음" else slot)
+                remember("선택한 조건으로 찾아주세요",state)
+                st.rerun()
+    with st.expander("음성파일 올리기"):
+        st.caption("파일 선택 후 OpenAI로 보내 자동 검색해요. WAV는 1분, 모든 파일은 5MB 이내예요.")
+        uploaded=st.file_uploader("음성파일 선택",type=["wav","m4a","mp3","webm"],key="voice_upload",disabled=not bool(settings.api_key))
+        if uploaded is not None:
+            token=hashlib.sha256(uploaded.getvalue()).hexdigest()
+            if token != st.session_state.upload_seen:
+                st.session_state.upload_seen=token
+                submit_voice(uploaded)
+    with st.expander("예시 체험 · 가상 수영 프로그램"):
+        if st.button("초보 수영 찾기",key="demo_example"):
+            demo=json.loads((ROOT/"data/demo_program.json").read_text())
+            state=new_state()
+            state.update(message="시연용 데이터 · 가상 프로그램 · 실제 신청 불가",code="demo",demo=demo)
+            remember("초보 수영 예시 체험",state,preserve=True)
+            st.rerun()
+    with st.expander("자료와 이용 안내"):
+        st.write(f"서울 강서구 공식 자료 {len(activities)}건이며 실시간 접수 정보는 아니에요.")
+        st.write("녹음 종료 후 OpenAI로 음성을 보내 글로 바꾸고 검색해요. 조용해져도 자동 종료하지 않아요. 1분 이내로 말씀해 주세요.")
+        st.write("AI는 조건만 이해해요. 실제 신청·예약·결제는 하지 않아요.")
+        st.write("마이크 권한을 허용하고 HTTPS 주소를 직접 열어주세요. 마이크가 안 되면 글로 계속 질문할 수 있어요.")
+    st.button("처음부터 다시 찾기",key="reset",on_click=reset)
+
+for index, turn in enumerate(st.session_state.turns):
+    latest=index==len(st.session_state.turns)-1
+    state=turn["state"]
+    with st.chat_message("user"):
+        st.write(turn["user"])
+    with st.chat_message("assistant"):
+        if latest:
+            st.markdown(f'<div id="latest-reply-{st.session_state.turn_seq}"></div>',unsafe_allow_html=True)
+        if state["error"]:
+            st.warning(state["error"])
         else:
-            try:
-                with st.spinner("말씀을 글로 바꾸고 있어요…"):
-                    st.session_state.question = transcribe(
-                        audio.getvalue(), settings, filename=audio.name
-                    )
-                st.session_state.voice_notice = "아래 입력창의 글이 맞는지 확인하고 고쳐주세요. 아직 질문을 보내지는 않았어요."
-            except VoiceError as error:
-                st.session_state.voice_error = str(error)
-    st.write("녹음이 안 되나요? Safari·브라우저 설정에서 마이크 권한을 허용하고 HTTPS의 앱 주소를 직접 열어주세요. 지원하지 않는 기기에서는 글 입력이나 파일 선택을 이용해 주세요.")
+            st.write(state["message"])
+            if state["code"]=="demo":
+                demo=state["demo"]
+                st.subheader(demo["name"])
+                for label,key in (("대상","audience"),("시간","schedule"),("비용","fee"),("접수 기간","registration_period")):
+                    st.write(f"**{label}** · {demo[key]}")
+            else:
+                rows=state["results"] or state["references"]
+                for position,row in enumerate(rows[:3]):
+                    card(row,index,position,reference=not bool(state["results"]),latest=latest)
+            if latest and state["code"] not in {"demo","start"}:
+                if state["pending"]=="region":
+                    st.button("서울 강서구에서 찾기",key="choose_region",on_click=send,args=("서울 강서구요",),kwargs={"fixed":True},use_container_width=True)
+                elif state["pending"]=="time_slot":
+                    for name in ("오전","오후","저녁","상관없어요"):
+                        st.button(name,key=f"time_{name}",on_click=send,args=(name,),kwargs={"fixed":True},use_container_width=True)
+                elif state["pending"]=="budget_unit":
+                    for name in ("한 번 금액이에요","한 달 금액이에요"):
+                        st.button(name,key=f"budget_{name}",on_click=send,args=(name,),kwargs={"fixed":True})
+                else:
+                    st.button("다른 활동 찾기",key="change_activity",on_click=send,args=("다른 활동",),kwargs={"fixed":True})
+                    st.button("다른 시간 찾기",key="change_time",on_click=send,args=("다른 시간",),kwargs={"fixed":True})
+            if state["code"] != "demo":
+                if st.session_state.auto_read==index:
+                    st.session_state.auto_read=None
+                    prepare(index)
+                if st.session_state.speech_error and st.session_state.speech_error[0]==index:
+                    st.warning(st.session_state.speech_error[1])
+                speech=st.session_state.speech
+                if not speech or speech["index"]!=index:
+                    if st.button("답변 듣기",key=f"listen_{index}",disabled=not bool(settings.api_key),use_container_width=True):
+                        prepare(index)
+                        st.rerun()
+                else:
+                    with st.expander("음성으로 읽는 내용"):
+                        st.text(speech["text"])
+                    st.caption("AI가 만든 음성이에요. 소리가 안 나면 답변 듣기를 누르세요.")
+                    st.audio(speech["data"],format="audio/mp3",autoplay=speech["autoplay"])
+                    speech["autoplay"]=False
+                    st.html((ROOT/"ui/player.html").read_text(),unsafe_allow_javascript=True)
+                    if st.button("음성 중지",key="stop_speech",use_container_width=True):
+                        st.session_state.speech=None
+                        st.rerun()
+
 if st.session_state.voice_error:
     st.warning(st.session_state.voice_error)
-if st.session_state.voice_notice:
-    st.info(st.session_state.voice_notice)
+    st.write("아래 입력창에서 글로 질문하거나 마이크로 다시 말씀해 주세요.")
+if st.session_state.transcript or st.session_state.voice_error:
+    st.html("""<button id="ieum-retry-voice" type="button" aria-label="다시 말하기"
+      style="width:100%;min-height:64px;font-size:20px;border:2px solid #1671c5;
+      border-radius:12px;background:#eaf4ff;color:#102f50">🎤 다시 말하기</button>
+      <p id="ieum-retry-status" role="status" aria-live="polite" style="font-size:20px;color:#384454"></p>""")
+if st.session_state.transcript:
+    with st.expander("음성인식이 다르게 되었나요?"):
+        st.write(st.session_state.transcript)
+        st.button("글자 수정하기",key="edit_transcript",on_click=edit_transcript)
+        if st.session_state.edit_voice:
+            corrected=st.text_area("인식된 문장 수정",key="corrected")
+            if st.button("고친 질문 보내기",key="submit_correction"):
+                send(corrected)
+                st.session_state.edit_voice=False
+                st.rerun()
+        st.caption("다시 말하려면 아래 입력창의 마이크를 누르세요. 조건을 모두 바꾸려면 보조 메뉴에서 처음부터 다시 찾으세요.")
 
-st.subheader("궁금한 내용을 적어주세요")
-with st.container(border=False):
-    st.text_area(
-        "어떤 활동을 하고 싶으세요?", placeholder="예: 오전에 사람들과 식물을 가꾸고 싶어요",
-        key="question", height=150, max_chars=1500,
-    )
-    submitted = st.button(
-        "프로그램 찾아보기", type="primary", use_container_width=True, key="submit_question"
-    )
-if submitted:
-    with st.spinner("말씀하신 조건을 확인하고 있어요…"):
-        st.session_state.dialog = handle_turn(
-            st.session_state.dialog, st.session_state.question, activities, settings
-        )
-    clear_speech()
-    st.session_state.clear_input = not bool(st.session_state.dialog["error"])
-    st.session_state.voice_notice = None
+# Native pinned composer supports audio submit on stop and text submit without two forms.
+request=st.chat_input("하고 싶은 활동을 적거나 말해 주세요",key="chat",accept_audio=True,max_chars=1500)
+if request:
+    if getattr(request,"audio",None) is not None:
+        submit_voice(request.audio)
+    else:
+        send(request if isinstance(request,str) else request.text)
     st.rerun()
-
-state = st.session_state.dialog
-if state["error"]:
-    st.warning(state["error"])
-if len(state["history"]) > 2:
-    with st.expander("이전 대화 보기"):
-        for turn in state["history"][:-2]:
-            with st.chat_message(turn["role"]):
-                st.write(turn["content"])
-if state["history"]:
-    for turn in state["history"][-2:]:
-        with st.chat_message(turn["role"]):
-            st.write(turn["content"])
-else:
-    st.write(state["message"])
-
-if state["conditions"]:
-    labels = {"region": "찾는 지역", "category": "활동 분류", "activity_type": "활동 종류",
-              "time_slot": "시간대", "budget_amount": "예산(원)", "budget_unit": "예산 단위",
-              "purpose": "참여 목적", "beginner": "초보 여부", "age": "말씀하신 나이",
-              "gender": "말씀하신 성별", "residence": "거주지", "tags": "관심"}
-    with st.expander("지금까지 말씀하신 조건"):
-        for key, value in state["conditions"].items():
-            if type(value) is bool:
-                value = "예" if value else "아니요"
-            st.write(f"{labels[key]}: {value}")
-if state["pending"] == "region":
-    st.button("서울 강서구에서 찾기", key="choose_region", on_click=quick_turn,
-              args=("서울 강서구요",), use_container_width=True)
-elif state["pending"] == "time_slot":
-    for name in ("오전", "오후", "저녁", "상관없어요"):
-        st.button(name, key=f"time_{name}", on_click=quick_turn, args=(name,), use_container_width=True)
-elif state["pending"] == "budget_unit":
-    for name in ("한 번 금액이에요", "한 달 금액이에요"):
-        st.button(name, key=f"budget_{name}", on_click=quick_turn, args=(name,), use_container_width=True)
-
-with st.expander("조건을 골라 직접 찾기 · AI 없이도 가능"):
-    st.write("서울 강서구 공식 자료에서 찾아요. 이 버튼은 이전 대화 조건을 새 선택으로 바꿔요.")
-    with st.form("manual_form"):
-        category = st.selectbox("활동 분류", ["전체", "체육", "문화·취미", "평생학습"], key="manual_category")
-        slot = st.selectbox("편한 시간", ["상관없음", "오전", "오후", "저녁"], key="manual_time")
-        direct = st.form_submit_button("선택한 조건으로 찾기", use_container_width=True, key="manual_submit")
-    if direct:
-        st.session_state.dialog = manual_search(
-            state, activities, category=None if category == "전체" else category,
-            time_slot=None if slot == "상관없음" else slot,
-        )
-        clear_speech()
-        st.session_state.clear_input = True
-        st.rerun()
-
-
-def render_activity(item, index, *, reference=False):
-    with st.container(border=True):
-        st.subheader(f"{index}. {item['name']}")
-        if item["id"] == state["selected_id"]:
-            st.info("신청 방법을 선택한 활동이에요. 실제 신청은 공식 페이지에서 진행해 주세요.")
-        if reference:
-            st.warning("참고 자료예요. 지금 조건으로 신청 가능하다고 확인한 결과가 아니에요.")
-        for label, value in activity_facts(item):
-            st.markdown(f"**{label}**")
-            st.write(value)
-        for note in item.get("condition_notes", []):
-            st.warning(note)
-        with st.expander("자료의 미확인 사항·주의사항"):
-            st.write(known(item["schedule"].get("notes")))
-            for note in item.get("verification_notes", []):
-                st.write(note)
-        st.link_button("공식 출처 확인", item["source_url"], use_container_width=True)
-        if item["official_url"]:
-            st.link_button("공식 안내·신청 페이지 열기", item["official_url"], use_container_width=True)
-        else:
-            st.write("공식 신청 링크는 확인이 필요해요.")
-        if not reference:
-            st.button("이 활동 신청 방법", key=f"apply_{item['id']}", on_click=choose_activity,
-                      args=(item["id"],), use_container_width=True)
-
-
-if state["code"] != "start":
-    st.subheader("안내 듣기")
-    spoken_results = state["results"] or state["references"]
-    if state["selected_id"]:
-        spoken_results = [item for item in spoken_results if item["id"] == state["selected_id"]]
-    spoken = speech_text(state["message"], spoken_results)
-    with st.expander("음성으로 읽는 내용 · 화면에서도 확인"):
-        st.text(spoken)
-    st.write("AI가 만든 음성으로 읽어드려요. 준비 후 재생(▶)을 눌러주세요. 자동 재생하지 않아요.")
-    if st.button("답변 듣기", key="prepare_speech", use_container_width=True, disabled=not bool(settings.api_key)):
-        try:
-            with st.spinner("읽어드릴 음성을 준비하고 있어요…"):
-                st.session_state.speech_bytes = synthesize(spoken, settings)
-                st.session_state.speech_source = spoken
-        except VoiceError as error:
-            clear_speech()
-            st.warning(str(error))
-    if st.session_state.speech_bytes and st.session_state.speech_source == spoken:
-        if st.button("음성 중지", key="stop_speech", use_container_width=True):
-            clear_speech()
-            st.rerun()
-        st.audio(st.session_state.speech_bytes, format="audio/mp3", autoplay=False)
-        st.write("재생·일시정지는 위 재생기에서 할 수 있어요. 소리가 안 나면 화면의 글을 확인해 주세요.")
-
-if state["results"]:
-    st.divider()
-    st.header("찾아본 공식 활동")
-    st.write("최대 3개를 보여드려요. 접수중 표시는 예약 성공이나 당일 참여를 보장하지 않아요.")
-    for index, item in enumerate(state["results"], 1):
-        render_activity(item, index)
-elif state["references"]:
-    st.header("확인이 필요한 관련 자료")
-    for index, item in enumerate(state["references"], 1):
-        render_activity(item, index, reference=True)
-
-if state["code"] != "start":
-    st.button("다른 시간으로 찾기", key="change_time", on_click=quick_turn,
-              args=("다른 시간",), use_container_width=True)
-    st.button("다른 활동 찾기", key="change_activity", on_click=quick_turn,
-              args=("다른 활동",), use_container_width=True)
-    st.button("같은 조건으로 다시 검색", key="retry_search", on_click=quick_turn,
-              args=("같은 조건으로 다시 찾아주세요",), use_container_width=True)
-st.button("처음부터 다시 찾기", key="reset", on_click=reset_dialog, use_container_width=True)
-
-st.divider()
-st.subheader("예시 체험 · 가상 수영 프로그램")
-st.write("공식 추천과 별개인 화면 체험이에요. AI·API 키 없이도 볼 수 있어요.")
-st.button("초보 수영 찾기", key="demo_example", on_click=show_example, use_container_width=True)
-if st.session_state.demo_visible:
-    with st.container(border=True):
-        st.warning("시연용 데이터 · 가상 프로그램 · 실제 신청 불가")
-        st.subheader(program["name"])
-        for label, key in [("대상", "audience"), ("시간", "schedule"), ("비용", "fee"), ("접수 기간", "registration_period")]:
-            st.markdown(f"**{label}**")
-            st.write(program[key])
-        st.write("시설은 미정이에요. 공식 추천 결과나 실제 프로그램이 아니에요.")
+st.html(f'<script>{(ROOT/"ui/chat.js").read_text()}</script>',unsafe_allow_javascript=True)
+if st.session_state.turns:
+    seq=st.session_state.turn_seq
+    st.html(f'''<script>if(window.ieumLatest!=={seq}){{window.ieumLatest={seq};
+    document.querySelector('[data-testid=stPopoverButton][aria-expanded=true]')?.click();
+    const show=()=>document.getElementById('latest-reply-{seq}')?.scrollIntoView({{block:'start'}});
+    setTimeout(show,150);setTimeout(show,600);}}</script>''',unsafe_allow_javascript=True)
