@@ -18,7 +18,7 @@ QUESTIONS = {
 def new_state():
     return {"conditions": {}, "any_fields": [], "history": [], "pending": None,
             "results": [], "references": [], "selected_id": None, "mode": "basic",
-            "message": "원하는 활동이나 지금 상황을 편하게 말씀해 주세요.", "code": "start", "error": None}
+            "message": "원하는 활동이나 지금 상황을 편하게 말씀해 주세요.", "code": "start", "error": None, "diagnostic": None, "notice": None}
 
 
 def basic_extract(text, state):
@@ -150,7 +150,7 @@ def application_guide(state, activities, *, selected_id=None, as_of=None):
 
 def handle_turn(state, text, activities, settings, *, client=None, as_of=None, extraction=None):
     state = deepcopy(state)
-    state["error"] = None
+    state.update(error=None, diagnostic=None, notice=None)
     if not text.strip():
         state["error"] = "질문을 먼저 적어주세요"
         return state
@@ -161,15 +161,28 @@ def handle_turn(state, text, activities, settings, *, client=None, as_of=None, e
         # 짧은 응답의 의미는 같은 pending/대화 문맥을 사용한다.
         if extraction is not None:
             request = validate_extraction(extraction)
+            state["mode"] = "basic"
         elif settings.api_key:
             request = extract_conditions(text, state, activities, settings, client=client)
             state["mode"] = "openai"
         else:
             request = basic_extract(text, state)
             state["mode"] = "basic"
+            state["diagnostic"] = {"code": "key_missing"}
     except AIError as error:
-        state["error"] = str(error)
-        return state
+        state["mode"] = "fallback"
+        state["diagnostic"] = {"code": error.code}
+        state["notice"] = "AI 연결을 이용하지 못해 공식 자료를 기본 키워드로 찾아봤어요. 지역·활동·시간 등 일부 조건만 이해하므로 참여 자격은 기관에 확인해 주세요."
+        try:
+            request = basic_extract(text, state)
+        except AIError:
+            request = empty_extraction("other")
+        if (request["intent"] == "search" and not request["update_fields"]
+                and not request["clear_fields"] and "같은조건" not in text.replace(" ", "")):
+            request["intent"] = "other"
+        if request["intent"] == "other":
+            state.update(results=[], references=[])
+
     state["history"].append({"role": "user", "content": text})
     intent = request["intent"]
     if intent == "reset":
@@ -225,7 +238,7 @@ def handle_turn(state, text, activities, settings, *, client=None, as_of=None, e
 def manual_search(state, activities, *, category=None, time_slot=None, as_of=None):
     state = deepcopy(state)
     state.update(conditions={"region": "서울 강서구"}, any_fields=[], history=[],
-                 pending=None, error=None, mode="manual")
+                 pending=None, error=None, mode="manual", diagnostic=None, notice=None)
     # 지역 문자열은 원본 '서울특별시 강서구'와 부분 일치하도록 저장한다.
     state["conditions"]["region"] = "강서구"
     if category:

@@ -1,5 +1,7 @@
 # 채팅형 모바일 화면
 
+> 최신 AI 연결 오류/대체 검색 및 입력창 정렬 수정은 [ai-connection-fix.md](ai-connection-fix.md)를 참고한다. 아래 80px·추가 보조 버튼 설명은 PR #4 당시 기록이며 최신 수정에서는 64px 주 버튼과 native 44px 보조 마이크로 바꿨다.
+
 작업일: 2026-11-09. `ui/single-chat-mobile`은 최신 main `06cb6a3`에서 생성했다.
 작업 시작 시 PR #3는 open/merged=false였다. 임의 병합·cherry-pick하지 않았다.
 두 PR은 app.py와 UI 테스트 수정이 겹친다. 아래 기능 보존 점검과 보완을 거친 PR #4만 채택할 수 있으며 PR #3는 대체된 PR로 닫아도 된다.

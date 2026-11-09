@@ -13,10 +13,16 @@ async function main(){
    await ready(page,'http://127.0.0.1:18502');
    if(await page.locator('[data-testid="stFileUploader"]').isVisible())throw Error('Upload exposed');
    const mic=page.getByRole('button',{name:'마이크로 말하기',exact:true});const box=await mic.boundingBox();
-   if(box.width<80||box.height<80)throw Error('Mic too small');
+   if(box.width<64||box.height<64)throw Error('Mic too small');
    await page.getByRole('textbox').fill('수영');
    if(await mic.isVisible())throw Error('Mic active while typing');
-   await page.getByRole('button',{name:'질문 전송',exact:true}).waitFor();
+   const submit=page.getByRole('button',{name:'질문 전송',exact:true});await submit.waitFor();
+   const sent=await submit.boundingBox();
+   const root=await page.locator('[data-testid="stChatInput"]').boundingBox();
+   const secondary=await page.getByRole('button',{name:'음성 입력으로 돌아가기',exact:true}).boundingBox();
+   if(Math.abs(sent.x-box.x)>2||Math.abs(sent.y-box.y)>2)throw Error('Primary action moved');
+   for(const r of [sent,secondary])if(r.x<root.x||r.y<root.y||r.x+r.width>root.x+root.width||r.y+r.height>root.y+root.height)throw Error('Button outside rounded input');
+   if(await page.locator('#ieum-voice-back').count())throw Error('Extra microphone injected');
    await page.getByRole('button',{name:'음성 입력으로 돌아가기',exact:true}).click();
    await mic.waitFor();
    if(await page.getByRole('textbox').inputValue())throw Error('Voice return did not clear draft');
@@ -34,13 +40,27 @@ async function main(){
    const input=await page.locator('[data-testid="stChatInput"]').boundingBox();
    if(input.y<0||input.y+input.height>481)throw Error('Composer outside reduced viewport');
    const latest=await page.locator('[id^=latest-reply-]').last().boundingBox();
-   if(latest.y<0||latest.y>input.y)throw Error('Latest answer hidden behind composer');
+   if(latest.y<0||latest.y>input.y)throw Error('Latest answer hidden behind composer '+JSON.stringify({width,latest,input}));
    const layout=await page.evaluate(()=>({w:innerWidth,scroll:document.documentElement.scrollWidth,
     overflow:[...document.querySelectorAll('.stMain p,.stMain button,.stChatInput')].some(e=>{let r=e.getBoundingClientRect();return r.width>0&&(r.right>innerWidth+1||r.left<0)})}));
    if(layout.scroll>width||layout.overflow)throw Error(JSON.stringify(layout));
    console.log('PASS chat/followup/cards/application/Korean names/mic-send/viewport',width);
    await page.screenshot({path:`/workspace/work/chat-${width}.png`});await page.close();
   }
+  const fallback=await browser.newPage({viewport:{width:390,height:850}});await ready(fallback);
+  const reported='강서구에서 어르신이 참여할 수 있는 운동을 추천해줘';
+  await send(fallback,reported);
+  await fallback.getByText('AI 연결을 이용하지 못해 공식 자료를 기본 키워드로 찾아봤어요.',{exact:false}).waitFor();
+  await fallback.getByRole('heading',{name:'서남센터 파크골프장(18홀)',exact:true}).waitFor();
+  await fallback.getByText('2023-04-01~2026-12-31',{exact:false}).waitFor();
+  await fallback.getByText('연결 상태 확인',{exact:true}).click();
+  await fallback.getByText('진단 코드: authentication',{exact:true}).waitFor();
+  if((await fallback.locator('body').innerText()).includes('provider-private-canary-no-log'))throw Error('Provider error leaked');
+  await send(fallback,'오후요');
+  await fallback.getByText('오후요',{exact:true}).waitFor();
+  if(await fallback.getByText(reported,{exact:true}).count()!==1)throw Error('Original question lost');
+  console.log('PASS mock SDK HTTP401 -> safe diagnostic/official fallback -> followup/history');await fallback.close();
+
   const voice=await browser.newPage({viewport:{width:390,height:850},isMobile:true,hasTouch:true});
   await ready(voice);
   await voice.getByRole('button',{name:'마이크로 말하기',exact:true}).click();

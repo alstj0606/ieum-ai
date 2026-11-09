@@ -32,6 +32,14 @@ class Handler(BaseHTTPRequestHandler):
         content_type = "application/json"
         if self.path == "/v1/responses":
             context = json.loads(json.loads(body)["input"])
+            # Deliberately simulate auth rejection for the reported question. Not a real API diagnosis.
+            if context["current_utterance"] == "강서구에서 어르신이 참여할 수 있는 운동을 추천해줘":
+                self.send_response(401)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"error":{"code":"invalid_api_key", "type":"invalid_request_error",
+                    "message":"provider-private-canary-no-log"}}).encode())
+                return
             request = basic_extract(context["current_utterance"], {
                 "pending": context["pending"], "conditions": context["current_conditions"],
             })

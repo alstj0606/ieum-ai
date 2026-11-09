@@ -2,7 +2,7 @@
 (() => {
   if (window.ieumChatObserver) window.ieumChatObserver.disconnect();
   const names = {
-    stChatInputMicButton:'마이크로 말하기', stChatInputSubmitButton:'질문 전송',
+    stChatInputSubmitButton:'질문 전송',
     stChatInputCancelButton:'녹음 취소', stChatInputApproveButton:'말하기 끝내기'
   };
   const update = () => {
@@ -30,25 +30,25 @@
     const input=root.querySelector('textarea');
     const mic=root.querySelector('[data-testid="stChatInputMicButton"]');
     if(input && mic) {
-      // Guard the actual control as well as hiding it while a draft exists.
-      if(input.value.trim() && !mic.dataset.draftDisabled) {
-        mic.dataset.wasDisabled=mic.disabled?'1':'0';mic.dataset.draftDisabled='1';mic.disabled=true;
-      } else if(!input.value.trim() && mic.dataset.draftDisabled) {
-        mic.disabled=mic.dataset.wasDisabled==='1';delete mic.dataset.draftDisabled;
-      }
-      if(!root.querySelector('#ieum-voice-back')) {
-        const back=document.createElement('button');
-        back.id='ieum-voice-back';back.type='button';back.textContent='🎤';
-        back.setAttribute('aria-label','음성 입력으로 돌아가기');back.title='글을 비우고 음성 입력으로 돌아가기';
-        back.onclick=()=>{
-          const setter=Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value').set;
-          const current=root.querySelector('textarea');
-          if(!current)return;
-          setter.call(current,'');current.dispatchEvent(new Event('input',{bubbles:true}));
-          // Returning to voice does not begin recording. A second deliberate press is required.
-          setTimeout(()=>root.querySelector('[data-testid="stChatInputMicButton"]')?.focus(),0);
-        };
-        mic.parentElement.prepend(back);
+      const hasText=!!input.value.trim();
+      root.dataset.hasText=String(hasText);
+      const name=hasText?'음성 입력으로 돌아가기':'마이크로 말하기';
+      mic.setAttribute('aria-label',name);mic.title=name;
+      // Reuse the native control, never insert a sibling into React-owned DOM.
+      if(!mic.dataset.ieumBound) {
+        mic.dataset.ieumBound='1';
+        mic.addEventListener('click',event=>{
+          const owner=mic.closest('[data-testid="stChatInput"]');
+          const current=owner?.querySelector('textarea');
+          if(current?.value.trim()) {
+            event.preventDefault();event.stopImmediatePropagation();
+            const setter=Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value').set;
+            setter.call(current,'');current.dispatchEvent(new Event('input',{bubbles:true}));
+            setTimeout(()=>mic.focus(),0);
+          } else {
+            document.querySelectorAll('audio').forEach(audio=>audio.pause());
+          }
+        },true);
       }
     }
   };
