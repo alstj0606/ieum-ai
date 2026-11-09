@@ -268,3 +268,17 @@ class AppFlowTest(TestCase):
             self.assertTrue(any('현재 이용 가능 여부 미확인' in x.value for x in app.chat_message[-1].markdown))
             self.assertTrue(any('확인일:' in x.value for x in app.chat_message[-1].markdown))
             self.assertFalse(any(x.key and x.key.startswith('apply_') for x in app.button))
+
+    def test_walking_alternative_buttons_consent_and_closed_reference(self):
+        with patch('services.config.load_settings',return_value=Settings()):
+            app=AppTest.from_file(APP).run()
+            app.chat_input(key='chat').set_value('가벼운 걷기 프로그램을 찾아주세요').run()
+            app.button(key='choose_region').click().run()
+            self.assertFalse(app.exception)
+            self.assertTrue(app.session_state['dialog']['alternatives'])
+            app.button(key='expand_no').click().run()
+            self.assertEqual(app.session_state['dialog']['code'],'expansion_declined')
+            app.button(key='alternative_파크골프').click().run()
+            self.assertTrue(app.session_state['dialog']['results'])
+            self.assertEqual(app.session_state['dialog']['conditions']['region'],'강서구')
+            self.assertFalse(app.exception)

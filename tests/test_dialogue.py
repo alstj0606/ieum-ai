@@ -59,7 +59,7 @@ class DialogueTest(TestCase):
         state = self.turn(state, "강서구요")
         self.assertEqual(state["conditions"]["activity_type"], "수영")
         self.assertEqual(state["code"], "no_match")
-        self.assertIsNone(state["pending"])
+        self.assertEqual(state["pending"], "expand_region")
         self.assertIn("자료", state["message"])
         self.assertEqual(state["mode"], "basic")
 

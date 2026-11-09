@@ -4,6 +4,7 @@ from copy import deepcopy
 import re
 
 from services.ai import AIError, empty_extraction, extract_conditions, validate_extraction
+from services.alternative_paths import related_options, adjacent_search, local_rows, district, NEIGHBOURS
 from services.recommendations import recommend
 from services.activity_guidance import suggestions, route_intent, supported_region, facility_references, IDEAS
 
@@ -19,7 +20,7 @@ QUESTIONS = {
 def new_state():
     return {"conditions": {}, "any_fields": [], "history": [], "pending": None,
             "results": [], "references": [], "selected_id": None, "mode": "basic",
-            "message": "원하는 활동이나 지금 상황을 편하게 말씀해 주세요.", "code": "start", "error": None, "diagnostic": None, "notice": None, "ideas": [], "facilities": [], "flow":"program", "routing_intent":"search_program", "empty_count":0}
+            "message": "원하는 활동이나 지금 상황을 편하게 말씀해 주세요.", "code": "start", "error": None, "diagnostic": None, "notice": None, "ideas": [], "facilities": [], "flow":"program", "routing_intent":"search_program", "empty_count":0, "alternatives":[], "expansion_consent":None, "expanded":False}
 
 
 def basic_extract(text, state):
@@ -137,7 +138,7 @@ def _reply(state, message, code, pending=None):
 
 def _ideas(state, *, different=False):
     old=[x['id'] for x in state.get('ideas',[])] if different else []
-    state.update(ideas=suggestions(state['conditions'],previous=old),facilities=[],results=[],references=[],selected_id=None,flow='ideas')
+    state.update(alternatives=[],expanded=False,ideas=suggestions(state['conditions'],previous=old),facilities=[],results=[],references=[],selected_id=None,flow='ideas')
     notes=[]
     if different and state['ideas'] and all(x['id'] in old for x in state['ideas']):notes.append('이 조건에서는 다른 제안이 아직 적어요. 다른 활동 찾기로 종류를 넓힐 수 있어요.')
     if state['conditions'].get('time_slot'):notes.append(state['conditions']['time_slot']+' 선호를 기억했어요. 운영시간이 확정된 제안은 아니에요.')
@@ -148,11 +149,11 @@ def _ideas(state, *, different=False):
 
 
 def _search(state, activities, as_of):
-    state.update(flow='program',ideas=[],facilities=[])
-    if state['conditions'].get('region') and not supported_region(state['conditions']['region']):
+    state.update(flow='program',ideas=[],facilities=[],alternatives=[],expanded=False)
+    if state['conditions'].get('region') and not supported_region(state['conditions']['region']) and not local_rows(activities,state['conditions']['region']):
         state.update(results=[],references=[],selected_id=None,ideas=suggestions(state['conditions']))
         return _reply(state,'현재 확인된 공식 자료는 서울 강서구만 있어요. 요청하신 지역을 실시간 검색한 것은 아니에요. 일반 활동을 고르거나 서울 강서구 자료로 바꿔볼까요?', 'unsupported_region')
-    outcome = recommend(activities, state["conditions"], as_of=as_of)
+    outcome = recommend(local_rows(activities,state["conditions"].get("region")) if district(state["conditions"].get("region")) else activities, state["conditions"], as_of=as_of)
     state.update(results=outcome["results"], references=outcome["references"], selected_id=None)
     if state['conditions'].get('mobility'):
         for row in state['results']+state['references']:
@@ -165,8 +166,31 @@ def _search(state, activities, as_of):
         message=f"{kind}에 대해 확인한 결과예요. "+message
         message+=(' 아래는 실제 강좌와 구분한 다른 활동 아이디어예요. 골라서 이어갈 수 있어요.' if state['empty_count']==1
                   else ' 같은 조건에서 새로 확인한 프로그램은 없어요. 다른 활동을 고르거나 시간 조건을 풀어볼 수 있어요.')
+        state['alternatives']=related_options(activities,state['conditions'],as_of=as_of)
+        if state['alternatives']:
+            message=(f"{kind}에 정확히 맞는 신청 가능한 강좌는 확인하지 못했어요. 목적이 이어지는 대안을 골라 공식 자료를 볼 수 있어요." if state['empty_count']==1
+                     else '같은 조건에서 새 프로그램은 확인되지 않았어요. 아래 대안을 고르거나 시간 조건을 풀어볼 수 있어요.')
+        if state.get('expansion_consent') != state['conditions'].get('region') and district(state['conditions'].get('region')) in NEIGHBOURS:
+            message=message.split(' 다른 활동으로 찾아볼까요?')[0]
+            message=message.replace('다른 시간이나 활동으로 찾아볼까요?', '')
+            message=message.replace('?', '.')
+            message+=' 인접 지역의 저장된 공식 자료까지 확인할까요?'
+            return _reply(state,message,outcome['code'],'expand_region')
     else:state['empty_count']=0
     return _reply(state, message, outcome["code"])
+
+
+def choose_alternative(state, activity_type, activities, settings, *, as_of=None):
+    allowed={item['activity_type'] for item in state.get('alternatives',[])}
+    if activity_type not in allowed:
+        raise ValueError('현재 제안한 대안을 골라주세요.')
+    state=deepcopy(state)
+    for field in ('activity_type','category','tags'):
+        state['conditions'].pop(field,None)
+    request=empty_extraction('search_program')
+    request['conditions']['activity_type']=activity_type
+    request['update_fields']=['activity_type']
+    return handle_turn(state,activity_type+' 프로그램을 찾아주세요',activities,settings,extraction=request,as_of=as_of)
 
 
 def choose_idea(state, idea_id, activities, settings, *, as_of=None):
@@ -191,7 +215,10 @@ def application_guide(state, activities, *, selected_id=None, as_of=None):
     if choice not in allowed:
         return _reply(state, "어떤 활동의 신청 방법을 볼까요? 결과 카드의 ‘이 활동 신청 방법’을 눌러주세요.", "choose", "selection")
     # 이전 결과도 기준 시점·조건을 다시 검사해 마감된 활동을 신청 가능한 것처럼 안내하지 않는다.
-    current = recommend([row for row in activities if row["id"] == choice], state["conditions"], as_of=as_of)
+    check_conditions=dict(state['conditions'])
+    if state.get('expanded'):
+        check_conditions['region']=next(row['region'] for row in state['results'] if row['id']==choice)
+    current = recommend([row for row in activities if row["id"] == choice], check_conditions, as_of=as_of)
     if not current["results"]:
         state.update(results=[], selected_id=None)
         return _reply(state, current["message"], current["code"])
@@ -208,6 +235,19 @@ def handle_turn(state, text, activities, settings, *, client=None, as_of=None, e
     state = deepcopy(state)
     state.update(error=None, diagnostic=None, notice=None)
     previous_flow=state.get("flow","program")
+    if state.get('pending') == 'expand_region' and re.sub(r'\s+', '', text).rstrip('.!?') in {'네','예','좋아요','인접지역도확인','아니요','아니','강서구만볼게요','이지역만볼게요'}:
+        agree=re.sub(r'\s+', '', text).rstrip('.!?') in {'네','예','좋아요','인접지역도확인'}
+        state['history'].append({'role':'user','content':text})
+        state['expansion_consent']=state['conditions'].get('region')
+        if not agree:
+            return _reply(state,'지역을 넓히지 않을게요. 같은 지역의 대안이나 일반 활동을 골라볼까요?', 'expansion_declined')
+        outcome=adjacent_search(activities,state['conditions'],consent=True,as_of=as_of)
+        if outcome['results'] or outcome['references']:
+            state.update(expanded=True,results=outcome['results'],references=outcome['references'],selected_id=None,alternatives=[],ideas=[])
+            return _reply(state,'동의하신 인접 지역의 저장된 공식 자료예요. 접수 상태와 이동 방법을 확인해 주세요.', 'expanded_found')
+        coverage=' · '.join(outcome['covered'])
+        message=(f"{coverage}의 저장된 자료에서도 조건에 맞는 프로그램을 확인하지 못했어요." if coverage else '인접 지역의 검증된 프로그램 자료가 아직 없어 실제 결과를 안내할 수 없어요.')
+        return _reply(state,message+' 실시간 웹 검색은 하지 않았어요. 같은 지역 대안이나 일반 활동을 골라볼까요?', 'expansion_empty')
     if not text.strip():
         state["error"] = "질문을 먼저 적어주세요"
         return state
@@ -280,7 +320,7 @@ def handle_turn(state, text, activities, settings, *, client=None, as_of=None, e
     if intent == "change_activity":
         for key in ("activity_type", "category", "tags", "purpose", "beginner"):
             state["conditions"].pop(key, None)
-        state.update(results=[], references=[], selected_id=None,facilities=[],ideas=suggestions(state["conditions"],previous=[x["id"] for x in state.get("ideas",[])]),flow="ideas")
+        state.update(alternatives=[],expanded=False,results=[], references=[], selected_id=None,facilities=[],ideas=suggestions(state["conditions"],previous=[x["id"] for x in state.get("ideas",[])]),flow="ideas")
         return _reply(state, QUESTIONS["activity_type"], "question", "activity_type")
     if intent == "change_time":
         return _reply(state, QUESTIONS["time_slot"], "question", "time_slot")
@@ -293,7 +333,7 @@ def handle_turn(state, text, activities, settings, *, client=None, as_of=None, e
     if intent == 'recommend_activity':
         return _ideas(state,different=different)
     if intent == 'find_facility':
-        state.update(flow='facility',ideas=[],results=[],references=[],selected_id=None)
+        state.update(alternatives=[],expanded=False,flow='facility',ideas=[],results=[],references=[],selected_id=None)
         if not state['conditions'].get('region'):
             state['facilities']=[]
             if 'region' in state['any_fields']:
@@ -317,7 +357,7 @@ def handle_turn(state, text, activities, settings, *, client=None, as_of=None, e
         return _reply(state, "신청은 자동으로 진행되지 않아요. 원하는 조건을 말씀하거나 아래 버튼을 골라주세요.", "clarify", state["pending"])
     if intent == "other":
         return _reply(state, "어떤 활동을 찾고 싶으세요? 운동, 만들기, 공연처럼 말씀해 주세요.", "clarify")
-    state.update(ideas=[],facilities=[],flow="program")
+    state.update(alternatives=[],ideas=[],facilities=[],flow="program")
     conditions = state["conditions"]
     if not conditions.get("region") and "region" not in state["any_fields"]:
         state.update(results=[], references=[])
@@ -331,7 +371,7 @@ def handle_turn(state, text, activities, settings, *, client=None, as_of=None, e
 def manual_search(state, activities, *, category=None, time_slot=None, as_of=None):
     state = deepcopy(state)
     state.update(conditions={"region": "서울 강서구"}, any_fields=[], history=[],
-                 pending=None, error=None, mode="manual", diagnostic=None, notice=None, ideas=[],facilities=[],flow="program")
+                 pending=None, error=None, alternatives=[],expansion_consent=None,expanded=False,mode="manual", diagnostic=None, notice=None, ideas=[],facilities=[],flow="program")
     # 지역 문자열은 원본 '서울특별시 강서구'와 부분 일치하도록 저장한다.
     state["conditions"]["region"] = "강서구"
     if category:

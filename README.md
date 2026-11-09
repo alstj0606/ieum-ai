@@ -4,6 +4,14 @@
 
 현재 구현은 **일반 활동 아이디어 → 활동 선택 → 검증된 자료 확인 → 공식 신청 방법 안내**입니다. 검색 대상은 서울 강서구 공식 활동 자료 10건이며, 정보 확인일은 2026년 11월 9일입니다. 실시간 잔여석이나 웹 검색을 하지 않습니다.
 
+## 이번 개선: 원하는 강좌가 없을 때
+
+정확한 강좌가 없으면 **같은 지역의 관련 실제 프로그램 → 마감·미확인 참고 자료 → 동의 후 인접 지역 자료 → 일반 아이디어·공식 페이지 경로**로 이어갑니다. 걷기는 야외 운동 목적이 이어지는 파크골프/슬로우조깅 등을 비교하되, 같은 강도나 건강 적합성을 보장하지 않습니다. 큰 대안 버튼으로 선택하면 기존 지역·시간·예산·초보 조건을 유지합니다.
+
+지역 확대는 명시적 동의 후 저장된 자료만 조회합니다. **현재 인접 지역 공식 데이터는 없으므로**, 동의해도 데이터 부족을 알리고 기존 대안을 유지합니다. 실시간 웹·지도 검색, 실제 거리/강도/접근성 평가를 하지 않습니다. 공식 데이터 10건과 정보 확인일은 그대로이며, 실제 사이트의 새 자료를 검증했다고 주장하지 않습니다.
+
+[대안 추천·지역 확대·데이터 확장 계약](docs/alternative-paths.md)
+
 ## 구현된 기능
 
 - 일반 활동 제안: 걷기·수중운동·체조·파크골프·수영·그림/만들기·식물 가꾸기·공연·인문학의 사전 작성 목록에서 최대 3개를 선택합니다. 실제 모집 프로그램과 명확히 구분합니다.
@@ -32,7 +40,7 @@
 
 ## 검증과 설정
 
-자동 테스트 **100개**, Chromium/Playwright **16개 흐름**을 로컬/모의 API로 검사합니다. 실제 Gemini/OpenAI 실호출·한국어 품질·iPad/iPhone Safari·Android Chrome 실기기·이번 변경의 Community Cloud 배포는 미검증입니다. 화면 크기 검사를 실기기 검증으로 간주하지 않습니다.
+자동 테스트 **112개**, Chromium/Playwright **19개 흐름**을 로컬/모의 API로 검사합니다. 실제 Gemini/OpenAI 실호출·한국어 품질·iPad/iPhone Safari·Android Chrome 실기기·이번 변경의 Community Cloud 배포는 미검증입니다. 화면 크기 검사를 실기기 검증으로 간주하지 않습니다.
 
 [활동 추천 흐름·데이터 경계·검증](docs/activity-guidance.md) · [Gemini Secrets](docs/gemini-setup.md) · [404 진단](docs/gemini-model-diagnostics.md) · [고정 문장 생성 비교](docs/gemini-generation-probe.md)
 
@@ -56,6 +64,7 @@ app.py                       # 대화·공식 카드·예시 체험·음성 UI
 services/activities.py       # 공식 데이터 검증·검색·접수 상태
 services/recommendations.py  # 조건·자격·예산 점검과 사실 안내
 services/dialogue.py         # 대화 상태·추천/시설/프로그램 흐름·추가 질문
+services/alternative_paths.py # 같은 지역 대안과 동의 기반 인접 지역 조회
 services/activity_guidance.py # 일반 활동 목록·개인 조건 정렬·공식 자료 기반 시설 참조
 services/ai.py               # Gemini 구조화 조건 추출과 기존 응답 검증
 services/voice.py            # STT·TTS, 실패·입력 크기 처리
