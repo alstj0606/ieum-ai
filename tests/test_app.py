@@ -28,7 +28,7 @@ class AppFlowTest(TestCase):
             self.assertLessEqual(len(state['results']),3)
             for row in state['results']:
                 self.assertTrue(any(row['name']==item.value for item in app.chat_message[-1].subheader))
-                self.assertTrue(any(row['schedule']['text'] in item.value for item in app.chat_message[-1].markdown))
+                self.assertTrue(any(row['schedule']['text'].replace('~', '\\~') in item.value for item in app.chat_message[-1].markdown))
             before=state['results']
             app.button(key='demo_example').click().run()
             self.assertEqual(app.session_state['dialog']['results'],before)
@@ -52,7 +52,9 @@ class AppFlowTest(TestCase):
             app.chat_input(key='chat').set_value('다른 시간에요').run()
             self.assertEqual(app.session_state['dialog']['conditions'],before)
             self.assertEqual(app.session_state['turns'][-1]['user'],'다른 시간에요')
-            self.assertTrue(any('AI 연결' in x.value for x in app.warning))
+            self.assertEqual(app.session_state['dialog']['mode'],'fallback')
+            self.assertEqual(app.session_state['dialog']['diagnostic']['code'],'timeout')
+            self.assertTrue(any('기본 키워드' in x.value for x in app.info))
             self.assertFalse(any('sensitive response' in x.value for x in app.warning))
 
     def test_stt_failure_allows_text_search(self):
@@ -159,3 +161,23 @@ class AppFlowTest(TestCase):
             self.assertEqual(app.session_state['transcript'],'강서구 국악')
             self.assertTrue(any('음성 안내 실패' in x.value for x in app.warning))
             self.assertEqual(tts.call_count,1)
+
+    def test_reported_question_auth_failure_shows_safe_fallback_inside_chat(self):
+        import httpx2
+        from openai import AuthenticationError
+        client=Mock()
+        client.responses.create.side_effect=AuthenticationError(
+            'private-provider-canary',
+            response=httpx2.Response(401,request=httpx2.Request('POST','https://api.openai.com/v1/responses')),
+            body={'code':'invalid_api_key','message':'private-provider-canary'})
+        text='강서구에서 어르신이 참여할 수 있는 운동을 추천해줘'
+        with patch('services.config.load_settings',return_value=Settings(api_key='mock-test-only')),patch('services.ai.make_client',return_value=client):
+            app=AppTest.from_file(APP).run()
+            app.chat_input(key='chat').set_value(text).run()
+            self.assertFalse(app.exception)
+            state=app.session_state['dialog']
+            self.assertEqual(state['diagnostic']['code'],'authentication')
+            self.assertTrue(state['results'])
+            self.assertEqual(app.session_state['turns'][-1]['user'],text)
+            self.assertTrue(any('기본 키워드' in x.value for x in app.chat_message[-1].info))
+            self.assertFalse(any('private-provider-canary' in x.value for x in app.markdown))

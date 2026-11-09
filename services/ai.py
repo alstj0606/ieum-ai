@@ -1,8 +1,10 @@
 """LLM은 조건 추출만 한다. 프로그램 사실·답변·URL을 생성하지 않는다."""
 
 import json
+import logging
 
 from services.config import Settings
+from services.diagnostics import DIAGNOSTICS, classify_error
 
 
 FIELDS = {
@@ -53,16 +55,22 @@ tags는 사용자가 분명히 요구한 관심만 제공된 태그에서 선택
 
 class AIError(Exception):
     """외부 오류 원문·키·사용자 내용을 포함하지 않는 화면용 오류."""
+    def __init__(self, message=None, *, code="response_format"):
+        self.code = code if code in DIAGNOSTICS else "unknown"
+        super().__init__(message or DIAGNOSTICS[self.code])
 
 
 def make_client(settings: Settings):
     if not settings.api_key:
-        raise AIError("AI 연결 키가 없어요. 아래 조건 검색과 예시 체험을 이용해 주세요.")
+        raise AIError(code="key_missing")
     try:
         from openai import OpenAI
-        return OpenAI(api_key=settings.api_key, timeout=20.0, max_retries=0)
+        # SDK debug logging may include request bodies. Diagnostics are fixed codes instead.
+        for name in ("openai", "openai._base_client", "httpx", "httpcore", "httpx2", "httpcore2"):
+            logging.getLogger(name).setLevel(logging.CRITICAL)
+        return OpenAI(api_key=settings.api_key, timeout=30.0, max_retries=0)
     except Exception:
-        raise AIError("AI 연결 설정을 읽지 못했어요. 조건 검색을 이용하거나 서버 설정을 확인해 주세요.") from None
+        raise AIError(code="configuration") from None
 
 
 def validate_extraction(payload):
@@ -137,14 +145,31 @@ def extract_conditions(text, state, activities, settings, *, client=None):
             text={"format": {"type": "json_schema", "name": "activity_conditions",
                              "schema": SCHEMA, "strict": True}},
             max_output_tokens=2000, store=False,
-            **({"reasoning": {"effort": "low"}} if settings.model.startswith(("gpt-5", "gpt-6")) else {}),
+            # Explicitly verified models only. Do not guess support from a prefix.
+            **({"reasoning": {"effort": "none"}} if settings.model in {
+                "gpt-5.4-mini", "gpt-5.4-mini-2026-03-17"
+            } else {}),
         )
-        if response.status != "completed" or not response.output_text:
-            raise AIError("AI가 조건을 끝까지 이해하지 못했어요. 다시 시도해 주세요.")
-        payload = json.loads(response.output_text)
+        if response.status != "completed":
+            if response.status == "failed":
+                raise AIError(code="service")
+            reason = getattr(getattr(response, "incomplete_details", None), "reason", None)
+            raise AIError(code="output_limit" if reason == "max_output_tokens" else "incomplete")
+        output = getattr(response, "output", [])
+        if isinstance(output, list) and any(
+            getattr(part, "type", None) == "refusal"
+            for item in output for part in (getattr(item, "content", None) or [])
+        ):
+            raise AIError(code="refused")
+        if not isinstance(response.output_text, str) or not response.output_text:
+            raise AIError(code="response_format")
+        try:
+            payload = json.loads(response.output_text)
+        except (ValueError, TypeError):
+            raise AIError(code="response_format") from None
     except AIError:
         raise
-    except Exception:
-        # SDK 오류 메시지/응답 본문은 로그와 화면에 노출하지 않는다.
-        raise AIError("AI 연결이 지연되거나 실패했어요. 다시 시도하거나 조건 검색을 이용해 주세요.") from None
+    except Exception as error:
+        # Only a fixed category escapes. Never log/retain provider error text or body.
+        raise AIError(code=classify_error(error)) from None
     return validate_extraction(payload)

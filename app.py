@@ -9,6 +9,7 @@ import streamlit as st
 
 from services.activities import load_activities
 from services.config import load_settings
+from services.diagnostics import DIAGNOSTICS
 from services.dialogue import new_state, handle_turn, manual_search, application_guide, basic_extract
 from services.recommendations import activity_facts, speech_text
 from services.voice import transcribe, synthesize, VoiceError
@@ -101,6 +102,8 @@ def prepare(index):
     if state["selected_id"]:
         rows = [row for row in rows if row["id"] == state["selected_id"]]
     spoken = speech_text(state["message"], rows)
+    if state.get("notice"):
+        spoken = state["notice"] + " " + spoken
     try:
         with st.spinner("음성 안내를 준비하고 있어요…"):
             data = synthesize(spoken, settings, speed=0.7 if state.get("slow_read") else 0.9)
@@ -118,7 +121,8 @@ def card(row, index, position, *, reference=False, latest=False):
             st.warning("참고 자료예요. 지금 신청 가능하다고 확인된 활동은 아니에요.")
         for label, value in (("장소",row["facility_name"] or "확인 필요"),
                              ("시간",facts["일정"]),("비용",facts["비용"]),("접수 상태",facts["접수 상태"])):
-            st.write(f"**{label}** · {value}")
+            display_value = value.replace("~", "\\~")  # Preserve official date/time ranges in Markdown.
+            st.write(f"**{label}** · {display_value}")
         with st.expander("자세히 보기"):
             for label in ("주소","대상","신청 방법","정보 확인일","접수 참고","비용 참고"):
                 if label in facts:
@@ -187,6 +191,13 @@ for index, turn in enumerate(st.session_state.turns):
         if state["error"]:
             st.warning(state["error"])
         else:
+            if state.get("notice"):
+                st.info(state["notice"])
+            if state.get("diagnostic"):
+                with st.expander("연결 상태 확인"):
+                    code = state["diagnostic"]["code"]
+                    st.write(f"진단 코드: {code}")
+                    st.write(DIAGNOSTICS.get(code, DIAGNOSTICS["unknown"]))
             st.write(state["message"])
             if state["code"]=="demo":
                 demo=state["demo"]
@@ -252,7 +263,7 @@ if st.session_state.transcript:
         st.caption("다시 말하려면 아래 입력창의 마이크를 누르세요. 조건을 모두 바꾸려면 보조 메뉴에서 처음부터 다시 찾으세요.")
 
 # Native pinned composer supports audio submit on stop and text submit without two forms.
-request=st.chat_input("하고 싶은 활동을 적거나 말해 주세요",key="chat",accept_audio=True,max_chars=1500)
+request=st.chat_input("질문을 적어주세요",key="chat",accept_audio=True,max_chars=1500)
 if request:
     if getattr(request,"audio",None) is not None:
         submit_voice(request.audio)

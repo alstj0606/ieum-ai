@@ -125,9 +125,13 @@ class DialogueTest(TestCase):
             client = Mock(); client.responses.create.side_effect = error
             changed = handle_turn(state, "오후요", self.rows, Settings(api_key="test-only"),
                                   client=client, as_of=DAY)
-            self.assertEqual(changed["conditions"], before["conditions"])
-            self.assertEqual(changed["results"], before["results"])
-            self.assertNotIn("secret-not-to-show", changed["error"])
+            self.assertEqual(changed["conditions"], {**before["conditions"], "time_slot":"오후"})
+            self.assertEqual(state, before)  # caller state is never mutated
+            self.assertEqual(changed["history"][:-2], before["history"])
+            self.assertEqual(changed["history"][-2]["content"], "오후요")
+            self.assertEqual(changed["mode"], "fallback")
+            self.assertIsNone(changed["error"])
+            self.assertNotIn("secret-not-to-show", json.dumps(changed, ensure_ascii=False))
 
     def test_incomplete_refused_and_invalid_json(self):
         client = mock_client({})

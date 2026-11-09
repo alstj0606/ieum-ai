@@ -7,23 +7,23 @@
 .stButton button p,.stLinkButton a p {font-size:20px!important}
 .stChatMessage {padding:12px 8px;min-width:0}
 .stChatMessage [data-testid=stChatMessageContent] {min-width:0;width:100%}
-.stChatInput textarea {font-size:20px!important;min-width:0;line-height:1.5}
-.stChatInput {border:2px solid #526d88;border-radius:18px}
-.stChatInput button {min-width:56px;min-height:64px;color:#10375c}
-.stChatInput button[data-testid=stChatInputMicButton],.stChatInput button[data-testid=stChatInputSubmitButton] {min-height:80px;min-width:80px;background:#eaf4ff;border-radius:12px}
-.stChatInput button[data-testid=stChatInputMicButton]::after {content:'말하기';font-size:18px}
-.stChatInput button[data-testid=stChatInputSubmitButton]::after {content:'전송';font-size:18px}
-.stChatInput button {flex-direction:column;gap:4px}
+.stChatInput {border:2px solid #526d88;border-radius:24px;background:#fff;padding:6px;box-sizing:border-box;display:flex;flex-direction:column}
+.stChatInput>div {background:transparent!important;border:0!important;width:100%;min-width:0}
+.stChatInput>div>div {display:flex;align-items:center;gap:6px;min-width:0}
+.stChatInput>div>div>div:first-child:has(textarea) {flex:1 1 0;min-width:0;padding:8px 4px}
+.stChatInput>div>div>div:last-child {display:flex;align-items:center;gap:4px;flex:0 0 auto}
+.stChatInput textarea {font-size:20px!important;min-width:0;line-height:1.5;min-height:32px;background:transparent;padding:0!important}
+.stChatInput button {box-sizing:border-box;flex:0 0 auto;color:#10375c;border:0}
+.stChatInput button[data-testid=stChatInputMicButton],.stChatInput button[data-testid=stChatInputSubmitButton] {width:64px;height:64px;min-height:64px;min-width:64px;border-radius:50%;background:#eaf4ff;display:flex;align-items:center;justify-content:center;padding:12px}
+.stChatInput button svg {width:28px;height:28px}
 .stChatInput button[data-testid=stChatInputSubmitButton]:disabled {display:none}
-.stChatInput:has(textarea:not(:placeholder-shown)) button[data-testid=stChatInputMicButton] {display:none}
-.stChatInput:has(button[data-testid=stChatInputApproveButton])::before {content:'🔴 듣고 있어요';display:block;font-size:22px;font-weight:bold;color:#233a50;padding:12px}
-.stChatInput button[data-testid=stChatInputApproveButton] {min-width:110px;min-height:80px;background:#eaf4ff}
+.stChatInput[data-has-text=true] button[data-testid=stChatInputMicButton] {width:44px;height:44px;min-width:44px;min-height:44px;background:transparent;padding:8px}
+.stChatInput:has(button[data-testid=stChatInputApproveButton])::before {content:'🔴 듣고 있어요';display:block;font-size:22px;font-weight:bold;color:#233a50;padding:6px 12px}
+.stChatInput button[data-testid=stChatInputApproveButton] {min-width:132px;min-height:64px;border-radius:16px;background:#eaf4ff;display:flex;align-items:center;gap:4px;padding:8px}
 .stChatInput button[data-testid=stChatInputApproveButton]::after {content:'말하기 끝내기';font-size:18px}
-.stChatInput button[data-testid=stChatInputCancelButton]::after {content:'취소';font-size:18px}
+.stChatInput button[data-testid=stChatInputCancelButton] {min-width:48px;min-height:48px;border-radius:50%;background:transparent}
 button:focus-visible,a:focus-visible,textarea:focus-visible {outline:3px solid #0067b8!important;outline-offset:2px}
 .stExpander summary {min-height:56px}
 .stMain [data-testid=stCaptionContainer] p {color:#384454}
 [id^=latest-reply-] {scroll-margin-top:70px}
-#ieum-voice-back {display:none;background:white;border:1px solid #526d88;border-radius:10px;font-size:16px;min-width:48px;min-height:56px}
-.stChatInput:has(textarea:not(:placeholder-shown)) #ieum-voice-back {display:block}
 @media(max-width:400px) {.stMainBlockContainer {padding-left:8px;padding-right:8px}.stChatMessage [data-testid=stChatMessageAvatarUser],.stChatMessage [data-testid=stChatMessageAvatarAssistant] {display:none}}
