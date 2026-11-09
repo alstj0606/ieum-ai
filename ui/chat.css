@@ -1,0 +1,29 @@
+.stMainBlockContainer {max-width:760px;padding:4rem 1rem 13rem}
+.stMain h1 {font-size:2rem}
+.stMain p,.stMain label p,.stMain .stText pre {font-size:20px!important;line-height:1.65;overflow-wrap:anywhere}
+.stMain .stText pre {white-space:pre-wrap;font-family:inherit}
+.stMain h3 {font-size:23px;overflow-wrap:anywhere}
+.stButton button,.stLinkButton a,.stFormSubmitButton button,.stPopover button {min-height:56px;border-radius:12px}
+.stButton button p,.stLinkButton a p {font-size:20px!important}
+.stChatMessage {padding:12px 8px;min-width:0}
+.stChatMessage [data-testid=stChatMessageContent] {min-width:0;width:100%}
+.stChatInput textarea {font-size:20px!important;min-width:0;line-height:1.5}
+.stChatInput {border:2px solid #526d88;border-radius:18px}
+.stChatInput button {min-width:56px;min-height:64px;color:#10375c}
+.stChatInput button[data-testid=stChatInputMicButton],.stChatInput button[data-testid=stChatInputSubmitButton] {min-height:80px;min-width:80px;background:#eaf4ff;border-radius:12px}
+.stChatInput button[data-testid=stChatInputMicButton]::after {content:'말하기';font-size:18px}
+.stChatInput button[data-testid=stChatInputSubmitButton]::after {content:'전송';font-size:18px}
+.stChatInput button {flex-direction:column;gap:4px}
+.stChatInput button[data-testid=stChatInputSubmitButton]:disabled {display:none}
+.stChatInput:has(textarea:not(:placeholder-shown)) button[data-testid=stChatInputMicButton] {display:none}
+.stChatInput:has(button[data-testid=stChatInputApproveButton])::before {content:'🔴 듣고 있어요';display:block;font-size:22px;font-weight:bold;color:#233a50;padding:12px}
+.stChatInput button[data-testid=stChatInputApproveButton] {min-width:110px;min-height:80px;background:#eaf4ff}
+.stChatInput button[data-testid=stChatInputApproveButton]::after {content:'말하기 끝내기';font-size:18px}
+.stChatInput button[data-testid=stChatInputCancelButton]::after {content:'취소';font-size:18px}
+button:focus-visible,a:focus-visible,textarea:focus-visible {outline:3px solid #0067b8!important;outline-offset:2px}
+.stExpander summary {min-height:56px}
+.stMain [data-testid=stCaptionContainer] p {color:#384454}
+[id^=latest-reply-] {scroll-margin-top:70px}
+#ieum-voice-back {display:none;background:white;border:1px solid #526d88;border-radius:10px;font-size:16px;min-width:48px;min-height:56px}
+.stChatInput:has(textarea:not(:placeholder-shown)) #ieum-voice-back {display:block}
+@media(max-width:400px) {.stMainBlockContainer {padding-left:8px;padding-right:8px}.stChatMessage [data-testid=stChatMessageAvatarUser],.stChatMessage [data-testid=stChatMessageAvatarAssistant] {display:none}}

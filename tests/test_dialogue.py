@@ -252,6 +252,15 @@ class VoiceTest(TestCase):
         self.assertEqual(synthesize(text, Settings(), client=client), b"mock-audio")
         self.assertEqual(client.audio.speech.create.call_args.kwargs["input"], text)
 
+    def test_tts_slow_speed_and_invalid_speed(self):
+        client = Mock()
+        client.audio.speech.create.return_value.read.return_value = b"mock-audio"
+        synthesize("접수 마감. 비용은 확인 필요.", Settings(), client=client, speed=0.7)
+        self.assertEqual(client.audio.speech.create.call_args.kwargs["speed"], 0.7)
+        self.assertEqual(client.audio.speech.create.call_args.kwargs["input"], "접수 마감. 비용은 확인 필요.")
+        with self.assertRaises(VoiceError):
+            synthesize("안내", Settings(), client=client, speed=5)
+
     def test_tts_error_empty_text_and_missing_key(self):
         client = Mock(); client.audio.speech.create.side_effect = RuntimeError("secret")
         with self.assertRaises(VoiceError) as error:

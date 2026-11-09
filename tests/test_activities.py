@@ -220,22 +220,16 @@ class ExistingAppTest(unittest.TestCase):
         app = AppTest.from_file(str(ROOT / "app.py")).run()
         self.assertFalse(app.exception)
         self.assertEqual(app.title[0].value, "이음 AI")
-        self.assertEqual(app.header[0].value, "오늘은 어떤 활동을 찾으세요?")
-        app.button(key="submit_question").click().run()
+        app.chat_input(key="chat").set_value("   ").run()
         self.assertTrue(any(item.value == "질문을 먼저 적어주세요" for item in app.warning))
         app.button(key="demo_example").click().run()
         self.assertFalse(app.exception)
-        self.assertEqual(app.text_area(key="question").value, "수영을 처음 배우는데 할 수 있어?")
         self.assertTrue(any(item.value == program["name"] for item in app.subheader))
         for key in ("audience", "schedule", "fee", "registration_period"):
             self.assertTrue(any(program[key] in item.value for item in app.markdown))
-        # 가상 체험을 공식 검색 결과로 섞지 않는다.
         self.assertEqual(app.session_state["dialog"]["results"], [])
         app.button(key="reset").click().run()
         self.assertFalse(any(item.value == program["name"] for item in app.subheader))
-        app.text_area(key="question").input("   ")
-        app.button(key="submit_question").click().run()
-        self.assertTrue(any(item.value == "질문을 먼저 적어주세요" for item in app.warning))
 
 
 

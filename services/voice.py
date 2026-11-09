@@ -51,7 +51,9 @@ def transcribe(data, settings, *, filename="question.wav", client=None):
         raise VoiceError("음성 변환이 지연되거나 실패했어요. 다시 녹음하거나 글로 적어주세요.") from None
 
 
-def synthesize(text, settings, *, client=None):
+def synthesize(text, settings, *, client=None, speed=0.9):
+    if speed not in (0.7, 0.9):
+        raise VoiceError("지원하지 않는 읽기 속도예요.")
     if not isinstance(text, str) or not text.strip() or len(text) > 4000:
         raise VoiceError("안내가 비어 있거나 너무 길어요. 화면의 글을 확인해 주세요.")
     try:
@@ -59,7 +61,7 @@ def synthesize(text, settings, *, client=None):
         response = client.audio.speech.create(
             model=settings.tts_model, voice="coral", input=text,
             instructions="한국어로 천천히 또렷하게 읽으세요. 입력 문장을 바꾸거나 정보를 추가하지 마세요.",
-            response_format="mp3", speed=0.9,
+            response_format="mp3", speed=speed,
         )
         data = response.read()
         if not isinstance(data, bytes) or not data or len(data) > 8 * 1024 * 1024:
