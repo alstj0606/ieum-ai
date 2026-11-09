@@ -67,9 +67,16 @@ def submit_voice(audio):
         with st.spinner("말씀을 알아듣고 있어요…"):
             text = transcribe(audio.getvalue(), settings, filename=audio.name)
         st.session_state.transcript = text
+        st.session_state.edit_voice = False
         send(text, voice=True)
     except VoiceError as error:
         st.session_state.voice_error = str(error)
+
+
+def edit_transcript():
+    # Callback runs before widgets: each recording starts with its own transcript.
+    st.session_state.corrected = st.session_state.transcript
+    st.session_state.edit_voice = True
 
 
 def reset():
@@ -227,13 +234,17 @@ for index, turn in enumerate(st.session_state.turns):
 if st.session_state.voice_error:
     st.warning(st.session_state.voice_error)
     st.write("아래 입력창에서 글로 질문하거나 마이크로 다시 말씀해 주세요.")
+if st.session_state.transcript or st.session_state.voice_error:
+    st.html("""<button id="ieum-retry-voice" type="button" aria-label="다시 말하기"
+      style="width:100%;min-height:64px;font-size:20px;border:2px solid #1671c5;
+      border-radius:12px;background:#eaf4ff;color:#102f50">🎤 다시 말하기</button>
+      <p id="ieum-retry-status" role="status" aria-live="polite" style="font-size:20px;color:#384454"></p>""")
 if st.session_state.transcript:
     with st.expander("음성인식이 다르게 되었나요?"):
         st.write(st.session_state.transcript)
-        if st.button("글자 수정하기",key="edit_transcript"):
-            st.session_state.edit_voice=True
+        st.button("글자 수정하기",key="edit_transcript",on_click=edit_transcript)
         if st.session_state.edit_voice:
-            corrected=st.text_area("인식된 문장 수정",value=st.session_state.transcript,key="corrected")
+            corrected=st.text_area("인식된 문장 수정",key="corrected")
             if st.button("고친 질문 보내기",key="submit_correction"):
                 send(corrected)
                 st.session_state.edit_voice=False

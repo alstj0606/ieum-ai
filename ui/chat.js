@@ -12,6 +12,21 @@
       const b=root.querySelector(`[data-testid="${id}"]`);
       if(b && b.getAttribute('aria-label')!==name) {b.setAttribute('aria-label',name);b.title=name;}
     }
+    const retry=document.getElementById('ieum-retry-voice');
+    if(retry) retry.onclick=()=>{
+      const status=document.getElementById('ieum-retry-status');
+      const input=root.querySelector('textarea');
+      const mic=root.querySelector('[data-testid="stChatInputMicButton"]');
+      if(input?.value.trim()) {
+        status.textContent='작성 중인 글이 있어요. 먼저 보내거나 입력창의 작은 마이크로 음성 입력으로 돌아가세요.';
+      } else if(!mic || mic.disabled) {
+        status.textContent='녹음 중이면 말하기 끝내기를 누르세요. 마이크가 안 되면 글로 질문해 주세요.';
+      } else {
+        document.querySelectorAll('audio').forEach(audio=>audio.pause());
+        status.textContent='마이크를 준비해요. 권한 안내가 나오면 허용해 주세요. 안 되면 글로 질문해 주세요.';
+        mic.scrollIntoView({block:'nearest'});mic.focus();mic.click();
+      }
+    };
     const input=root.querySelector('textarea');
     const mic=root.querySelector('[data-testid="stChatInputMicButton"]');
     if(input && mic) {

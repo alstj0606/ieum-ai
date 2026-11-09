@@ -127,3 +127,35 @@ class AppFlowTest(TestCase):
             self.assertEqual(app.session_state['dialog']['code'],'apply')
             self.assertEqual(len(app.chat_message),6)
             self.assertTrue(any('완료된 것은 아니에요' in x.value for x in app.chat_message[-1].markdown))
+
+    def test_new_recording_replaces_previous_correction_draft(self):
+        recording=SimpleNamespace(name='question.wav',getvalue=lambda:b'test')
+        with patch('services.config.load_settings',return_value=Settings()), \
+                patch('services.voice.transcribe',side_effect=['강서구 국악','강서구 가드닝']), \
+                patch('services.voice.synthesize',return_value=b'mock'):
+            with patch('streamlit.chat_input',side_effect=[SimpleNamespace(audio=recording),None]):
+                app=AppTest.from_file(APP).run()
+            app.run()
+            app.button(key='edit_transcript').click().run()
+            app.text_area(key='corrected').input('이전 음성의 수정 초안').run()
+            with patch('streamlit.chat_input',side_effect=[SimpleNamespace(audio=recording),None]):
+                app.run()
+            self.assertFalse(app.session_state['edit_voice'])
+            app.run()
+            app.button(key='edit_transcript').click().run()
+            self.assertFalse(app.exception)
+            self.assertEqual(app.text_area(key='corrected').value,'강서구 가드닝')
+
+    def test_automatic_tts_failure_keeps_results_without_retrying_on_rerun(self):
+        recording=SimpleNamespace(name='question.wav',getvalue=lambda:b'test')
+        with patch('services.config.load_settings',return_value=Settings()), \
+                patch('services.voice.transcribe',return_value='강서구 국악'), \
+                patch('services.voice.synthesize',side_effect=VoiceError('음성 안내 실패')) as tts:
+            with patch('streamlit.chat_input',side_effect=[SimpleNamespace(audio=recording),None]):
+                app=AppTest.from_file(APP).run()
+            app.run()
+            self.assertFalse(app.exception)
+            self.assertTrue(app.session_state['dialog']['results'])
+            self.assertEqual(app.session_state['transcript'],'강서구 국악')
+            self.assertTrue(any('음성 안내 실패' in x.value for x in app.warning))
+            self.assertEqual(tts.call_count,1)

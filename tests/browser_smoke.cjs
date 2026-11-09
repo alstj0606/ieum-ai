@@ -59,7 +59,23 @@ async function main(){
   await voice.getByRole('button',{name:'글자 수정하기',exact:true}).click();
   const edit=voice.getByRole('textbox',{name:'인식된 문장 수정',exact:true});await edit.waitFor();
   if(await edit.inputValue()!=='강서구에서 국악 공연을 보고 싶어요')throw Error('Transcript not editable');
-  console.log('PASS synthetic mic/keyboard stop -> mock STT -> automatic chat/search/TTS/direct playback/stop/edit');await voice.close();
+  await edit.fill('이전 수정 초안');
+  const composer=voice.locator('[data-testid="stChatInputTextArea"]');
+  await composer.fill('작성 중인 글');
+  await voice.getByRole('button',{name:'다시 말하기',exact:true}).click();
+  await voice.getByText('작성 중인 글이 있어요.',{exact:false}).waitFor();
+  if(await composer.inputValue()!=='작성 중인 글')throw Error('Retry erased a draft');
+  if(await voice.getByRole('button',{name:'말하기 끝내기',exact:true}).count())throw Error('Retry started recording over a draft');
+  await voice.getByRole('button',{name:'음성 입력으로 돌아가기',exact:true}).click();
+  await voice.getByRole('button',{name:'다시 말하기',exact:true}).click();
+  await stop.waitFor();await voice.waitForTimeout(1500);await stop.click();
+  await voice.waitForFunction(()=>document.querySelectorAll('[data-testid="stChatMessageAvatarUser"]').length===2);
+  const editButton=voice.getByRole('button',{name:'글자 수정하기',exact:true});
+  if(!await editButton.isVisible()) await voice.getByText('음성인식이 다르게 되었나요?',{exact:true}).click();
+  await editButton.click();
+  await edit.waitFor();
+  if(await edit.inputValue()!=='강서구에서 국악 공연을 보고 싶어요')throw Error('Stale transcript correction draft');
+  console.log('PASS synthetic mic/keyboard stop -> mock STT -> chat/search/TTS/playback/stop/edit/retry/draft guard');await voice.close();
 
   for(const error of ['NotAllowedError','NotReadableError','unsupported']){
    const p=await browser.newPage({viewport:{width:390,height:850}});
