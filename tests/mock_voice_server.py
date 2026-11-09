@@ -13,6 +13,7 @@ import struct
 import wave
 
 from services.dialogue import basic_extract
+from services.generation_probe import PROBE_TEXT
 
 
 def tone():
@@ -44,7 +45,20 @@ class Handler(BaseHTTPRequestHandler):
         body = self.rfile.read(int(self.headers.get("Content-Length", "0")))
         content_type = "application/json"
         if self.path == "/v1beta/models/gemini-2.5-flash:generateContent":
-            context = json.loads(json.loads(body)["contents"][0]["parts"][0]["text"])
+            incoming = json.loads(body)
+            if 'responseJsonSchema' not in incoming.get('generationConfig', {}):
+                self.send_response(200)
+                self.send_header('Content-Type','application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({'candidates':[{'content':{'parts':[{'text':'private-response-canary'}]},'finishReason':'STOP'}]}).encode())
+                return
+            context = json.loads(incoming["contents"][0]["parts"][0]["text"])
+            if context['current_utterance'] == PROBE_TEXT:
+                self.send_response(404)
+                self.send_header('Content-Type','application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({'error':{'code':404,'message':'private-response-canary'}}).encode())
+                return
             # Deliberate free-quota simulation, not a diagnosis of a real Google project.
             if context["current_utterance"] == "강서구에서 어르신이 참여할 수 있는 운동을 추천해줘":
                 self.send_response(429)

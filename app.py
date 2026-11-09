@@ -11,6 +11,7 @@ from services.activities import load_activities
 from services.config import load_settings
 from services.diagnostics import DIAGNOSTICS
 from services.model_probe import inspect_models, STATUS_LABELS
+from services.generation_probe import inspect_generation, COMPARISON_LABELS
 from services.dialogue import new_state, handle_turn, manual_search, application_guide, basic_extract
 from services.recommendations import activity_facts, speech_text
 from services.voice import transcribe, synthesize, VoiceError
@@ -202,6 +203,23 @@ with st.popover("＋ 보조 메뉴", use_container_width=False):
                 st.write("첫 페이지에서 generateContent 지원이 표시된 Gemini 모델 ID예요. 자동으로 선택하거나 전환하지 않아요.")
                 st.code("\n".join(report["models"]),language=None)
             st.write("무료 티어·잔여 한도는 미확인입니다. AI Studio에서 같은 프로젝트의 모델별 한도를 확인해 주세요.")
+    with st.expander("Gemini 생성 요청 점검"):
+        st.write("선택 점검이에요. 설정된 모델로 고정 인사말을 보내고, 성공하면 같은 고정 문장을 기존 구조화 추출로 한 번 더 보내요. 최대 두 번 생성하며 API 사용량이 발생해요. 실제 대화·음성은 보내지 않고 응답 원문은 표시하지 않아요.")
+        if st.button("고정 인사말로 생성 점검",key="inspect_generation",disabled=not bool(settings.gemini_api_key)):
+            with st.spinner("고정 문장으로 생성 요청을 비교하고 있어요…"):
+                st.session_state.generation_report = inspect_generation(settings, activities)
+        if "generation_report" in st.session_state:
+            probe = st.session_state.generation_report
+            st.write("점검 모델: " + (probe["model"] or "설정 형식 확인 필요"))
+            if probe["path"]:
+                st.write("요청 대상: POST " + probe["api_base"] + probe["path"])
+            for label, field in (("단순 생성", "simple_code"),("구조화 추출", "structured_code")):
+                code = probe[field]
+                st.write(f"{label}: {code}")
+                if code not in ("ok", "not_run"):
+                    st.write(DIAGNOSTICS.get(code, DIAGNOSTICS["unknown"]))
+            st.write(COMPARISON_LABELS[probe["comparison"]])
+            st.caption("고정 문장 점검은 무료 자격·남은 한도나 실제 사용자 질문의 정상 동작을 보장하지 않아요.")
     st.button("처음부터 다시 찾기",key="reset",on_click=reset)
 
 for index, turn in enumerate(st.session_state.turns):

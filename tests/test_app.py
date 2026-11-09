@@ -224,3 +224,20 @@ class AppFlowTest(TestCase):
             self.assertEqual(len(app.session_state['turns']),1)
             probe.assert_called_once()
             generate.assert_not_called()
+
+    def test_fixed_generation_probe_preserves_user_conversation_and_hides_body(self):
+        report={'model':'gemini-2.5-flash','api_base':'https://generativelanguage.googleapis.com',
+                'path':'/v1beta/models/gemini-2.5-flash:generateContent',
+                'simple_code':'ok','structured_code':'generation_not_found','comparison':'structured_failed'}
+        with patch('services.config.load_settings',return_value=Settings(gemini_api_key='mock')), \
+                patch('services.generation_probe.inspect_generation',return_value=report) as probe:
+            app=AppTest.from_file(APP).run()
+            self.seed(app)
+            before=app.session_state['dialog']
+            app.button(key='inspect_generation').click().run()
+            self.assertFalse(app.exception)
+            self.assertEqual(app.session_state['dialog'],before)
+            self.assertEqual(len(app.session_state['turns']),1)
+            self.assertTrue(any('단순 생성: ok' in x.value for x in app.markdown))
+            self.assertTrue(any('구조화 추출: generation_not_found' in x.value for x in app.markdown))
+            probe.assert_called_once()

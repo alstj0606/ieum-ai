@@ -131,6 +131,26 @@ def empty_extraction(intent="search"):
             "update_fields": [], "clear_fields": [], "selection": None}
 
 
+def generation_text(response):
+    """Validate a completed text response without logging or retaining its body."""
+    feedback = getattr(response, "prompt_feedback", None)
+    if getattr(feedback, "block_reason", None) not in (None, "BLOCK_REASON_UNSPECIFIED"):
+        raise AIError(code="refused")
+    candidates = response.candidates
+    if not candidates:
+        raise AIError(code="response_format")
+    reason = candidates[0].finish_reason
+    if reason == "MAX_TOKENS":
+        raise AIError(code="output_limit")
+    if reason in {"SAFETY", "RECITATION", "BLOCKLIST", "PROHIBITED_CONTENT", "SPII"}:
+        raise AIError(code="refused")
+    if reason != "STOP":
+        raise AIError(code="incomplete")
+    if not isinstance(response.text, str) or not response.text.strip():
+        raise AIError(code="response_format")
+    return response.text
+
+
 def extract_conditions(text, state, activities, settings, *, client=None):
     if not text.strip() or len(text) > 1500:
         raise AIError("질문은 1~1,500자로 입력해 주세요.")
@@ -161,23 +181,9 @@ def extract_conditions(text, state, activities, settings, *, client=None):
                 automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
             ),
         )
-        feedback = getattr(response, "prompt_feedback", None)
-        if getattr(feedback, "block_reason", None) not in (None, "BLOCK_REASON_UNSPECIFIED"):
-            raise AIError(code="refused")
-        candidates = response.candidates
-        if not candidates:
-            raise AIError(code="response_format")
-        reason = candidates[0].finish_reason
-        if reason == "MAX_TOKENS":
-            raise AIError(code="output_limit")
-        if reason in {"SAFETY", "RECITATION", "BLOCKLIST", "PROHIBITED_CONTENT", "SPII"}:
-            raise AIError(code="refused")
-        if reason != "STOP":
-            raise AIError(code="incomplete")
-        if not isinstance(response.text, str) or not response.text.strip():
-            raise AIError(code="response_format")
+        text_response = generation_text(response)
         try:
-            payload = json.loads(response.text)
+            payload = json.loads(text_response)
         except (ValueError, TypeError):
             raise AIError(code="response_format") from None
     except AIError:

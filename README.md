@@ -21,6 +21,8 @@ AI 실패 진단과 대체 검색, 최신 입력창 수정 및 배포 확인 사
 
 404 또는 model_access 점검: [Gemini 모델·API 경로 진단](docs/gemini-model-diagnostics.md).
 
+metadata_ok/list_ok인데 생성만 실패하면 [고정 문장 생성 비교 진단](docs/gemini-generation-probe.md)을 참고하세요.
+
 ## 실행
 
 ```bash
