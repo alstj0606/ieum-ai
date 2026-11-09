@@ -11,7 +11,7 @@ from unittest.mock import Mock, patch
 import wave
 
 from services.activities import load_activities
-from services.ai import AIError, empty_extraction, extract_conditions, make_client, validate_extraction
+from services.ai import SCHEMA, AIError, empty_extraction, extract_conditions, make_client, validate_extraction
 from services.config import Settings, load_settings
 from services.dialogue import new_state, handle_turn, manual_search, application_guide
 from services.recommendations import recommend, activity_facts, speech_text
@@ -30,8 +30,8 @@ def extraction(**conditions):
 
 def mock_client(payload):
     client = Mock()
-    client.responses.create.return_value = SimpleNamespace(
-        status="completed", output_text=json.dumps(payload, ensure_ascii=False)
+    client.models.generate_content.return_value = SimpleNamespace(
+        candidates=[SimpleNamespace(finish_reason="STOP")], prompt_feedback=None, text=json.dumps(payload, ensure_ascii=False)
     )
     return client
 
@@ -85,19 +85,19 @@ class DialogueTest(TestCase):
         payload = extraction(region="강서구", activity_type="가드닝", time_slot="오전", purpose="배우기")
         client = mock_client(payload)
         state = handle_turn(new_state(), "아침에 식물 키우기를 배우고 싶어요", self.rows,
-                            Settings(api_key="test-only"), client=client, as_of=DAY)
-        self.assertEqual(state["mode"], "openai")
+                            Settings(gemini_api_key="test-only"), client=client, as_of=DAY)
+        self.assertEqual(state["mode"], "gemini")
         self.assertEqual(state["code"], "found")
-        args = client.responses.create.call_args.kwargs
-        self.assertFalse(args["store"])
-        self.assertTrue(args["text"]["format"]["strict"])
-        self.assertNotIn("official_url", args["input"])
-        self.assertNotIn("fee_amount", args["input"])
+        args = client.models.generate_content.call_args.kwargs
+        self.assertEqual(args["config"].response_mime_type, "application/json")
+        self.assertEqual(args["config"].response_json_schema, SCHEMA)
+        self.assertNotIn("official_url", args["contents"])
+        self.assertNotIn("fee_amount", args["contents"])
         # 후속 응답에도 이미 정리한 조건·대화 문맥을 전달한다.
-        client.responses.create.return_value.output_text = json.dumps(extraction(time_slot="오후"))
+        client.models.generate_content.return_value.text = json.dumps(extraction(time_slot="오후"))
         followup = handle_turn(state, "오후로 바꿔주세요", self.rows,
-                               Settings(api_key="test-only"), client=client, as_of=DAY)
-        context = json.loads(client.responses.create.call_args.kwargs["input"])
+                               Settings(gemini_api_key="test-only"), client=client, as_of=DAY)
+        context = json.loads(client.models.generate_content.call_args.kwargs["contents"])
         self.assertEqual(context["current_conditions"]["time_slot"], "오전")
         self.assertTrue(context["history"])
         self.assertEqual(followup["conditions"]["time_slot"], "오후")
@@ -122,8 +122,8 @@ class DialogueTest(TestCase):
         state = self.turn(new_state(), "강서구 국악")
         before = deepcopy(state)
         for error in (TimeoutError("secret-not-to-show"), RuntimeError("secret-not-to-show")):
-            client = Mock(); client.responses.create.side_effect = error
-            changed = handle_turn(state, "오후요", self.rows, Settings(api_key="test-only"),
+            client = Mock(); client.models.generate_content.side_effect = error
+            changed = handle_turn(state, "오후요", self.rows, Settings(gemini_api_key="test-only"),
                                   client=client, as_of=DAY)
             self.assertEqual(changed["conditions"], {**before["conditions"], "time_slot":"오후"})
             self.assertEqual(state, before)  # caller state is never mutated
@@ -135,10 +135,11 @@ class DialogueTest(TestCase):
 
     def test_incomplete_refused_and_invalid_json(self):
         client = mock_client({})
-        for status, output in (("incomplete", ""), ("completed", ""), ("completed", "not json")):
-            client.responses.create.return_value = SimpleNamespace(status=status, output_text=output)
+        for reason, output in (("MAX_TOKENS", ""), ("STOP", ""), ("STOP", "not json")):
+            client.models.generate_content.return_value = SimpleNamespace(
+                candidates=[SimpleNamespace(finish_reason=reason)],prompt_feedback=None,text=output)
             with self.assertRaises(AIError):
-                extract_conditions("질문", new_state(), self.rows, Settings(api_key="test-only"), client=client)
+                extract_conditions("질문", new_state(), self.rows, Settings(gemini_api_key="test-only"), client=client)
 
     def test_keys_missing_and_config_secrets_priority(self):
         with patch.dict(os.environ, {"OPENAI_API_KEY": "", "OPENAI_MODEL": ""}):

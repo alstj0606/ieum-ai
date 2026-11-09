@@ -145,8 +145,9 @@ st.title("이음 AI")
 if not st.session_state.turns:
     with st.chat_message("assistant"):
         st.write("안녕하세요. 어떤 활동을 하고 싶으세요? 글로 적거나 마이크를 눌러 말씀해 주세요.")
-        if not settings.api_key:
-            st.caption("지금은 기본 글 검색을 이용할 수 있어요. AI·음성은 연결 설정 후 사용할 수 있어요.")
+        if not settings.gemini_api_key:
+            st.caption("Gemini 질문 이해가 미설정되어 기본 글 검색으로 찾아드려요.")
+        st.caption("질문 이해: Gemini · 음성 입력·안내: OpenAI(별도 키와 사용량 필요).")
 
 with st.popover("＋ 보조 메뉴", use_container_width=False):
     with st.expander("AI 도움 없이 찾아보기"):
@@ -176,7 +177,7 @@ with st.popover("＋ 보조 메뉴", use_container_width=False):
     with st.expander("자료와 이용 안내"):
         st.write(f"서울 강서구 공식 자료 {len(activities)}건이며 실시간 접수 정보는 아니에요.")
         st.write("녹음 종료 후 OpenAI로 음성을 보내 글로 바꾸고 검색해요. 조용해져도 자동 종료하지 않아요. 1분 이내로 말씀해 주세요.")
-        st.write("AI는 조건만 이해해요. 실제 신청·예약·결제는 하지 않아요.")
+        st.write("Gemini는 조건만 이해해요. 음성 입력·안내는 기존 OpenAI API이며 Gemini 무료 한도와 별개예요. 실제 신청·예약·결제는 하지 않아요.")
         st.write("마이크 권한을 허용하고 HTTPS 주소를 직접 열어주세요. 마이크가 안 되면 글로 계속 질문할 수 있어요.")
     st.button("처음부터 다시 찾기",key="reset",on_click=reset)
 

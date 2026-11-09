@@ -30,24 +30,21 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         body = self.rfile.read(int(self.headers.get("Content-Length", "0")))
         content_type = "application/json"
-        if self.path == "/v1/responses":
-            context = json.loads(json.loads(body)["input"])
-            # Deliberately simulate auth rejection for the reported question. Not a real API diagnosis.
+        if self.path == "/v1beta/models/gemini-2.5-flash:generateContent":
+            context = json.loads(json.loads(body)["contents"][0]["parts"][0]["text"])
+            # Deliberate free-quota simulation, not a diagnosis of a real Google project.
             if context["current_utterance"] == "강서구에서 어르신이 참여할 수 있는 운동을 추천해줘":
-                self.send_response(401)
+                self.send_response(429)
                 self.send_header("Content-Type", "application/json")
                 self.end_headers()
-                self.wfile.write(json.dumps({"error":{"code":"invalid_api_key", "type":"invalid_request_error",
+                self.wfile.write(json.dumps({"error":{"code":429,"status":"RESOURCE_EXHAUSTED",
                     "message":"provider-private-canary-no-log"}}).encode())
                 return
             request = basic_extract(context["current_utterance"], {
                 "pending": context["pending"], "conditions": context["current_conditions"],
             })
-            data = {"id": "resp_mock", "object": "response", "created_at": 0,
-                    "status": "completed", "model": "mock-model",
-                    "output": [{"type": "message", "id": "msg_mock", "role": "assistant",
-                                "status": "completed", "content": [{"type": "output_text",
-                                "text": json.dumps(request, ensure_ascii=False), "annotations": []}]}]}
+            data = {"candidates":[{"content":{"parts":[{"text":json.dumps(request,ensure_ascii=False)}],
+                    "role":"model"}, "finishReason":"STOP", "index":0}]}
         elif self.path == "/v1/audio/transcriptions":
             data = {"text": "강서구에서 국악 공연을 보고 싶어요"}
         elif self.path == "/v1/audio/speech":

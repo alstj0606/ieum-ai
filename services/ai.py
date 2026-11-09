@@ -61,14 +61,18 @@ class AIError(Exception):
 
 
 def make_client(settings: Settings):
-    if not settings.api_key:
+    if not settings.gemini_api_key:
         raise AIError(code="key_missing")
     try:
-        from openai import OpenAI
-        # SDK debug logging may include request bodies. Diagnostics are fixed codes instead.
-        for name in ("openai", "openai._base_client", "httpx", "httpcore", "httpx2", "httpcore2"):
+        from google import genai
+        from google.genai import types
+        for name in ("google.genai", "google.auth", "httpx", "httpx2", "httpcore", "httpcore2"):
             logging.getLogger(name).setLevel(logging.CRITICAL)
-        return OpenAI(api_key=settings.api_key, timeout=30.0, max_retries=0)
+        return genai.Client(
+            api_key=settings.gemini_api_key, vertexai=False, enterprise=False,
+            http_options=types.HttpOptions(api_version="v1beta", timeout=30000,
+                                          retry_options=types.HttpRetryOptions(attempts=1)),
+        )
     except Exception:
         raise AIError(code="configuration") from None
 
@@ -129,6 +133,7 @@ def empty_extraction(intent="search"):
 def extract_conditions(text, state, activities, settings, *, client=None):
     if not text.strip() or len(text) > 1500:
         raise AIError("질문은 1~1,500자로 입력해 주세요.")
+    owned = client is None
     client = client or make_client(settings)
     context = {
         "current_conditions": state.get("conditions", {}),
@@ -139,32 +144,35 @@ def extract_conditions(text, state, activities, settings, *, client=None):
         "current_utterance": text,
     }
     try:
-        response = client.responses.create(
-            model=settings.model, instructions=PROMPT,
-            input=json.dumps(context, ensure_ascii=False),
-            text={"format": {"type": "json_schema", "name": "activity_conditions",
-                             "schema": SCHEMA, "strict": True}},
-            max_output_tokens=2000, store=False,
-            # Explicitly verified models only. Do not guess support from a prefix.
-            **({"reasoning": {"effort": "none"}} if settings.model in {
-                "gpt-5.4-mini", "gpt-5.4-mini-2026-03-17"
-            } else {}),
+        from google.genai import types
+        response = client.models.generate_content(
+            model=settings.model,
+            contents=json.dumps(context, ensure_ascii=False),
+            config=types.GenerateContentConfig(
+                system_instruction=PROMPT, response_mime_type="application/json",
+                response_json_schema=SCHEMA, max_output_tokens=2000, temperature=0,
+                thinking_config=types.ThinkingConfig(thinking_budget=0)
+                if settings.model == "gemini-2.5-flash" else None,
+                automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
+            ),
         )
-        if response.status != "completed":
-            if response.status == "failed":
-                raise AIError(code="service")
-            reason = getattr(getattr(response, "incomplete_details", None), "reason", None)
-            raise AIError(code="output_limit" if reason == "max_output_tokens" else "incomplete")
-        output = getattr(response, "output", [])
-        if isinstance(output, list) and any(
-            getattr(part, "type", None) == "refusal"
-            for item in output for part in (getattr(item, "content", None) or [])
-        ):
+        feedback = getattr(response, "prompt_feedback", None)
+        if getattr(feedback, "block_reason", None) not in (None, "BLOCK_REASON_UNSPECIFIED"):
             raise AIError(code="refused")
-        if not isinstance(response.output_text, str) or not response.output_text:
+        candidates = response.candidates
+        if not candidates:
+            raise AIError(code="response_format")
+        reason = candidates[0].finish_reason
+        if reason == "MAX_TOKENS":
+            raise AIError(code="output_limit")
+        if reason in {"SAFETY", "RECITATION", "BLOCKLIST", "PROHIBITED_CONTENT", "SPII"}:
+            raise AIError(code="refused")
+        if reason != "STOP":
+            raise AIError(code="incomplete")
+        if not isinstance(response.text, str) or not response.text.strip():
             raise AIError(code="response_format")
         try:
-            payload = json.loads(response.output_text)
+            payload = json.loads(response.text)
         except (ValueError, TypeError):
             raise AIError(code="response_format") from None
     except AIError:
@@ -172,4 +180,10 @@ def extract_conditions(text, state, activities, settings, *, client=None):
     except Exception as error:
         # Only a fixed category escapes. Never log/retain provider error text or body.
         raise AIError(code=classify_error(error)) from None
+    finally:
+        if owned:
+            try:
+                client.close()
+            except Exception:
+                pass
     return validate_extraction(payload)

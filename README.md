@@ -6,15 +6,18 @@
 
 - API 키 없이: 조건 선택 검색, 제한적인 키워드 대화, 독립된 가상 수영 예시 체험
 - 하나의 채팅 입력창에서 글/마이크로 질문하고, AI 답변 안에서 최대 3개 활동을 확인
-- API 키 설정 시: 녹음 종료→STT→조건 이해→공식 검색 자동 연결, 음성안내 시도
+- GEMINI_API_KEY 설정 시: Gemini 질문 의도·조건 추출 → 공식 검색
+- 음성은 기존 OpenAI STT/TTS를 별도 사용 (OPENAI_API_KEY와 사용량 필요)
 - 최대 3개 공식 활동 카드: 장소·일정·비용·대상·접수 상태·출처·신청 방법
 - 기존 가상 수영 프로그램은 실제 추천 데이터와 분리하여 유지
 
-**검증 범위:** 자동 테스트와 Chromium 모바일 크기 검증은 로컬/모의 API를 사용합니다. 실제 OpenAI 호출, 사투리 인식 품질, iPad Safari 실기기 및 Community Cloud 배포는 별도 확인이 필요합니다.
+**검증 범위:** 자동 테스트와 Chromium 모바일 크기 검증은 로컬/모의 API를 사용합니다. 실제 Gemini/OpenAI 호출, 사투리 인식 품질, iPad Safari 실기기 및 Community Cloud 배포는 별도 확인이 필요합니다.
 
 최신 화면 사용법과 검증 범위: [채팅형 모바일 UI](docs/chat-ui.md). 침묵 자동 종료는 없으며, 자동 음성 재생은 브라우저 정책에 따라 차단될 수 있습니다.
 
 AI 실패 진단과 대체 검색, 최신 입력창 수정 및 배포 확인 사항: [AI 연결·입력창 수정](docs/ai-connection-fix.md).
+
+최신 질문 이해 공급자는 Gemini입니다. [Gemini Secrets·무료 티어·검증 안내](docs/gemini-setup.md)를 먼저 확인해 주세요. OpenAI 키는 음성에만 사용합니다.
 
 ## 실행
 
@@ -25,9 +28,9 @@ python -m pip install -r requirements.txt
 python -m streamlit run app.py
 ```
 
-Streamlit Community Cloud에서는 entrypoint를 `app.py`로 설정합니다. API 키는 앱 관리 화면의 Secrets에 `OPENAI_API_KEY`로 입력하거나 서버 환경변수로만 설정합니다. 키가 담긴 파일을 Git에 올리지 마세요.
+Streamlit Community Cloud에서는 entrypoint를 `app.py`로 설정합니다. 질문 이해 키는 Secrets의 `GEMINI_API_KEY`, 모델은 `GEMINI_MODEL = "gemini-2.5-flash"`로 설정합니다. `OPENAI_API_KEY`는 선택적인 기존 음성 전용입니다. 키는 Secrets 또는 서버 환경변수에서만 읽습니다. 키가 담긴 파일을 Git에 올리지 마세요.
 
-설정 예시, 모델 선택 이유, 음성 사용 방법, 오류·호환성 한계와 테스트 실행 방법은 [AI·음성 구현 안내](docs/ai-voice.md)를 참고하세요. [공식 활동 조사 기록](docs/activities-research.md)에 출처와 미확인 사항을 기록했습니다.
+현재 설정·모델·무료 티어·테스트는 [Gemini 전환 안내](docs/gemini-setup.md)를 따릅니다. 이전 OpenAI 음성 구조는 [초기 AI·음성 기록](docs/ai-voice.md)을 참고하세요. [공식 활동 조사 기록](docs/activities-research.md)에 출처와 미확인 사항을 기록했습니다.
 
 ## 현재 파일 구조
 
@@ -36,7 +39,7 @@ app.py                       # 대화·공식 카드·예시 체험·음성 UI
 services/activities.py       # 공식 데이터 검증·검색·접수 상태
 services/recommendations.py  # 조건·자격·예산 점검과 사실 안내
 services/dialogue.py         # 대화 상태·조건 누적·추가 질문
-services/ai.py               # OpenAI 구조화 조건 추출과 응답 검증
+services/ai.py               # Gemini 구조화 조건 추출과 기존 응답 검증
 services/voice.py            # STT·TTS, 실패·입력 크기 처리
 services/config.py           # 환경변수·Secrets 설정
 data/activities.json         # 공식 자료 10건
