@@ -230,3 +230,15 @@ __marimo__/
 
 # Local private data
 data/private/
+
+# User recordings and generated speech are session data, never repository assets.
+*.wav
+*.mp3
+*.m4a
+*.webm
+*.ogg
+*.flac
+
+# Alternate local secret files and developer scratch artifacts
+.streamlit/secrets*.toml
+work/
