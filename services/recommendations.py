@@ -1,6 +1,7 @@
 """공식 자료만으로 추천 후보·사실 카드·안내문을 만든다."""
 
 from services.activities import availability_status, search_activities
+from services.personalization import hard_conditions
 from services.date_display import registration_display, display_status, display_date_text
 
 
@@ -85,10 +86,12 @@ def _budget(item, conditions):
 
 
 def recommend(activities, conditions, *, as_of=None):
+    conditions=hard_conditions(conditions)
     candidates, archived, uncertain = [], [], []
     reasons = {"qualification": 0, "budget": 0, "insufficient": 0, "closed": 0, "unknown": 0}
     broad = 0
     for item in activities:
+        if item['activity_type'] in conditions.get('_excluded_types',[]):continue
         found = search_activities(
             [item], activity_type=conditions.get("activity_type"),
             category=conditions.get("category"), region=conditions.get("region"),

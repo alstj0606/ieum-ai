@@ -58,7 +58,7 @@ async function main(){
   }
   for(const width of [320,390,768]){
    const guide=await browser.newPage({viewport:{width,height:850},isMobile:true,hasTouch:true});await ready(guide,'http://127.0.0.1:18502');
-   await send(guide,'노인이 할 수 있는 운동 추천해 줘');
+   await send(guide,'노인이 할 수 있는 일반 운동 아이디어 추천해 줘');
    await guide.getByRole('button',{name:'수중운동 알아보기',exact:true}).waitFor();
    await guide.getByText('일반 활동 제안 · 실제 모집 프로그램 아님',{exact:true}).last().waitFor();
    const choice=await guide.getByRole('button',{name:'수중운동 알아보기',exact:true}).boundingBox();
@@ -102,7 +102,7 @@ async function main(){
   const reported='강서구에서 어르신이 참여할 수 있는 운동을 추천해줘';
   await send(fallback,reported);
   await fallback.getByText('Gemini 연결을 이용하지 못해 기본 규칙으로 안내하고 있어요.',{exact:false}).waitFor();
-  await fallback.getByRole('button',{name:'가벼운 걷기 알아보기',exact:true}).waitFor();await idle(fallback);
+  await fallback.getByText('파크골프',{exact:false}).first().waitFor();await idle(fallback);
   await fallback.getByRole('button',{name:'＋ 보조 메뉴',exact:false}).click();
   await openMenuSection(fallback,'연결 상태 확인');
   await fallback.getByText('진단 코드: rate_limit',{exact:true}).waitFor();

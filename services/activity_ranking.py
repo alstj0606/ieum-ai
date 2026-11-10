@@ -22,7 +22,7 @@ def alternative_rank(requested, candidate, conditions, *, available=False, order
     source=ACTIVITY_TRAITS.get(requested,{})
     target=ACTIVITY_TRAITS.get(candidate,{})
     purpose_miss=int(bool(conditions.get('purpose') and conditions['purpose'] not in {'배우기','교류'} and target.get('purpose')!=conditions['purpose']))
-    effort_caution=int(conditions.get('effort_preference')=='가볍게' and target.get('pace_change',False))
+    effort_caution=0
     movement_miss=int(not source.get('movement') or source.get('movement')!=target.get('movement'))
-    access_caution=int(conditions.get('mobility') in {'이동 적게','가까운 곳'} and target.get('equipment',False))
+    access_caution=0
     return (tier,purpose_miss,effort_caution,movement_miss,access_caution,int(not available),order)

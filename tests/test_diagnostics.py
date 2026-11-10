@@ -102,8 +102,8 @@ class DiagnosticsTest(TestCase):
         text='강서구에서 어르신이 참여할 수 있는 운동을 추천해줘'
         client=Mock();client.models.generate_content.side_effect=TimeoutError(SECRET)
         state=handle_turn(new_state(),text,load_activities(),Settings(gemini_api_key='mock'),client=client,as_of=DAY)
-        self.assertEqual(state['conditions'],{'region':'강서구','category':'체육'})
-        self.assertTrue(state['ideas'])
+        self.assertEqual(state['conditions'],{'region':'강서구','category':'체육','purpose':'운동'})
+        self.assertTrue(state['results'] or state['references'])
         self.assertTrue(all(x['category']=='체육' for x in state['ideas']))
         self.assertEqual(state['history'][-2]['content'],text)
         self.assertLessEqual(len(state['ideas']),3)

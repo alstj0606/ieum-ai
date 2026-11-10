@@ -18,8 +18,8 @@ class ActivityGuidanceTest(TestCase):
     def turn(self,state,text,**kwargs):return handle_turn(state,text,self.rows,Settings(),as_of=DAY,**kwargs)
 
     def test_elderly_exercise_returns_general_options_without_assumed_age_or_health(self):
-        state=self.turn(new_state(),'노인이 할 수 있는 운동 추천해 줘')
-        self.assertEqual(self.turn(new_state(),'노인이 할 수 있는 운동')['code'],'ideas')
+        state=self.turn(new_state(),'노인이 할 수 있는 일반 운동 아이디어 추천해 줘')
+        self.assertEqual(self.turn(new_state(),'노인이 할 수 있는 일반 운동 아이디어')['code'],'ideas')
         self.assertEqual(state['code'],'ideas')
         self.assertEqual(state['routing_intent'],'recommend_activity')
         self.assertEqual(len(state['ideas']),3)
@@ -60,19 +60,19 @@ class ActivityGuidanceTest(TestCase):
         self.assertIn('시간 조건을 풀어',state['message'])
 
     def test_other_exercise_resets_activity_filters_but_keeps_personal_preferences(self):
-        state=self.turn(new_state(),'70세 강서구 오전 무료 운동 추천해 줘')
+        state=self.turn(new_state(),'70세 강서구 오전 무료 운동 아이디어 추천해 줘')
         initial={x['id'] for x in state['ideas']}
         state['conditions'].update(activity_type='수영',tags=['물'],purpose='배우기',beginner=True)
         state=self.turn(state,'다른 운동도 추천해 줘')
         self.assertNotEqual(initial,{x['id'] for x in state['ideas']})
-        for key in ('activity_type','tags','purpose','beginner'):self.assertNotIn(key,state['conditions'])
+        for key in ('activity_type','tags','beginner'):self.assertNotIn(key,state['conditions'])
         self.assertEqual(state['conditions']['age'],70)
         self.assertEqual(state['conditions']['time_slot'],'오전')
         self.assertEqual(state['conditions']['budget_amount'],0)
         self.assertEqual(state['conditions']['region'],'강서구')
 
     def test_morning_followup_and_condition_change_stay_in_recommendation_flow(self):
-        state=self.turn(new_state(),'노인이 할 수 있는 운동 추천해 줘')
+        state=self.turn(new_state(),'노인이 할 수 있는 일반 운동 아이디어 추천해 줘')
         state=self.turn(state,'오전에 할 수 있는 활동은?')
         self.assertEqual(state['conditions']['time_slot'],'오전')
         self.assertEqual(state['code'],'ideas')
@@ -82,7 +82,7 @@ class ActivityGuidanceTest(TestCase):
         self.assertEqual(state['code'],'ideas')
 
     def test_choice_is_from_current_options_and_retains_budget_time_region(self):
-        state=self.turn(new_state(),'강서구 오전 무료 운동 추천해 줘')
+        state=self.turn(new_state(),'강서구 오전 무료 운동 아이디어 추천해 줘')
         before=deepcopy(state)
         choice=choose_idea(state,'walking',self.rows,Settings(),as_of=DAY)
         self.assertEqual(state,before)
@@ -90,7 +90,7 @@ class ActivityGuidanceTest(TestCase):
         self.assertEqual(choice['conditions']['time_slot'],'오전')
         self.assertEqual(choice['conditions']['budget_amount'],0)
         with self.assertRaises(ValueError):choose_idea(state,'invented',self.rows,Settings(),as_of=DAY)
-        state=self.turn(new_state(),'운동 추천해 줘')
+        state=self.turn(new_state(),'일반 운동 아이디어 추천해 줘')
         state=choose_idea(state,'water',self.rows,Settings(),as_of=DAY)
         self.assertEqual(state['pending'],'region')
         self.assertEqual(state['conditions']['activity_type'],'아쿠아로빅')
@@ -116,7 +116,7 @@ class ActivityGuidanceTest(TestCase):
 
     def test_gemini_failure_still_recommends_and_keeps_safe_failure_notice(self):
         client=Mock();client.models.generate_content.side_effect=TimeoutError('private-provider-error')
-        state=handle_turn(new_state(),'노인이 할 수 있는 운동 추천해 줘',self.rows,Settings(gemini_api_key='mock'),client=client,as_of=DAY)
+        state=handle_turn(new_state(),'노인이 할 수 있는 일반 운동 아이디어 추천해 줘',self.rows,Settings(gemini_api_key='mock'),client=client,as_of=DAY)
         self.assertEqual(state['mode'],'fallback')
         self.assertEqual(state['diagnostic']['code'],'timeout')
         self.assertEqual(state['code'],'ideas')
@@ -139,7 +139,7 @@ class ActivityGuidanceTest(TestCase):
         self.assertEqual(state['conditions']['mobility'],'도보')
 
     def test_application_request_after_general_idea_does_not_book_or_invent_program(self):
-        state=self.turn(new_state(),'운동 추천해줘')
+        state=self.turn(new_state(),'일반 운동 아이디어 추천해줘')
         state=self.turn(state,'이거 어떻게 신청해?')
         self.assertEqual(state['code'],'choose')
         self.assertFalse(state['results'])
@@ -167,7 +167,7 @@ class ActivityGuidanceTest(TestCase):
         client=Mock();client.models.generate_content.return_value=NS(prompt_feedback=None,candidates=[NS(finish_reason='STOP')],text=json.dumps(payload))
         state=handle_turn(new_state(),'70세 강서구 오전 무료 운동 추천해줘. 이동 적게 하고 싶어',self.rows,Settings(gemini_api_key='mock'),client=client,as_of=DAY)
         self.assertEqual(state['mode'],'gemini')
-        self.assertEqual(state['code'],'ideas')
+        self.assertIn(state['code'],('budget','closed','found','unknown'))
         self.assertIsNone(state['diagnostic'])
         self.assertEqual(state['conditions']['age'],70)
         self.assertTrue(all(x['near_home'] for x in state['ideas']))

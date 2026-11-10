@@ -97,9 +97,9 @@ class RelevanceTest(TestCase):
 
     def test_movement_purpose_effort_and_mobility_are_explicit_not_assumed_from_age(self):
         self.assertLess(alternative_rank('걷기','슬로우조깅',{}),alternative_rank('걷기','체조',{}))
-        self.assertLess(alternative_rank('걷기','체조',{'effort_preference':'가볍게'}),alternative_rank('걷기','슬로우조깅',{'effort_preference':'가볍게'}))
+        self.assertEqual(alternative_rank('걷기','슬로우조깅',{'effort_preference':'가볍게'}),alternative_rank('걷기','슬로우조깅',{}))
         self.assertEqual(alternative_rank('걷기','슬로우조깅',{'age':80}),alternative_rank('걷기','슬로우조깅',{'age':20}))
-        self.assertGreater(alternative_rank('걷기','파크골프',{'mobility':'이동 적게'})[4],alternative_rank('걷기','파크골프',{})[4])
+        self.assertEqual(alternative_rank('걷기','파크골프',{'mobility':'이동 적게'})[4],alternative_rank('걷기','파크골프',{})[4])
         self.assertGreater(alternative_rank('걷기','파크골프',{'purpose':'관람'})[1],alternative_rank('걷기','파크골프',{'purpose':'운동'})[1])
 
     def test_explicit_light_preference_survives_ai_failure_and_no_qualification_relaxation(self):

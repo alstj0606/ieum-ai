@@ -18,7 +18,7 @@ IDEAS = [
 
 
 def suggestions(conditions, *, previous=()):
-    candidates = [x for x in IDEAS if not conditions.get('category') or x['category']==conditions['category']]
+    candidates = [x for x in IDEAS if (not conditions.get('category') or x['category']==conditions['category']) and x['activity_type'] not in conditions.get('_excluded_types',[])]
     if conditions.get('mobility') in {'이동 적게','가까운 곳'}:
         candidates = [x for x in candidates if x['near_home']]
     interests=set(conditions.get('tags') or [])
@@ -48,13 +48,14 @@ def route_intent(text, request, state):
     intent=request['intent']
     if intent in {'apply','yes','no','reset','change_time','change_activity'}:
         return intent
+    if re.search(r'다른(?:운동|취미)',compact):return 'recommend_activity'
     if intent=='change_condition' or ('말고' in compact and request['update_fields']):
         return 'change_condition'
     if any(word in compact for word in ('배우','배워','강좌','수업','프로그램')):
         return 'search_program'
     if any(word in compact for word in ('수영장','체육관','시설','센터찾')) or intent=='find_facility':
         return 'find_facility'
-    if ('추천' in compact or re.search(r'할수있는(?:활동|운동|취미)',compact) or intent=='recommend_activity'):
+    if ('아이디어' in compact or '추천' in compact or re.search(r'할수있는(?:활동|운동|취미)',compact) or intent=='recommend_activity'):
         return 'recommend_activity'
     if intent=='search_program':
         return intent
