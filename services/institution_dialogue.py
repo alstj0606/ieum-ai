@@ -5,7 +5,7 @@ from copy import deepcopy
 from pathlib import Path
 from services.ai import AIError, make_client, generation_text, classify_error
 from services.config import normalize_model
-from services.application_helper import advance_step
+from services.guide_navigation import advance_step
 
 PATH=Path(__file__).resolve().parents[1]/'data/institutions/seongsan.json'
 LEVELS={'공식 안내문에서 확인','실제 공개 웹페이지에서 확인','로그인 이후 미확인'}
