@@ -74,6 +74,7 @@ def select_idea(idea_id):
 def select_alternative(activity_type):
     updated=choose_alternative(st.session_state.dialog,activity_type,activities,settings)
     remember(activity_type+' 대안 프로그램을 볼게요',updated)
+    st.session_state.turns[-1]['detail_first']=True
 
 
 def submit_voice(audio):
@@ -116,10 +117,10 @@ def prepare(index):
     rows = state["results"] or state["references"]
     if state["selected_id"]:
         rows = [row for row in rows if row["id"] == state["selected_id"]]
-    spoken = speech_text(state["message"], rows)
-    if state.get('alternatives'):
+    spoken = speech_text("선택하신 프로그램 정보예요." if turn.get("detail_first") and rows else state["message"], rows)
+    if state.get('alternatives') and not turn.get('detail_first'):
         spoken+=' 같은 지역의 공식 자료가 있는 대안이에요. '+ ' '.join(x['activity_type']+'. '+x['reason']+' '.join(row['name']+'. '+dict(activity_facts(row))['접수 상태'] for row in x['rows']) for x in state['alternatives'])
-    if state.get('ideas'):
+    if state.get('ideas') and not turn.get('detail_first'):
         spoken+=' 일반 활동 제안이며 실제 모집 강좌가 아니에요. '+ ' '.join(x['name']+'. '+x['reason'] for x in state['ideas'])
     if state.get('facilities'):
         spoken+=' '.join(x['name']+'. '+x['note'] for x in state['facilities'])
@@ -138,17 +139,19 @@ def card(row, index, position, *, reference=False, latest=False):
     facts = dict(activity_facts(row))
     with st.container(border=True):
         st.subheader(row["name"])
+        # Status follows the title; essential information never needs an expander.
+        st.markdown('**접수 상태 · '+facts['접수 상태']+'**')
         if reference:
-            st.warning("참고 자료예요. 지금 신청 가능하다고 확인된 활동은 아니에요.")
-        for label, value in (("장소",row["facility_name"] or "확인 필요"),
-                             ("시간",facts["일정"]),("비용",facts["비용"]),("접수 상태",facts["접수 상태"])):
-            display_value = value.replace("~", "\\~")  # Preserve official date/time ranges in Markdown.
-            st.write(f"**{label}** · {display_value}")
-        with st.expander("자세히 보기"):
-            for label in ("지역","주소","대상","접수 기간","신청 방법","정보 확인일","접수 참고","비용 참고"):
-                if label in facts:
-                    st.write(f"**{label}** · {facts[label]}")
-            st.write("**준비물** · 확인 필요")
+            st.warning('참고 자료예요. 지금 신청 가능하다고 확인된 활동은 아니에요.')
+        for label,key in (("참가 비용","비용"),("모집 대상","대상"),("지역","지역"),
+                          ("장소","장소"),("상세 주소","주소"),("운영 시간","일정"),
+                          ("접수 기간","접수 기간"),("다음 접수 예정일","다음 접수 예정일"),
+                          ("신청 방법","신청 방법"),("준비물","준비물")):
+            value=facts[key].replace("~", r"\~")
+            st.markdown(f"{label}  \n**{value}**")
+        with st.expander("주의사항·공식 출처"):
+            for label in ("정보 확인일","접수 시각","접수 참고","비용 참고"):
+                st.write(f"**{label}** · {facts[label]}")
             for note in row.get("condition_notes", []) + row.get("verification_notes", []):
                 st.write(note)
             st.link_button("공식 출처 확인",row["source_url"],use_container_width=True)
@@ -262,10 +265,16 @@ for index, turn in enumerate(st.session_state.turns):
         if state["error"]:
             st.warning(state["error"])
         else:
+            detail_first=bool(turn.get('detail_first') and (state['results'] or state['references']))
+            rows=list({row['id']:row for row in (state['results'] or state['references'])}.values())[:3]
+            if detail_first:
+                for position,row in enumerate(rows):
+                    card(row,index,position,reference=not bool(state['results']),latest=latest)
             if state.get("notice"):
                 st.info(state["notice"])
-            st.write(state["message"])
-            if state.get('alternatives'):
+            if not detail_first:
+                st.write(state["message"])
+            if state.get('alternatives') and not detail_first:
                 st.markdown('**같은 지역의 대안 · 공식 자료 있음**')
                 for option in state['alternatives']:
                     st.write(option['reason'])
@@ -273,16 +282,15 @@ for index, turn in enumerate(st.session_state.turns):
                         facts=dict(activity_facts(candidate))
                         st.write(candidate['name']+' · '+facts['접수 상태'])
                     if latest:
-                        st.button(option['activity_type']+' 대안 보기',key='alternative_'+option['activity_type'],
-                                  on_click=select_alternative,args=(option['activity_type'],),use_container_width=True)
+                        st.button(option['activity_type']+' 정보 보기 →',key='alternative_'+option['activity_type'],
+                                  on_click=select_alternative,args=(option['activity_type'],),use_container_width=True,type='primary')
             if state["code"]=="demo":
                 demo=state["demo"]
                 st.subheader(demo["name"])
                 for label,key in (("대상","audience"),("시간","schedule"),("비용","fee"),("접수 기간","registration_period")):
                     st.write(f"**{label}** · {demo[key]}")
-            else:
-                rows=state["results"] or state["references"]
-                for position,row in enumerate(rows[:3]):
+            elif not detail_first:
+                for position,row in enumerate(rows):
                     card(row,index,position,reference=not bool(state["results"]),latest=latest)
             if state.get('facilities'):
                 for facility in state['facilities']:
@@ -295,14 +303,14 @@ for index, turn in enumerate(st.session_state.turns):
                         st.write('근거 프로그램 접수 상태: '+facility['source_status'])
                         st.write(facility['note'])
                         st.link_button('시설 근거 공식 출처',facility['source_url'],use_container_width=True)
-            if state.get('ideas'):
+            if state.get('ideas') and not detail_first:
                 st.markdown('**일반 활동 제안 · 실제 모집 프로그램 아님**')
                 for idea in state['ideas']:
                     st.write('**'+idea['name']+'** · '+idea['reason'])
                     if latest:
                         st.button(idea['name']+' 알아보기',key='idea_'+idea['id'],on_click=select_idea,
                                   args=(idea['id'],),use_container_width=True)
-            if latest and state.get('ideas') and not state['results']:
+            if latest and state.get('ideas') and not state['results'] and not detail_first:
                 with st.expander('공식 페이지에서 직접 더 찾아보기'):
                     st.write('실시간 검색 결과가 아니에요. 보유 자료의 공식 페이지를 열어 기관의 다른 공고를 직접 확인해 주세요.')
                     seen=set()
@@ -388,9 +396,20 @@ if st.session_state.close_menu:
     st.html("<script>document.querySelector('[data-testid=stPopoverButton][aria-expanded=true]')?.click();</script>",unsafe_allow_javascript=True)
 if st.session_state.turns:
     seq=st.session_state.turn_seq
+    detail_scroll="true" if st.session_state.turns[-1].get('detail_first') else "false"
     st.html(f'''<script>if(window.ieumLatest!=={seq}){{window.ieumLatest={seq};
+    window.ieumDetailScroll?.();
     const interaction=window.ieumInteractionSeq||0;
-    const show=()=>{{if((window.ieumInteractionSeq||0)!==interaction)return;
+    let observer;
+    const stop=()=>observer?.disconnect();
+    const show=()=>{{if((window.ieumInteractionSeq||0)!==interaction){{stop();return;}}
     if(document.querySelector('[data-testid=stPopoverButton][aria-expanded=true]'))return;
     document.getElementById('latest-reply-{seq}')?.scrollIntoView({{block:'start'}});}};
-    setTimeout(show,150);setTimeout(show,600);}}</script>''',unsafe_allow_javascript=True)
+    setTimeout(show,150);setTimeout(show,600);
+    if({detail_scroll}){{
+      const reply=document.getElementById('latest-reply-{seq}')?.closest('[data-testid=stChatMessage]');
+      if(reply){{observer=new ResizeObserver(()=>requestAnimationFrame(show));observer.observe(reply);}}
+      window.ieumDetailScroll=stop;
+      setTimeout(show,1200);setTimeout(show,2000);setTimeout(stop,2500);
+    }}
+    }}</script>''',unsafe_allow_javascript=True)

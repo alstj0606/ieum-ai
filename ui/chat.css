@@ -27,3 +27,8 @@ button:focus-visible,a:focus-visible,textarea:focus-visible {outline:3px solid #
 .stMain [data-testid=stCaptionContainer] p {color:#384454}
 [id^=latest-reply-] {scroll-margin-top:70px}
 @media(max-width:400px) {.stMainBlockContainer {padding-left:8px;padding-right:8px}.stChatMessage [data-testid=stChatMessageAvatarUser],.stChatMessage [data-testid=stChatMessageAvatarAssistant] {display:none}}
+/* Only alternative choices: native Streamlit primary buttons with explicit labels. */
+[class*="st-key-alternative_"] button {min-height:64px!important;background:#124d78!important;color:#fff!important;border:2px solid #124d78!important;margin:6px 0 12px;padding:14px 16px;white-space:normal;width:100%}
+[class*="st-key-alternative_"] button p {font-weight:750!important;color:#fff!important;line-height:1.5}
+[class*="st-key-alternative_"] button:hover {background:#0c3858!important;border-color:#0c3858!important}
+[class*="st-key-alternative_"] button:focus-visible {outline:3px solid #111!important;outline-offset:3px}

@@ -125,6 +125,6 @@ class AlternativePathsTest(TestCase):
     def test_reference_fee_and_registration_unknown_remain_unknown(self):
         row=next(x for x in self.rows if x['activity_type']=='아쿠아로빅')
         facts=dict(activity_facts(row,as_of=DAY))
-        self.assertEqual(facts['비용'],'확인 필요')
+        self.assertEqual(facts['비용'],'공식 자료 확인 필요')
         self.assertIn('확인 필요',facts['접수 기간'])
         self.assertIn('확인 필요',facts['접수 상태'])

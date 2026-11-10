@@ -1,6 +1,7 @@
 """공식 자료만으로 추천 후보·사실 카드·안내문을 만든다."""
 
-from services.activities import availability_status, search_activities
+from datetime import datetime
+from services.activities import availability_status, search_activities, SEOUL
 
 
 STATUS_LABELS = {
@@ -157,19 +158,45 @@ def known(value):
     return value if value is not None and value != "" else "확인 필요"
 
 
+def registration_display(item, *, as_of=None):
+    """Only format official timestamps; never extrapolate a subsequent recruitment."""
+    period=item.get('registration_period') or {}
+    def parsed(key):
+        value=period.get(key)
+        return datetime.fromisoformat(value).astimezone(SEOUL) if value else None
+    start,stop=parsed('starts_at'),parsed('ends_at')
+    if start and stop:
+        end_format='%m.%d' if start.year==stop.year else '%Y.%m.%d'
+        dates=start.strftime('%Y.%m.%d')+' ~ '+stop.strftime(end_format)
+    elif start:
+        dates=start.strftime('%Y.%m.%d')+'부터 · 마감일 공식 자료 확인 필요'
+    elif stop:
+        dates=stop.strftime('%Y.%m.%d')+'까지 · 시작일 공식 자료 확인 필요'
+    else:
+        dates='공식 자료 확인 필요'
+    times=' / '.join(label+' '+value.strftime('%Y.%m.%d %H:%M') for label,value in (('시작',start),('마감',stop)) if value)
+    # A stored closed/unknown status must not be promoted to a new intake.
+    upcoming=availability_status(item,as_of=as_of)=='upcoming'
+    next_date=start.strftime('%Y.%m.%d') if upcoming and start else '다음 접수 일정 미정'
+    return dates,times or '공식 자료 확인 필요',next_date
+
+
 def activity_facts(item, *, as_of=None):
     fee = "무료 (기본 참가비 0원)" if item["fee_amount"] == 0 else (
-        "확인 필요" if item["fee_amount"] is None else
+        "공식 자료 확인 필요" if item["fee_amount"] is None else
         f"{item['fee_amount']:,}원 · {known(item['fee_unit'])}"
     )
+    period,times,next_date=registration_display(item,as_of=as_of)
+    preparations=[note.split(' 준비 안내.')[0] for note in item.get('verification_notes',[]) if ' 준비 안내.' in note]
     return [
-        ("장소", known(item["facility_name"])), ("지역", known(item["region"])), ("주소", known(item["address"])),
+        ("장소", known(item["facility_name"])), ("지역", known(item["region"])), ("주소", item["address"] or "공식 자료 확인 필요"),
         ("일정", known(item["schedule"]["text"])), ("비용", fee),
-        ("비용 참고", known(item.get("fee_notes"))), ("대상", known(item["target"])),
+        ("비용 참고", known(item.get("fee_notes"))), ("대상", item["target"] or "공식 자료 확인 필요"),
         ("접수 상태", STATUS_LABELS[availability_status(item, as_of=as_of)]),
         ("접수 참고", known(item["status_notes"])),
-        ("접수 기간", " ~ ".join(known((item['registration_period'] or {}).get(key)) for key in ('starts_at','ends_at'))),
-        ("신청 방법", known(item["registration_method"])), ("정보 확인일", item["verified_at"]),
+        ("접수 기간", period), ("접수 시각", times), ("다음 접수 예정일", next_date),
+        ("준비물", " · ".join(preparations) if preparations else "공식 자료 확인 필요"),
+        ("신청 방법", item["registration_method"] or "공식 자료 확인 필요"), ("정보 확인일", item["verified_at"]),
     ]
 
 

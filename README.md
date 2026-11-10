@@ -12,6 +12,12 @@
 
 [대안 추천·지역 확대·데이터 확장 계약](docs/alternative-paths.md)
 
+## 대안 상세 화면
+
+대안의 **‘정보 보기 →’** 버튼을 누르면 최신 답변 맨 앞에 공식 카드가 표시됩니다. 비용·대상·지역·주소·접수 기간·신청 방법은 바로 읽을 수 있고, 긴 주의사항과 출처는 별도 펼침 영역에 있습니다. 과거 대화는 보존하며 현재 답변의 카드 중복은 제거합니다. 다음 접수 일정이 확인되지 않으면 **‘다음 접수 일정 미정’**으로 표시합니다.
+
+[모바일 상세 카드·날짜 표시·검증 범위](docs/readable-details.md)
+
 ## 구현된 기능
 
 - 일반 활동 제안: 걷기·수중운동·체조·파크골프·수영·그림/만들기·식물 가꾸기·공연·인문학의 사전 작성 목록에서 최대 3개를 선택합니다. 실제 모집 프로그램과 명확히 구분합니다.
@@ -40,7 +46,7 @@
 
 ## 검증과 설정
 
-자동 테스트 **112개**, Chromium/Playwright **19개 흐름**을 로컬/모의 API로 검사합니다. 실제 Gemini/OpenAI 실호출·한국어 품질·iPad/iPhone Safari·Android Chrome 실기기·이번 변경의 Community Cloud 배포는 미검증입니다. 화면 크기 검사를 실기기 검증으로 간주하지 않습니다.
+자동 테스트 **118개**, Chromium/Playwright **22개 흐름**을 로컬/모의 API로 검사합니다. 실제 Gemini/OpenAI 실호출·한국어 품질·iPad/iPhone Safari·Android Chrome 실기기·이번 변경의 Community Cloud 배포는 미검증입니다. 화면 크기 검사를 실기기 검증으로 간주하지 않습니다.
 
 [활동 추천 흐름·데이터 경계·검증](docs/activity-guidance.md) · [Gemini Secrets](docs/gemini-setup.md) · [404 진단](docs/gemini-model-diagnostics.md) · [고정 문장 생성 비교](docs/gemini-generation-probe.md)
 
