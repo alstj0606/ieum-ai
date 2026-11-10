@@ -5,7 +5,7 @@ async function ready(page,url=URL){await page.goto(url);await page.getByRole('bu
 async function idle(page){await page.waitForFunction(()=>document.querySelector('[data-testid=stApp]')?.getAttribute('data-test-script-state')==='notRunning');}
 async function send(page,text){await page.getByRole('textbox').fill(text);await page.getByRole('button',{name:'질문 전송',exact:true}).click();await page.getByText(text,{exact:true}).last().waitFor();await idle(page);}
 async function concert(page){await page.getByRole('heading',{name:'2026 제27회 강서국악한마당',exact:true}).last().waitFor();await idle(page);}
-async function details(page){await page.getByText('자세히 보기',{exact:true}).last().click();}
+async function details(page){await page.getByText('주의사항·공식 출처',{exact:true}).last().click();}
 async function main(){
  const browser=await chromium.launch({executablePath:process.env.CHROMIUM_PATH||'/usr/bin/chromium',headless:true,args:['--no-sandbox','--use-fake-device-for-media-stream','--use-fake-ui-for-media-stream']});
  try{
@@ -95,7 +95,7 @@ async function main(){
   const reported='강서구에서 어르신이 참여할 수 있는 운동을 추천해줘';
   await send(fallback,reported);
   await fallback.getByText('Gemini 연결을 이용하지 못해 기본 규칙으로 안내하고 있어요.',{exact:false}).waitFor();
-  await fallback.getByRole('button',{name:'가벼운 걷기 알아보기',exact:true}).waitFor();
+  await fallback.getByRole('button',{name:'가벼운 걷기 알아보기',exact:true}).waitFor();await idle(fallback);
   await fallback.getByRole('button',{name:'＋ 보조 메뉴',exact:false}).click();
   await fallback.getByText('연결 상태 확인',{exact:true}).click();
   await fallback.getByText('진단 코드: rate_limit',{exact:true}).waitFor();

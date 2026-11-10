@@ -223,7 +223,7 @@ class DialogueTest(TestCase):
                     self.assertIn(str(value), text)
                 self.assertIn(row["name"], text)
         missing = next(row for row in self.rows if row["fee_amount"] is None)
-        self.assertEqual(dict(activity_facts(missing, as_of=DAY))["비용"], "확인 필요")
+        self.assertEqual(dict(activity_facts(missing, as_of=DAY))["비용"], "공식 자료 확인 필요")
 
 
 class VoiceTest(TestCase):
