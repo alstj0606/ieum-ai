@@ -11,6 +11,12 @@ ROOT=Path(__file__).resolve().parents[1]
 def render():
     st.set_page_config(page_title='이음 AI · 성산복지관 신청 도우미',page_icon='💬')
     st.markdown('<style>'+(ROOT/'ui/chat.css').read_text()+'</style>',unsafe_allow_html=True)
+    st.markdown('<style>'+(ROOT/'ui/seongsan_light.css').read_text()+'</style>',unsafe_allow_html=True)
+    with st.container(key='seongsan_light'):
+        _render_content()
+
+
+def _render_content():
     data=load_institution()
     try:settings=load_settings(dict(st.secrets))
     except Exception:settings=load_settings()
@@ -39,7 +45,8 @@ def render():
             st.subheader(f'{state["index"]+1}단계 / {len(data["steps"])}단계 · {step["title"]}')
             if state.get('notice'):st.info(state['notice'])
             if state['message']:st.write(state['message'])
-            st.markdown('**지금 할 일 → '+step['instruction']+'**')
+            with st.container(key='inst_instruction'):
+                st.markdown('**지금 할 일 → '+step['instruction']+'**')
             if step['button_label']:st.markdown('**공식 메뉴·버튼 이름 · '+step['button_label']+'**')
             st.write(step['details'])
             st.caption('검증 수준 · '+step['verification_level'])

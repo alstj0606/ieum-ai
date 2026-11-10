@@ -1,0 +1,41 @@
+/* Service-scoped surfaces: do not set Streamlit's global [theme] or legacy colours. */
+.stApp:has(.st-key-seongsan_light) {
+  color-scheme:light;
+  background:#ffffff;
+  color:#172b3a;
+}
+.stApp:has(.st-key-seongsan_light) [data-testid="stHeader"],
+.stApp:has(.st-key-seongsan_light) [data-testid="stBottom"],
+.stApp:has(.st-key-seongsan_light) [data-testid="stBottomBlockContainer"] {
+  background:#ffffff;
+  color:#172b3a;
+}
+.st-key-seongsan_light {color:#172b3a;background:#ffffff}
+.st-key-seongsan_light :is(h1,h2,h3,label),
+.st-key-seongsan_light [data-testid="stMarkdownContainer"] {color:#172b3a}
+.st-key-seongsan_light [data-testid="stCaptionContainer"] p {color:#334e68}
+.st-key-seongsan_light [data-testid="stChatMessage"] {background:#f1f6fa;color:#172b3a}
+.st-key-seongsan_light [data-testid="stChatMessageAvatarAssistant"] {background:#124d78;color:#ffffff}
+/* The one !important overrides the older shared .stMain p 20px!important rule. */
+.st-key-inst_instruction [data-testid="stMarkdownContainer"] p {font-size:22px!important}
+.st-key-seongsan_light [data-testid="stAlert"] {background:#fff4d6;color:#633600;border:1px solid #946122}
+.st-key-seongsan_light [data-testid="stAlert"] [data-testid="stMarkdownContainer"] {color:#633600}
+.st-key-seongsan_light [data-testid="stAlert"] svg {fill:currentColor}
+.st-key-seongsan_light .stExpander {background:#ffffff;color:#172b3a;border-color:#526d88}
+.st-key-seongsan_light .stExpander summary {background:#f1f6fa;color:#10375c}
+.st-key-seongsan_light .stExpander details {background:#ffffff;color:#172b3a}
+.st-key-seongsan_light a:not([data-testid="stBaseLinkButton-primary"]):not([data-testid="stBaseLinkButton-secondary"]) {color:#075985;text-decoration:underline}
+.st-key-seongsan_light .stLinkButton a {background:#124d78;color:#ffffff;border:2px solid #124d78;text-decoration:none}
+.st-key-seongsan_light .stLinkButton a p {color:#ffffff}
+.st-key-seongsan_light .stButton button:disabled {background:#e2e8f0;color:#475569;border:2px solid #64748b;opacity:1}
+.st-key-seongsan_light .stButton button:disabled p {color:#475569}
+.stApp:has(.st-key-seongsan_light) .stChatInput {background:#ffffff;color:#172b3a;border-color:#526d88}
+.stApp:has(.st-key-seongsan_light) .stChatInput textarea {color:#172b3a;-webkit-text-fill-color:#172b3a;caret-color:#172b3a}
+.stApp:has(.st-key-seongsan_light) .stChatInput textarea::placeholder {color:#475569;-webkit-text-fill-color:#475569;opacity:1}
+.stApp:has(.st-key-seongsan_light) .stChatInput button {color:#10375c}
+.st-key-seongsan_light .stTextArea textarea {background:#ffffff;color:#172b3a;-webkit-text-fill-color:#172b3a;border-color:#526d88}
+.st-key-seongsan_light audio {color-scheme:light}
+body:has(.st-key-seongsan_light) [role="tooltip"] {background:#172b3a;color:#ffffff;font-size:18px}
+.stApp:has(.st-key-seongsan_light) [data-testid="stSkipToContent"] {font-size:18px;color:#075985;background:#ffffff}
+/* Streamlit captions default to opacity .6; explicit text colour alone is insufficient. */
+.st-key-seongsan_light [data-testid="stCaptionContainer"] {opacity:1}
