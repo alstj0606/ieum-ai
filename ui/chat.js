@@ -12,6 +12,14 @@ if(!window.ieumInteractionTracking){
     stChatInputCancelButton:'녹음 취소', stChatInputApproveButton:'말하기 끝내기'
   };
   const update = () => {
+    // Capture before footer scripts arrive: a quick click must cancel late scrolling.
+    window.ieumReplyInteractions ||= new Map();
+    for(const anchor of document.querySelectorAll('[id^="latest-reply-"]')) {
+      if(!window.ieumReplyInteractions.has(anchor.id))
+        window.ieumReplyInteractions.set(anchor.id,window.ieumInteractionSeq||0);
+    }
+    while(window.ieumReplyInteractions.size>30)
+      window.ieumReplyInteractions.delete(window.ieumReplyInteractions.keys().next().value);
     const root=document.querySelector('[data-testid="stChatInput"]');
     if(!root) return;
     for(const [id,name] of Object.entries(names)) {
@@ -73,12 +81,17 @@ if(!window.ieumInteractionTracking){
   }
   window.ieumViewportHandler=()=>{
     clearTimeout(window.ieumViewportTimer);
-    window.ieumViewportTimer=setTimeout(()=>{
+    clearTimeout(window.ieumViewportRetry);
+    const focused=document.activeElement?.matches('[data-testid="stChatInputTextArea"]');
+    const interaction=window.ieumInteractionSeq||0;
+    const restore=()=>{
+      if((window.ieumInteractionSeq||0)!==interaction)return;
       if(document.querySelector('[data-testid=stPopoverButton][aria-expanded=true]'))return;
-      if(document.activeElement?.matches('[data-testid="stChatInputTextArea"]')) {
+      if(focused||document.activeElement?.matches('[data-testid="stChatInputTextArea"]'))
         [...document.querySelectorAll('[id^="latest-reply-"]')].at(-1)?.scrollIntoView({block:'start'});
-      }
-    },300);
+    };
+    window.ieumViewportTimer=setTimeout(restore,300);
+    window.ieumViewportRetry=setTimeout(restore,750);
   };
   window.visualViewport?.addEventListener('resize',window.ieumViewportHandler);
   window.addEventListener('resize',window.ieumViewportHandler);

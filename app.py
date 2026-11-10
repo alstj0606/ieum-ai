@@ -13,7 +13,9 @@ from services.diagnostics import DIAGNOSTICS
 from services.model_probe import inspect_models, STATUS_LABELS
 from services.generation_probe import inspect_generation, COMPARISON_LABELS
 from services.dialogue import new_state, handle_turn, manual_search, application_guide, basic_extract, choose_idea, choose_alternative
-from services.recommendations import activity_facts, speech_text
+from services.recommendations import speech_text
+from services.card_view import CARD_FIELDS, DETAIL_FIELDS, card_facts
+from services.date_display import display_date_text
 from services.voice import transcribe, synthesize, VoiceError
 
 ROOT = Path(__file__).parent
@@ -62,6 +64,12 @@ def send(text, *, voice=False, fixed=False):
         state = handle_turn(state, text, activities, settings,
                             extraction=basic_extract(text, state) if fixed else None)
         remember(text, state, voice=voice)
+
+
+def choice_button(label, **kwargs):
+    kwargs.setdefault('type','primary')
+    kwargs.setdefault('use_container_width',True)
+    return st.button(label,**kwargs)
 
 
 def select_idea(idea_id):
@@ -119,7 +127,7 @@ def prepare(index):
         rows = [row for row in rows if row["id"] == state["selected_id"]]
     spoken = speech_text("선택하신 프로그램 정보예요." if turn.get("detail_first") and rows else state["message"], rows)
     if state.get('alternatives') and not turn.get('detail_first'):
-        spoken+=' 같은 지역의 공식 자료가 있는 대안이에요. '+ ' '.join(x['activity_type']+'. '+x['reason']+' '.join(row['name']+'. '+dict(activity_facts(row))['접수 상태'] for row in x['rows']) for x in state['alternatives'])
+        spoken+=' 같은 지역의 공식 자료가 있는 대안이에요. '+ ' '.join(x['activity_type']+'. '+x['reason']+' '.join(row['name']+'. '+card_facts(row)['접수 상태'] for row in x['rows']) for x in state['alternatives'])
     if state.get('ideas') and not turn.get('detail_first'):
         spoken+=' 일반 활동 제안이며 실제 모집 강좌가 아니에요. '+ ' '.join(x['name']+'. '+x['reason'] for x in state['ideas'])
     if state.get('facilities'):
@@ -136,33 +144,31 @@ def prepare(index):
 
 
 def card(row, index, position, *, reference=False, latest=False):
-    facts = dict(activity_facts(row))
+    facts = card_facts(row)
     with st.container(border=True):
-        st.subheader(row["name"])
+        st.subheader(row.get("name") or "공식 자료 확인 필요")
         # Status follows the title; essential information never needs an expander.
         st.markdown('**접수 상태 · '+facts['접수 상태']+'**')
         if reference:
             st.warning('참고 자료예요. 지금 신청 가능하다고 확인된 활동은 아니에요.')
-        for label,key in (("참가 비용","비용"),("모집 대상","대상"),("지역","지역"),
-                          ("장소","장소"),("상세 주소","주소"),("운영 시간","일정"),
-                          ("접수 기간","접수 기간"),("다음 접수 예정일","다음 접수 예정일"),
-                          ("신청 방법","신청 방법"),("준비물","준비물")):
+        for label,key in CARD_FIELDS:
             value=facts[key].replace("~", r"\~")
             st.markdown(f"{label}  \n**{value}**")
+        if latest and not reference and row.get("id"):
+            choice_button("이 활동 신청 방법",key=f"apply_{row['id']}",on_click=apply,args=(row["id"],))
         with st.expander("주의사항·공식 출처"):
-            for label in ("정보 확인일","접수 시각","접수 참고","비용 참고"):
+            for label in DETAIL_FIELDS:
                 st.write(f"**{label}** · {facts[label]}")
-            for note in row.get("condition_notes", []) + row.get("verification_notes", []):
-                st.write(note)
-            st.link_button("공식 출처 확인",row["source_url"],use_container_width=True)
-            if row["official_url"]:
+            for note in (row.get("condition_notes") or []) + (row.get("verification_notes") or []):
+                st.write(display_date_text(note))
+            if row.get("source_url"):
+                st.link_button("공식 출처 확인",row["source_url"],use_container_width=True)
+            if row.get("official_url"):
                 st.link_button("공식 안내·신청 페이지 열기",row["official_url"],use_container_width=True)
             # Only phone strings literally present in the verified record are linkified.
             phones = sorted(set(re.findall(r"(?<!\d)0\d{1,2}-\d{3,4}-\d{4}(?!\d)",row.get("registration_method") or "")))
             for phone in phones:
                 st.markdown(f"[📞 {phone} 전화하기](tel:{phone.replace('-', '')})")
-            if latest and not reference:
-                st.button("이 활동 신청 방법",key=f"apply_{row['id']}",on_click=apply,args=(row["id"],),use_container_width=True)
 
 
 st.title("이음 AI")
@@ -194,7 +200,7 @@ with st.popover("＋ 보조 메뉴", use_container_width=False):
                 st.session_state.close_menu = True
                 submit_voice(uploaded)
     with st.expander("예시 체험 · 가상 수영 프로그램"):
-        if st.button("초보 수영 찾기",key="demo_example"):
+        if choice_button("초보 수영 찾기",key="demo_example"):
             st.session_state.close_menu = True
             demo=json.loads((ROOT/"data/demo_program.json").read_text())
             state=new_state()
@@ -252,7 +258,7 @@ with st.popover("＋ 보조 메뉴", use_container_width=False):
                     st.write(DIAGNOSTICS.get(code, DIAGNOSTICS["unknown"]))
             st.write(COMPARISON_LABELS[probe["comparison"]])
             st.caption("고정 문장 점검은 무료 자격·남은 한도나 실제 사용자 질문의 정상 동작을 보장하지 않아요.")
-    st.button("처음부터 다시 찾기",key="reset",on_click=reset)
+    choice_button("처음부터 다시 찾기",key="reset",on_click=reset)
 
 for index, turn in enumerate(st.session_state.turns):
     latest=index==len(st.session_state.turns)-1
@@ -274,31 +280,32 @@ for index, turn in enumerate(st.session_state.turns):
                 st.info(state["notice"])
             if not detail_first:
                 st.write(state["message"])
+            if not detail_first and state["code"]!="demo":
+                for position,row in enumerate(rows):
+                    card(row,index,position,reference=not bool(state["results"]),latest=latest)
             if state.get('alternatives') and not detail_first:
                 st.markdown('**같은 지역의 대안 · 공식 자료 있음**')
                 for option in state['alternatives']:
                     st.write(option['reason'])
+                    st.caption(option.get('match_label','다른 대안')+' · 직접 일치하는 강좌가 아니에요.')
                     for candidate in option['rows']:
-                        facts=dict(activity_facts(candidate))
+                        facts=card_facts(candidate)
                         st.write(candidate['name']+' · '+facts['접수 상태'])
                     if latest:
-                        st.button(option['activity_type']+' 정보 보기 →',key='alternative_'+option['activity_type'],
+                        choice_button(option['activity_type']+' 정보 보기 →',key='alternative_'+option['activity_type'],
                                   on_click=select_alternative,args=(option['activity_type'],),use_container_width=True,type='primary')
             if state["code"]=="demo":
                 demo=state["demo"]
                 st.subheader(demo["name"])
                 for label,key in (("대상","audience"),("시간","schedule"),("비용","fee"),("접수 기간","registration_period")):
                     st.write(f"**{label}** · {demo[key]}")
-            elif not detail_first:
-                for position,row in enumerate(rows):
-                    card(row,index,position,reference=not bool(state["results"]),latest=latest)
             if state.get('facilities'):
                 for facility in state['facilities']:
                     with st.container(border=True):
                         st.subheader(facility['name'])
                         st.write('공식 프로그램 자료에 등장하는 시설 · 현재 이용 가능 여부 미확인')
                         st.write('주소: '+(facility['address'] or '확인 필요'))
-                        st.write('확인일: '+facility['verified_at'])
+                        st.write('확인일: '+display_date_text(facility['verified_at']))
                         st.write('근거 프로그램: '+facility['source_program'])
                         st.write('근거 프로그램 접수 상태: '+facility['source_status'])
                         st.write(facility['note'])
@@ -308,7 +315,7 @@ for index, turn in enumerate(st.session_state.turns):
                 for idea in state['ideas']:
                     st.write('**'+idea['name']+'** · '+idea['reason'])
                     if latest:
-                        st.button(idea['name']+' 알아보기',key='idea_'+idea['id'],on_click=select_idea,
+                        choice_button(idea['name']+' 알아보기',key='idea_'+idea['id'],on_click=select_idea,
                                   args=(idea['id'],),use_container_width=True)
             if latest and state.get('ideas') and not state['results'] and not detail_first:
                 with st.expander('공식 페이지에서 직접 더 찾아보기'):
@@ -322,24 +329,24 @@ for index, turn in enumerate(st.session_state.turns):
                         st.link_button('공식 자료 · '+source['facility_name'],source['source_url'],use_container_width=True)
                         if len(seen)==3:break
             if latest and state.get('ideas') and state['conditions'].get('time_slot'):
-                st.button('시간 조건 풀기',key='relax_time',on_click=send,args=('시간은 상관없어요',),kwargs={'fixed':True},use_container_width=True)
+                choice_button('시간 조건 풀기',key='relax_time',on_click=send,args=('시간은 상관없어요',),kwargs={'fixed':True},use_container_width=True)
             if latest and state['code']=='unsupported_region':
-                st.button('서울 강서구 자료로 찾기',key='supported_region',on_click=send,args=('서울 강서구요',),kwargs={'fixed':True},use_container_width=True)
+                choice_button('서울 강서구 자료로 찾기',key='supported_region',on_click=send,args=('서울 강서구요',),kwargs={'fixed':True},use_container_width=True)
             if latest and state["code"] not in {"demo","start"}:
                 if state['pending']=='expand_region':
-                    st.button('네, 인접 지역도 확인',key='expand_yes',on_click=send,args=('인접 지역도 확인',),kwargs={'fixed':True},use_container_width=True)
-                    st.button('아니요, 이 지역만 볼게요',key='expand_no',on_click=send,args=('이 지역만 볼게요',),kwargs={'fixed':True},use_container_width=True)
+                    choice_button('네, 인접 지역도 확인',key='expand_yes',on_click=send,args=('인접 지역도 확인',),kwargs={'fixed':True},use_container_width=True)
+                    choice_button('아니요, 이 지역만 볼게요',key='expand_no',on_click=send,args=('이 지역만 볼게요',),kwargs={'fixed':True},use_container_width=True)
                 elif state["pending"]=="region":
-                    st.button("서울 강서구에서 찾기",key="choose_region",on_click=send,args=("서울 강서구요",),kwargs={"fixed":True},use_container_width=True)
+                    choice_button("서울 강서구에서 찾기",key="choose_region",on_click=send,args=("서울 강서구요",),kwargs={"fixed":True},use_container_width=True)
                 elif state["pending"]=="time_slot":
                     for name in ("오전","오후","저녁","상관없어요"):
-                        st.button(name,key=f"time_{name}",on_click=send,args=(name,),kwargs={"fixed":True},use_container_width=True)
+                        choice_button(name,key=f"time_{name}",on_click=send,args=(name,),kwargs={"fixed":True},use_container_width=True)
                 elif state["pending"]=="budget_unit":
                     for name in ("한 번 금액이에요","한 달 금액이에요"):
-                        st.button(name,key=f"budget_{name}",on_click=send,args=(name,),kwargs={"fixed":True})
+                        choice_button(name,key=f"budget_{name}",on_click=send,args=(name,),kwargs={"fixed":True})
                 else:
-                    st.button("다른 활동 찾기",key="change_activity",on_click=send,args=("다른 활동",),kwargs={"fixed":True})
-                    st.button("다른 시간 찾기",key="change_time",on_click=send,args=("다른 시간",),kwargs={"fixed":True})
+                    choice_button("다른 활동 찾기",key="change_activity",on_click=send,args=("다른 활동",),kwargs={"fixed":True})
+                    choice_button("다른 시간 찾기",key="change_time",on_click=send,args=("다른 시간",),kwargs={"fixed":True})
             if state["code"] != "demo":
                 if st.session_state.auto_read==index:
                     st.session_state.auto_read=None
@@ -399,10 +406,10 @@ if st.session_state.turns:
     detail_scroll="true" if st.session_state.turns[-1].get('detail_first') else "false"
     st.html(f'''<script>if(window.ieumLatest!=={seq}){{window.ieumLatest={seq};
     window.ieumDetailScroll?.();
-    const interaction=window.ieumInteractionSeq||0;
+    const interaction=window.ieumReplyInteractions?.get('latest-reply-{seq}')??(window.ieumInteractionSeq||0);
     let observer;
     const stop=()=>observer?.disconnect();
-    const show=()=>{{if((window.ieumInteractionSeq||0)!==interaction){{stop();return;}}
+    const show=()=>{{if(window.ieumLatest!=={seq}||(window.ieumInteractionSeq||0)!==interaction){{stop();return;}}
     if(document.querySelector('[data-testid=stPopoverButton][aria-expanded=true]'))return;
     document.getElementById('latest-reply-{seq}')?.scrollIntoView({{block:'start'}});}};
     setTimeout(show,150);setTimeout(show,600);

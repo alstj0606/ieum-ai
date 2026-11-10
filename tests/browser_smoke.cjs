@@ -5,7 +5,6 @@ async function ready(page,url=URL){await page.goto(url);await page.getByRole('bu
 async function idle(page){await page.waitForFunction(()=>document.querySelector('[data-testid=stApp]')?.getAttribute('data-test-script-state')==='notRunning');}
 async function send(page,text){await page.getByRole('textbox').fill(text);await page.getByRole('button',{name:'질문 전송',exact:true}).click();await page.getByText(text,{exact:true}).last().waitFor();await idle(page);}
 async function concert(page){await page.getByRole('heading',{name:'2026 제27회 강서국악한마당',exact:true}).last().waitFor();await idle(page);}
-async function details(page){await page.getByText('주의사항·공식 출처',{exact:true}).last().click();}
 async function main(){
  const browser=await chromium.launch({executablePath:process.env.CHROMIUM_PATH||'/usr/bin/chromium',headless:true,args:['--no-sandbox','--use-fake-device-for-media-stream','--use-fake-ui-for-media-stream']});
  try{
@@ -32,7 +31,7 @@ async function main(){
    await concert(page);
    const last=page.locator('[data-testid="stChatMessage"]').last();
    if(await last.getByRole('heading',{name:'2026 제27회 강서국악한마당',exact:true}).count()!==1)throw Error('Card outside answer');
-   await details(page);
+   // Application guidance is a primary action, available without opening sources.
    await page.getByRole('button',{name:'이 활동 신청 방법',exact:true}).click();
    await page.getByText('아직 신청·예약·결제가 완료된 것은 아니에요.',{exact:false}).last().waitFor();
    // Wait for the server render and its deferred latest-answer scroll before viewport testing.
@@ -41,6 +40,11 @@ async function main(){
    await page.getByRole('textbox').focus();
    await page.setViewportSize({width,height:480});
    await page.waitForTimeout(800);
+   await page.waitForFunction(()=>{
+    const input=document.querySelector('[data-testid=stChatInput]')?.getBoundingClientRect();
+    const reply=[...document.querySelectorAll('[id^=latest-reply-]')].at(-1)?.getBoundingClientRect();
+    return input&&reply&&reply.y>=0&&reply.y<=input.y;
+   },{},{timeout:5000});
    const input=await page.locator('[data-testid="stChatInput"]').boundingBox();
    if(input.y<0||input.y+input.height>481)throw Error('Composer outside reduced viewport');
    const latest=await page.locator('[id^=latest-reply-]').last().boundingBox();
@@ -63,6 +67,8 @@ async function main(){
    await guide.getByRole('button',{name:'서울 강서구에서 찾기',exact:true}).click();
    await guide.getByText('접수 가능 여부가 확인되지 않았거나',{exact:false}).last().waitFor();await idle(guide);
    await guide.getByRole('button',{name:'＋ 보조 메뉴',exact:false}).click();
+   // Large menu controls can require scrolling within the native popover.
+   await guide.locator('[data-testid=stPopoverBody]').evaluate(body=>body.scrollTop=body.scrollHeight);
    await guide.getByRole('button',{name:'처음부터 다시 찾기',exact:true}).click();await idle(guide);
    const menu=guide.getByRole('button',{name:'＋ 보조 메뉴',exact:false});
    if(await menu.getAttribute('aria-expanded')==='true')await menu.click();
@@ -119,7 +125,7 @@ async function main(){
   console.log('PASS read-only model metadata/list -> quota unverified -> conversation preserved');
   await send(probe,'강서구에서 파크골프 프로그램 찾아줘');
   await probe.getByRole('heading',{name:'서남센터 파크골프장(18홀)',exact:true}).waitFor();
-  await probe.getByText('2023-04-01~2026-12-31',{exact:false}).waitFor();
+  await probe.getByText('2023.04.01~2026.12.31',{exact:false}).waitFor();
   await probe.getByRole('button',{name:'＋ 보조 메뉴',exact:false}).click();
   await probe.getByText('연결 상태 확인',{exact:true}).click();
   await probe.getByText('진단 코드: generation_not_found',{exact:true}).waitFor();
