@@ -67,7 +67,7 @@ class CardContractTest(TestCase):
 
     def test_all_official_cards_really_render_and_legacy_values_do_not_crash_app(self):
         with patch('services.config.load_settings',return_value=Settings()):
-            app=AppTest.from_file(str(ROOT/'app.py')).run()
+            app=AppTest.from_file(str(ROOT/'gangseo_app.py')).run()
             for index,row in enumerate(self.rows):
                 with self.subTest(record=row['id']):
                     state=new_state();state.update(references=[row],code='reference')

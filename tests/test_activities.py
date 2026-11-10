@@ -217,7 +217,7 @@ class ExistingAppTest(unittest.TestCase):
         from streamlit.testing.v1 import AppTest
 
         program = json.loads((ROOT / "data/demo_program.json").read_text(encoding="utf-8"))
-        app = AppTest.from_file(str(ROOT / "app.py")).run()
+        app = AppTest.from_file(str(ROOT / "gangseo_app.py")).run()
         self.assertFalse(app.exception)
         self.assertEqual(app.title[0].value, "이음 AI")
         app.chat_input(key="chat").set_value("   ").run()

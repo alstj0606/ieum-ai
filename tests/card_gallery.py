@@ -31,4 +31,4 @@ def legacy_facts(row, **kwargs):
 
 context=patch('services.card_view.activity_facts',side_effect=legacy_facts) if st.query_params.get('legacy')=='1' else nullcontext()
 with context:
-    exec(compile((ROOT/'app.py').read_text(),str(ROOT/'app.py'),'exec'),{'__file__':str(ROOT/'app.py'),'__name__':'__main__'})
+    exec(compile((ROOT/'gangseo_app.py').read_text(),str(ROOT/'gangseo_app.py'),'exec'),{'__file__':str(ROOT/'gangseo_app.py'),'__name__':'__main__'})

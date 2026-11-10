@@ -138,7 +138,7 @@ class TrustedFlowTest(TestCase):
 
     def test_app_first_button_matches_score_order_even_with_reversed_legacy_state(self):
         with patch('services.config.load_settings',return_value=Settings()):
-            app=AppTest.from_file(str(ROOT/'app.py')).run()
+            app=AppTest.from_file(str(ROOT/'gangseo_app.py')).run()
             state=self.walk();state['alternatives'].reverse()
             app.session_state['dialog']=state
             app.session_state['turns']=[{'user':QUERY,'state':state}]

@@ -54,6 +54,14 @@ class Handler(BaseHTTPRequestHandler):
                 self.wfile.write(json.dumps({'candidates':[{'content':{'parts':[{'text':'private-response-canary'}]},'finishReason':'STOP'}]}).encode())
                 return
             context = json.loads(incoming["contents"][0]["parts"][0]["text"])
+            if 'utterance' in context:
+                from services.institution_dialogue import rule_action
+                failed='연결 실패 시험' in context['utterance']
+                self.send_response(429 if failed else 200)
+                self.send_header('Content-Type','application/json');self.end_headers()
+                value={'error':{'code':429,'message':'private-mock-canary'}} if failed else {'candidates':[{'content':{'parts':[{'text':json.dumps({'action':rule_action(context['utterance'])})}]},'finishReason':'STOP'}]}
+                self.wfile.write(json.dumps(value).encode());return
+
             if context['current_utterance'] == PROBE_TEXT:
                 self.send_response(404)
                 self.send_header('Content-Type','application/json')
