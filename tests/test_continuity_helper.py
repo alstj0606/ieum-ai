@@ -16,7 +16,7 @@ from services.dialogue import new_state,handle_turn,application_guide,choose_alt
 from services.recommendation_pipeline import prepare_view
 from services.continuity import recommended_rows
 
-DAY=date(2026,11,10);APP=str(Path(__file__).resolve().parents[1]/'app.py')
+DAY=date(2026,11,10);APP=str(Path(__file__).resolve().parents[1]/'gangseo_app.py')
 PROFILE='65세이고 강서구에서 가볍게 운동하고 싶어요.'
 PARK='seonam-parkgolf-reservation-2026';SLOW='gangseo-slow-jogging-2026-h2-40plus';ACADEMY='seoul-renewal-academy-gangseo-20261121'
 class ContinuityHelperTest(TestCase):

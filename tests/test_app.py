@@ -13,7 +13,7 @@ from services.config import Settings
 from services.dialogue import manual_search, new_state
 from services.voice import VoiceError
 
-APP=str(Path(__file__).resolve().parents[1]/"app.py")
+APP=str(Path(__file__).resolve().parents[1]/"gangseo_app.py")
 DAY=date(2026,11,9)
 
 class AppFlowTest(TestCase):

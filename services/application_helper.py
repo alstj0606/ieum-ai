@@ -74,6 +74,12 @@ def start_helper(row,conditions,*,as_of=None):
     return {key:view[key] for key in ('program_id','mode','index')}
 
 
+def advance_step(index,total,direction):
+    """Shared bounded guide navigation for programmes and institution onboarding."""
+    delta={'next':1,'previous':-1}.get(direction,0)
+    return max(0,min(index+delta,total-1))
+
+
 def move_helper(state,activities,direction,*,as_of=None):
     state=deepcopy(state);helper=state.get('application_helper')
     row=next((r for r in activities if helper and r['id']==helper['program_id']),None)
@@ -81,8 +87,7 @@ def move_helper(state,activities,direction,*,as_of=None):
     view=helper_view(row,state['conditions'],helper,as_of=as_of)
     index=view['index']
     if helper.get('mode')!=view['mode']:helper.pop('finished_reading',None)
-    if direction=='next':index=min(index+1,view['total']-1)
-    elif direction=='previous':index=max(0,index-1)
+    if direction in {'next','previous'}:index=advance_step(index,view['total'],direction)
     elif direction=='finish' and index==view['total']-1:helper['finished_reading']=True
     helper.update(index=index,mode=view['mode'])
     state['recommendation_update']=None

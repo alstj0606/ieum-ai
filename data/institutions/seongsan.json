@@ -1,0 +1,131 @@
+{
+  "institution_id": "seongsan_senior",
+  "name": "성산노인종합복지관",
+  "address": "경남 창원시 성산구 창이대로 781",
+  "phone": "055-714-9178",
+  "phone_role": "문의",
+  "sites": {
+    "seongsan_home": "https://ssswc.cwwf.or.kr/",
+    "seongsan_online": "https://sssenior.e-ncom.co.kr/main/index.do"
+  },
+  "login_url": "https://sssenior.e-ncom.co.kr/member/login.do",
+  "account_url": "https://sssenior.e-ncom.co.kr/member/memberAuth.do",
+  "guide_url": "https://ssswc.cwwf.or.kr/filedown/2025_program2.pdf",
+  "current_programs": [],
+  "registration_status": "unknown",
+  "screenshot_usage": "재사용 허용 범위 미확인·직접 캡처 접근 차단: 이미지 미제공",
+  "verification_note": "2026-11-10 공식 웹 문서를 웹 열람 도구로 확인. 수집본은 약 2개월~1.7년 전으로 현재 실화면과 동일함을 보장하지 않음. 2025 안내문은 절차 참고용이며 현재 모집 일정 근거가 아님. 로그인·인증·개인정보 입력·실제 신청은 하지 않음.",
+  "steps": [
+    {
+      "institution_id": "seongsan_senior",
+      "site_id": "seongsan_online",
+      "step_id": "membership",
+      "title": "복지관 회원이신가요?",
+      "instruction": "복지관 회원인지 아래에서 골라 주세요.",
+      "button_label": null,
+      "official_url": "https://sssenior.e-ncom.co.kr/main/index.do",
+      "verification_source": "https://sssenior.e-ncom.co.kr/member/login.do",
+      "verified_at": "2026-11-10",
+      "verification_level": "실제 공개 웹페이지에서 확인",
+      "screenshot_path": null,
+      "arrow_target": null,
+      "prerequisites": [],
+      "details": "온라인 신청은 복지관 회원만 이용해요. 비회원은 복지관 방문 회원등록이 먼저예요. 온라인 아이디 만들기와 복지관 회원등록은 서로 달라요."
+    },
+    {
+      "institution_id": "seongsan_senior",
+      "site_id": "seongsan_online",
+      "step_id": "open_site",
+      "title": "공식 신청 사이트를 열어요",
+      "instruction": "아래 공식 사이트 열기 버튼을 눌러 주세요.",
+      "button_label": null,
+      "official_url": "https://sssenior.e-ncom.co.kr/main/index.do",
+      "verification_source": "https://sssenior.e-ncom.co.kr/main/index.do",
+      "verified_at": "2026-11-10",
+      "verification_level": "실제 공개 웹페이지에서 확인",
+      "screenshot_path": null,
+      "arrow_target": null,
+      "prerequisites": [
+        "복지관 회원등록 선행",
+        "공식 사이트에서 직접 진행"
+      ],
+      "details": "새 창에서 공식 사이트를 보고 이음 AI로 돌아와 다음 단계를 눌러 주세요. 현재 모집 강좌와 접수 상태는 확인하지 못했어요."
+    },
+    {
+      "institution_id": "seongsan_senior",
+      "site_id": "seongsan_online",
+      "step_id": "account",
+      "title": "온라인 아이디와 로그인을 준비해요",
+      "instruction": "온라인 아이디가 있으면 로그인, 처음이면 아이디 만들기를 선택해 주세요.",
+      "button_label": "아이디 만들기 / 로그인",
+      "official_url": "https://sssenior.e-ncom.co.kr/main/index.do",
+      "verification_source": "https://sssenior.e-ncom.co.kr/member/memberAuth.do",
+      "verified_at": "2026-11-10",
+      "verification_level": "실제 공개 웹페이지에서 확인",
+      "screenshot_path": null,
+      "arrow_target": null,
+      "prerequisites": [
+        "복지관 회원등록 선행",
+        "공식 사이트에서 직접 진행"
+      ],
+      "details": "복지관 기존 회원이 온라인 아이디를 만드는 과정이에요. 공개 화면의 회원가입·아이디만들기에서 약관과 본인인증 안내를 확인할 수 있어요. 2025년 안내문은 본인인증 후 아이디·비밀번호와 이용자번호 입력을 설명해요. 실제 인증 이후 화면은 미확인이에요. 회원번호가 어렵다면 기관에 문의해 주세요."
+    },
+    {
+      "institution_id": "seongsan_senior",
+      "site_id": "seongsan_online",
+      "step_id": "menu",
+      "title": "신청 메뉴를 찾아요",
+      "instruction": "공식 사이트에서 수강신청 및 결제 메뉴를 찾아 주세요.",
+      "button_label": "수강신청 및 결제",
+      "official_url": "https://sssenior.e-ncom.co.kr/main/index.do",
+      "verification_source": "https://ssswc.cwwf.or.kr/filedown/2025_program2.pdf",
+      "verified_at": "2026-11-10",
+      "verification_level": "로그인 이후 미확인",
+      "screenshot_path": null,
+      "arrow_target": null,
+      "prerequisites": [
+        "복지관 회원등록 선행",
+        "공식 사이트에서 직접 진행"
+      ],
+      "details": "메뉴 이름은 공개 화면과 2025년 안내문에서 확인했어요. 로그인 후 실제 화면과 버튼 위치는 미확인이에요. 메뉴가 다르면 임의의 버튼을 누르지 말고 못 찾겠어요를 선택해 주세요."
+    },
+    {
+      "institution_id": "seongsan_senior",
+      "site_id": "seongsan_online",
+      "step_id": "subject",
+      "title": "원하는 과목을 확인해요",
+      "instruction": "공식 사이트에서 원하는 과목의 현재 모집 안내를 먼저 확인해 주세요.",
+      "button_label": "과목명 → 신청하기",
+      "official_url": "https://sssenior.e-ncom.co.kr/main/index.do",
+      "verification_source": "https://ssswc.cwwf.or.kr/filedown/2025_program2.pdf",
+      "verified_at": "2026-11-10",
+      "verification_level": "로그인 이후 미확인",
+      "screenshot_path": null,
+      "arrow_target": null,
+      "prerequisites": [
+        "복지관 회원등록 선행",
+        "공식 사이트에서 직접 진행"
+      ],
+      "details": "2025년 절차는 과목명을 고른 뒤 신청하기를 누르는 순서예요. 2026년 강좌·비용·접수 가능 여부는 미확인이므로 현재 모집 안내가 확인될 때만 직접 진행해 주세요. 이음 AI는 과목을 만들거나 신청을 대신 제출하지 않아요."
+    },
+    {
+      "institution_id": "seongsan_senior",
+      "site_id": "seongsan_online",
+      "step_id": "result",
+      "title": "실제 신청 상태를 확인해요",
+      "instruction": "공식 사이트의 나의 신청프로그램에서 처리 상태를 직접 확인해 주세요.",
+      "button_label": "나의 신청프로그램",
+      "official_url": "https://sssenior.e-ncom.co.kr/main/index.do",
+      "verification_source": "https://ssswc.cwwf.or.kr/filedown/2025_program2.pdf",
+      "verified_at": "2026-11-10",
+      "verification_level": "로그인 이후 미확인",
+      "screenshot_path": null,
+      "arrow_target": null,
+      "prerequisites": [
+        "복지관 회원등록 선행",
+        "공식 사이트에서 직접 진행"
+      ],
+      "details": "추첨 신청은 당첨이나 수강 확정과 달라요. 2025년 안내문에는 추첨 이후 별도 수납과 기한 내 미수납 시 취소 절차가 있어요. 현재 결제·수납 방식과 기한은 기관의 새 안내로 확인해야 해요. 여기까지 따라왔다고 실제 신청이 완료된 것은 아니에요."
+    }
+  ]
+}

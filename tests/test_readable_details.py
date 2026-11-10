@@ -64,7 +64,7 @@ class ReadableDetailsTest(TestCase):
 
     def test_choice_renders_one_card_before_explanations_and_keeps_history(self):
         with patch('services.config.load_settings',return_value=Settings()):
-            app=AppTest.from_file(str(Path(__file__).resolve().parents[1]/'app.py')).run()
+            app=AppTest.from_file(str(Path(__file__).resolve().parents[1]/'gangseo_app.py')).run()
             app.chat_input(key='chat').set_value('강서구 걷기 프로그램 찾아줘').run()
             old_turns=len(app.session_state['turns'])
             button=app.button(key='alternative_슬로우조깅')
