@@ -1,5 +1,6 @@
 """Verified, read-only participation guidance. No external request or submission."""
 from copy import deepcopy
+from services.guide_navigation import advance_step  # Preserve the existing public export.
 import json
 from pathlib import Path
 from services.activities import availability_status
@@ -72,12 +73,6 @@ def helper_view(row,conditions,helper=None,*,as_of=None,guides=None):
 def start_helper(row,conditions,*,as_of=None):
     view=helper_view(row,conditions,as_of=as_of)
     return {key:view[key] for key in ('program_id','mode','index')}
-
-
-def advance_step(index,total,direction):
-    """Shared bounded guide navigation for programmes and institution onboarding."""
-    delta={'next':1,'previous':-1}.get(direction,0)
-    return max(0,min(index+delta,total-1))
 
 
 def move_helper(state,activities,direction,*,as_of=None):
