@@ -174,8 +174,8 @@ class AppFlowTest(TestCase):
             self.assertFalse(app.exception)
             state=app.session_state['dialog']
             self.assertEqual(state['diagnostic']['code'],'authentication')
-            self.assertTrue(state['ideas'])
-            self.assertEqual(state['code'],'ideas')
+            self.assertTrue(state['results'] or state['references'])
+            self.assertIn(state['code'],('found','closed','unknown'))
             self.assertEqual(app.session_state['turns'][-1]['user'],text)
             self.assertTrue(any('기본 규칙' in x.value for x in app.chat_message[-1].info))
             self.assertFalse(any('private-provider-canary' in x.value for x in app.markdown))
@@ -247,7 +247,7 @@ class AppFlowTest(TestCase):
     def test_general_idea_button_continues_chat_and_program_no_match_offers_choices(self):
         with patch('services.config.load_settings',return_value=Settings()):
             app=AppTest.from_file(APP).run()
-            app.chat_input(key='chat').set_value('노인이 할 수 있는 운동 추천해 줘').run()
+            app.chat_input(key='chat').set_value('노인이 할 수 있는 일반 운동 아이디어 추천해 줘').run()
             self.assertEqual(app.session_state['dialog']['code'],'ideas')
             self.assertTrue(any('일반 활동 제안' in x.value for x in app.chat_message[-1].markdown))
             app.button(key='idea_water').click().run()

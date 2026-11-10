@@ -3,7 +3,8 @@ from copy import deepcopy
 import re
 from services.activity_ranking import ACTIVITY_TRAITS, SIMILAR, MATCH_LABELS
 from services.alternative_paths import RELATIONS, NEIGHBOURS, district, local_rows
-from services.recommendations import recommend, eligibility
+from services.recommendations import recommend, eligibility, _budget
+from services.personalization import profile_conditions, personal_note
 from services.activities import availability_status
 
 
@@ -86,10 +87,12 @@ def score_program(row, conditions, *, as_of=None):
     parts={'activity':300-100*tier,
            'purpose':10 if conditions.get('purpose')=='운동' and row['category']=='체육' else 0,
            'movement':10 if source.get('movement') and source.get('movement')==target.get('movement') else 0,
-           'effort':-5 if conditions.get('effort_preference')=='가볍게' and target.get('pace_change') else 0,
+           'effort':0,
            'region':10 if district(row['region'])==district(conditions.get('region')) else 0,
            'target':5 if eligible and not notes else 2 if eligible else -1000,
-           'access':-3 if conditions.get('mobility') in {'이동 적게','가까운 곳'} and target.get('equipment') else 0,
+           'access':0,
+           'time_preference':6 if conditions.get('_modes',{}).get('time_slot')=='preferred' and conditions.get('time_slot') in row['schedule']['time_slots'] else 0,
+           'budget_preference':4 if conditions.get('_modes',{}).get('budget_amount')=='preferred' and _budget(row,conditions)=='match' else 0,
            'registration':{'open':3,'walk_in':2,'upcoming':1,'unknown':1,'closed':0,'ended':0}[status]}
     if not requested:
         reason='말씀하신 지역과 조건에서 확인한 공식 활동이에요.'
@@ -101,6 +104,8 @@ def score_program(row, conditions, *, as_of=None):
         reason='말씀하신 활동과 움직임이나 목적이 이어지는 유사 활동으로 실제 강도는 확인해야 해요.'
     else:
         reason='움직이는 목적을 이어갈 수 있는 다른 활동으로 도구와 참여 조건을 확인해야 해요.' if row['category']=='체육' else '관심을 다른 방식으로 이어갈 수 있는 활동으로 주제와 참여 조건을 확인해 주세요.'
+    note=personal_note(row,conditions,_budget(row,conditions))
+    if note:reason+=' '+note
     return {'score':sum(parts.values()),'score_parts':parts,'match_tier':tier,
             'match_label':MATCH_LABELS[tier],'reason':reason}
 
@@ -139,13 +144,14 @@ def programme_options(activities, conditions, *, as_of=None):
 def prepare_view(state, activities, *, user_text="", as_of=None):
     """Final boundary re-sorts even persisted/reversed legacy session candidates."""
     state=deepcopy(state)
+    query=profile_conditions(state)
     if state.get('flow')=='adjacent' or state.get('search_scope',{}).get('kind')=='adjacent' or (state.get('code')=='expansion_empty' and 'search_scope' not in state):
         # Migrate persisted pre-isolation states: old local cards are not new neighbours.
         if state.get('flow')!='adjacent' and not state.get('previous_local'):
             state['previous_local']={'region':state['conditions'].get('region'),'conditions':deepcopy(state['conditions']),
                 'results':state.get('results',[]),'references':state.get('references',[]),'alternatives':state.get('alternatives',[])}
         approved=state.get('expansion_consent')==state['conditions'].get('region') and bool(state['conditions'].get('region'))
-        outcome=adjacent_programmes(activities,state['conditions'],consent=approved,as_of=as_of)
+        outcome=adjacent_programmes(activities,query,consent=approved,as_of=as_of)
         state.update(flow='adjacent',alternatives=[],ideas=[],facilities=[],results=outcome['results'],references=outcome['references'],adjacent_groups=outcome['groups'])
         state['search_scope']={'kind':'adjacent','origin':state['conditions'].get('region'),'allowed':outcome['districts'],'covered':outcome['covered']}
         if not outcome['results'] and not outcome['references']:
@@ -156,9 +162,10 @@ def prepare_view(state, activities, *, user_text="", as_of=None):
             and state['conditions'].get('activity_type')!=kind):
         state['conditions']['activity_type']=kind
         state['conditions'].pop('category',None);state['conditions'].pop('tags',None)
-        exact=recommend(local_rows(activities,state['conditions'].get('region')),state['conditions'],as_of=as_of)
+        query=profile_conditions(state)
+        exact=recommend(local_rows(activities,state['conditions'].get('region')),query,as_of=as_of)
         state.update(results=exact['results'],references=exact['references'],code=exact['code'],selected_id=None,
-                     alternatives=programme_options(activities,state['conditions'],as_of=as_of),
+                     alternatives=programme_options(activities,query,as_of=as_of),
                      message=kind+'에 맞는 공식 자료를 기준으로 다시 정리했어요.')
     if state.get('flow')=='program' and state.get('code') not in {'start','demo','ideas','question','choose'}:
         official={row['id']:row for row in activities if not row['is_demo']}
@@ -167,11 +174,11 @@ def prepare_view(state, activities, *, user_text="", as_of=None):
             ranked=[]
             for row in unique.values():
                 row=deepcopy(row)
-                row.update(score_program(official[row['id']],state['conditions'],as_of=as_of))
+                row.update(score_program(official[row['id']],query,as_of=as_of))
                 ranked.append(row)
             state[field]=sorted(ranked,key=lambda row:(-row['score'],row['id']))[:3]
     if state.get('alternatives'):
-        state['alternatives']=ordered_options(state['alternatives'],activities,state['conditions'],as_of=as_of)
+        state['alternatives']=ordered_options(state['alternatives'],activities,query,as_of=as_of)
     # Do not show an independently ordered generic list alongside official alternatives.
     if state.get('alternatives'):state['ideas']=[]
     state['recommendation_trace']={'activity_type':state['conditions'].get('activity_type'),
@@ -190,6 +197,8 @@ def restore_local(state, activities, *, as_of=None):
     state=deepcopy(state)
     if state.get('previous_local'):
         state['conditions']=deepcopy(state['previous_local']['conditions'])
+        state['condition_modes']=deepcopy(state['previous_local'].get('condition_modes',{}))
+        state['excluded_types']=list(state['previous_local'].get('excluded_types',[]))
     state.update(flow='program',search_scope={'kind':'local'},expanded=False,pending=None,code='restore_local')
     return handle_turn(state,'이전에 찾은 강서구 활동 다시 보기',activities,Settings(),
                        extraction=empty_extraction('search_program'),as_of=as_of)

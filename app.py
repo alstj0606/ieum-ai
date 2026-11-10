@@ -153,7 +153,8 @@ def card(row, index, position, *, reference=False, latest=False):
     facts = card_facts(row)
     with st.container(border=True):
         st.subheader(row.get("name") or "공식 자료 확인 필요")
-        # Status follows the title; essential information never needs an expander.
+        if row.get('reason'):st.write(row['reason'])
+        # Status follows the reason; essential information never needs an expander.
         st.markdown('**접수 상태 · '+facts['접수 상태']+'**')
         if reference:
             st.warning('참고 자료예요. 지금 신청 가능하다고 확인된 활동은 아니에요.')
@@ -293,6 +294,7 @@ for index, turn in enumerate(st.session_state.turns):
                 if state.get('flow') in {'program','adjacent'}:
                     conditions=state['conditions']
                     summary=[str(conditions[key]) for key in ('region','activity_type','time_slot') if conditions.get(key)]
+                    if conditions.get('time_slot'):summary[-1]+=(' 선호' if state.get('condition_modes',{}).get('time_slot')=='preferred' else ' 필수')
                     if conditions.get('budget_amount') is not None:
                         summary.append('무료' if conditions['budget_amount']==0 else f"예산 {conditions['budget_amount']:,}원 ({conditions.get('budget_unit') or '과금 단위 확인 필요'})")
                     if conditions.get('age') is not None:summary.append(f"{conditions['age']}세")
@@ -302,11 +304,9 @@ for index, turn in enumerate(st.session_state.turns):
                 adjacent_rows=sorted(state['results']+state['references'],key=lambda row:(-row['score'],row['region'],row['id']))
                 for position,row in enumerate(adjacent_rows):
                     st.markdown('**'+row['region']+'의 공식 활동**')
-                    st.write(row['reason'])
                     card(row,index,position,reference=not row['available'],latest=latest)
             elif not detail_first and state["code"]!="demo":
                 for position,row in enumerate(rows):
-                    if row.get("reason"):st.write(row["reason"])
                     card(row,index,position,reference=not bool(state["results"]),latest=latest)
             if state.get('alternatives') and not detail_first:
                 st.markdown('**같은 지역의 대안 · 공식 자료 있음**')
@@ -315,9 +315,10 @@ for index, turn in enumerate(st.session_state.turns):
                         st.markdown('**'+option['activity_type']+'**')
                         for candidate in option['rows']:
                             facts=card_facts(candidate)
-                            st.write(candidate['name']+' · '+facts['접수 상태'])
+                            st.write('**'+candidate['name']+'**')
+                            st.write(option['reason'])
+                            st.write('접수 상태 · '+facts['접수 상태'])
                         st.caption(option.get('match_label','다른 대안')+' · 직접 일치하는 강좌가 아니에요.')
-                        st.write(option['reason'])
                         if latest:
                             choice_button(option['activity_type']+' 정보 보기 →',key='alternative_'+option['activity_type'],
                                       on_click=select_alternative,args=(option['activity_type'],),use_container_width=True,type='primary')
@@ -367,7 +368,10 @@ for index, turn in enumerate(st.session_state.turns):
             if latest and state['code']=='unsupported_region':
                 choice_button('서울 강서구 자료로 찾기',key='supported_region',on_click=send,args=('서울 강서구요',),kwargs={'fixed':True},use_container_width=True)
             if latest and state["code"] not in {"demo","start"} and state.get("flow")!="adjacent":
-                if state['pending']=='expand_region':
+                if state['pending']=='effort_preference':
+                    for label in ('가볍게요','조금 활발하게요','상관없어요'):
+                        choice_button(label,key='effort_'+label,on_click=send,args=(label,),kwargs={'fixed':True})
+                elif state['pending']=='expand_region':
                     choice_button('네, 인접 지역도 확인',key='expand_yes',on_click=send,args=('인접 지역도 확인',),kwargs={'fixed':True},use_container_width=True)
                     choice_button('아니요, 이 지역만 볼게요',key='expand_no',on_click=send,args=('이 지역만 볼게요',),kwargs={'fixed':True},use_container_width=True)
                 elif state["pending"]=="region":

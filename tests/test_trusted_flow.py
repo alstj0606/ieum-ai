@@ -29,7 +29,7 @@ class TrustedFlowTest(TestCase):
         self.assertEqual(scores,sorted(scores,reverse=True))
         self.assertFalse(state['ideas'])
         self.assertEqual(state['alternatives'][0]['match_label'],'유사 활동')
-        self.assertEqual(state['alternatives'][0]['reason'].count('.'),1)
+        self.assertLessEqual(state['alternatives'][0]['reason'].count('.'),2)
         self.assertIn('보행',state['alternatives'][0]['reason'])
         self.assertEqual(state['alternatives'][1]['match_label'],'다른 대안')
 
