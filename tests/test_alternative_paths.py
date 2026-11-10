@@ -33,14 +33,14 @@ class AlternativePathsTest(TestCase):
         self.assertFalse(state['results'])
         self.assertEqual(state['pending'],'expand_region')
         self.assertEqual(state['message'].count('?'),1)
-        self.assertEqual(state['alternatives'][0]['activity_type'],'파크골프')
-        self.assertTrue(state['alternatives'][0]['available'])
-        self.assertEqual(state['alternatives'][1]['activity_type'],'슬로우조깅')
+        self.assertEqual(state['alternatives'][0]['activity_type'],'슬로우조깅')
+        self.assertFalse(state['alternatives'][0]['available'])
+        self.assertEqual(state['alternatives'][1]['activity_type'],'파크골프')
         for option in state['alternatives']:
             for row in option['rows']:
                 self.assertIn(row['id'],[x['id'] for x in self.rows])
                 self.assertIn('강서구',row['region'])
-        self.assertIn('강도',state['alternatives'][1]['reason'])
+        self.assertIn('강도',state['alternatives'][0]['reason'])
 
     def test_choose_alternative_keeps_profile_and_opens_actual_program(self):
         state=self.walk()

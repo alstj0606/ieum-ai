@@ -96,6 +96,10 @@ def basic_extract(text, state):
     if times:
         value = times[-1].group()
         put("time_slot", {"아침": "오전", "밤": "저녁"}.get(value, value))
+    if any(word in compact for word in ('가벼운','가볍게','무리하지','천천히')):
+        put('effort_preference','가볍게')
+    elif '활발하게' in compact:
+        put('effort_preference','활발하게')
     if "처음" in compact or "초보" in compact:
         put("beginner", True)
     if "초보아니" in compact:

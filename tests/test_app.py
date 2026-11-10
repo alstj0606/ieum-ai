@@ -6,6 +6,7 @@ from unittest import TestCase
 from unittest.mock import Mock, patch
 import json
 from streamlit.testing.v1 import AppTest
+from services.date_display import display_date_text
 from services.activities import load_activities
 from services.ai import empty_extraction
 from services.config import Settings
@@ -28,7 +29,7 @@ class AppFlowTest(TestCase):
             self.assertLessEqual(len(state['results']),3)
             for row in state['results']:
                 self.assertTrue(any(row['name']==item.value for item in app.chat_message[-1].subheader))
-                self.assertTrue(any(row['schedule']['text'].replace('~', '\\~') in item.value for item in app.chat_message[-1].markdown))
+                self.assertTrue(any(display_date_text(row['schedule']['text']).replace('~', '\\~') in item.value for item in app.chat_message[-1].markdown))
             before=state['results']
             app.button(key='demo_example').click().run()
             self.assertEqual(app.session_state['dialog']['results'],before)
