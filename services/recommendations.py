@@ -76,6 +76,8 @@ def _budget(item, conditions):
         return "match"
     if fee is None:
         return "unknown"
+    if amount == 0 and fee > 0:
+        return "over"
     # 서로 다른 과금 단위를 자동 환산하지 않는다.
     if conditions.get("budget_unit") == "회당" and item["fee_unit"] == "1인·1회":
         return "match" if fee <= amount else "over"
