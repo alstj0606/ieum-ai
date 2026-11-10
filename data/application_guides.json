@@ -1,0 +1,101 @@
+{
+  "seonam-parkgolf-reservation-2026": {
+    "verified_at": "2026-11-10",
+    "verification_scope": "공식 상세 페이지 및 공통 이용 매뉴얼의 텍스트 확인. 로그인 이후 실제 화면·버튼 위치·회차 잔여석·신청 결과는 미검증. 웹 열람 도구가 제공한 문서이며 실시간 조회가 아님.",
+    "online": true,
+    "phone_application": false,
+    "visit_application": false,
+    "contact": {
+      "organization": "서울물재생시설공단 서남센터",
+      "phone": "02-3660-2257",
+      "role": "inquiry"
+    },
+    "source_url": "https://yeyak.seoul.go.kr/web/reservation/selectReservView.do?locale=ko&rsv_svc_id=S230131090246367142",
+    "help_url": "https://yeyak.seoul.go.kr/web/cntnts/selectContents.do?cntnts_id=A1000004",
+    "steps": [
+      {
+        "title": "이용 조건부터 확인해요",
+        "action": "공식 페이지를 열고 이용안내를 확인해 주세요.",
+        "explanation": "이 시설은 배우는 강좌가 아닌 시설 이용 예약이에요. 원하는 날짜의 이용 자격과 이용 가능 여부를 확인해 주세요.",
+        "site_labels": "이용안내",
+        "source_url": "https://yeyak.seoul.go.kr/web/reservation/selectReservView.do?locale=ko&rsv_svc_id=S230131090246367142"
+      },
+      {
+        "title": "공식 사이트에 로그인해요",
+        "action": "공식 사이트에서 로그인 버튼을 눌러 주세요.",
+        "explanation": "처음 이용하면 서울시 통합회원 가입과 본인확인이 필요해요. 비밀번호·인증번호는 공식 사이트에서만 입력하고 이음 AI에는 보내지 마세요.",
+        "site_labels": "로그인",
+        "source_url": "https://yeyak.seoul.go.kr/web/cntnts/selectContents.do?cntnts_id=A1000004"
+      },
+      {
+        "title": "원하는 회차를 골라요",
+        "action": "예약하기를 누르고 날짜·회차·인원을 골라 주세요.",
+        "explanation": "회차는 이용하는 시간대를 뜻해요. 선택할 수 있는 자리와 그 회차의 참여 자격은 공식 화면에서 확인해 주세요.",
+        "site_labels": "예약하기",
+        "source_url": "https://yeyak.seoul.go.kr/web/cntnts/selectContents.do?cntnts_id=A1000004"
+      },
+      {
+        "title": "공식 화면에서 내용을 확인해요",
+        "action": "공식 사이트의 필수 항목을 확인한 뒤 예약하기를 눌러 주세요.",
+        "explanation": "필수 항목은 꼭 적어야 하는 칸이에요. 개인정보는 공식 사이트에서만 입력해요. 이용 조건·비용에 동의할 수 있을 때 직접 진행해 주세요. 이음 AI는 버튼을 대신 누르거나 신청서를 전송하지 않아요.",
+        "site_labels": "예약하기",
+        "source_url": "https://yeyak.seoul.go.kr/web/cntnts/selectContents.do?cntnts_id=A1000004"
+      },
+      {
+        "title": "실제 처리 결과를 확인해요",
+        "action": "나의 예약내역에서 처리 상태와 결제 안내를 확인해 주세요.",
+        "explanation": "유료 서비스는 결제가 필요할 수 있어요. 실제 비용·결제 기한과 결과는 공식 사이트에서 확인해 주세요. 여기까지 읽었다고 예약이나 결제가 완료된 것은 아니에요.",
+        "site_labels": "나의 예약내역",
+        "source_url": "https://yeyak.seoul.go.kr/web/reservation/selectReservView.do?locale=ko&rsv_svc_id=S230131090246367142"
+      }
+    ]
+  },
+  "gangseo-slow-jogging-2026-h2-40plus": {
+    "verified_at": "2026-11-10",
+    "verification_scope": "공식 상세 페이지 및 공통 이용 매뉴얼의 텍스트 확인. 로그인 이후 실제 화면·버튼 위치·회차 잔여석·신청 결과는 미검증. 웹 열람 도구가 제공한 문서이며 실시간 조회가 아님.",
+    "online": true,
+    "phone_application": false,
+    "visit_application": false,
+    "contact": null,
+    "source_url": "https://sports.gangseo.seoul.kr/fmcs/30?action=read&action-value=449f756dd3fc684c50e1016d83c6e3df",
+    "help_url": null,
+    "closed_steps": [
+      {
+        "title": "이번 접수는 마감됐어요",
+        "action": "공식 공고를 열어 모집 기간을 확인해 주세요.",
+        "explanation": "저장된 접수 기간이 지났어요. 추가 모집 여부는 미확인이며 다음 접수 일정 미정이에요. 이번 모집을 신청할 수 있다고 안내하지 않아요.",
+        "site_labels": "공지사항",
+        "source_url": "https://sports.gangseo.seoul.kr/fmcs/30?action=read&action-value=449f756dd3fc684c50e1016d83c6e3df"
+      },
+      {
+        "title": "새 공고를 확인해요",
+        "action": "공고의 목록보기에서 새 모집 공고가 있는지 살펴봐 주세요.",
+        "explanation": "이번 공고의 과거 날짜를 다음 모집일로 쓰지 마세요. 새 공고가 없다면 다음 일정은 아직 확인할 수 없어요.",
+        "site_labels": "목록보기",
+        "source_url": "https://sports.gangseo.seoul.kr/fmcs/30?action=read&action-value=449f756dd3fc684c50e1016d83c6e3df"
+      }
+    ]
+  },
+  "seoul-renewal-academy-gangseo-20261121": {
+    "verified_at": "2026-11-10",
+    "verification_scope": "공식 상세 페이지 및 공통 이용 매뉴얼의 텍스트 확인. 로그인 이후 실제 화면·버튼 위치·회차 잔여석·신청 결과는 미검증. 웹 열람 도구가 제공한 문서이며 실시간 조회가 아님.",
+    "online": true,
+    "phone_application": false,
+    "visit_application": true,
+    "contact": {
+      "organization": "대시민 정비사업 아카데미 사무국",
+      "phone": "02-464-4114",
+      "role": "inquiry"
+    },
+    "source_url": "https://yeyak.seoul.go.kr/web/reservation/selectReservView.do?rsv_svc_id=S261001182724664008",
+    "help_url": "https://yeyak.seoul.go.kr/web/cntnts/selectContents.do?cntnts_id=A1000004",
+    "visit": {
+      "facility_name": "곰달래문화복지센터 7층 강당",
+      "address": "서울특별시 강서구 강서로5길 50(화곡동)",
+      "reception_desk": null,
+      "materials": null,
+      "hours": null
+    },
+    "steps": null
+  }
+}

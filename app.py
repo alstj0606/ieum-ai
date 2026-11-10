@@ -18,6 +18,8 @@ from services.card_view import CARD_FIELDS, DETAIL_FIELDS, card_facts
 from services.date_display import display_date_text
 from services.recommendation_pipeline import prepare_view, restore_local
 from services.voice import transcribe, synthesize, VoiceError
+from services.application_helper import helper_view, move_helper, helper_speech
+from services.continuity import recommended_rows
 
 ROOT = Path(__file__).parent
 st.set_page_config(page_title="이음 AI · 활동 찾기", page_icon="💬")
@@ -124,6 +126,74 @@ def apply(activity_id):
     remember("이 활동 신청 방법을 알려주세요", state)
 
 
+def navigate_helper(direction):
+    state=move_helper(st.session_state.dialog,activities,direction)
+    labels={'next':'이 단계를 확인했어요. 다음 단계로 갈게요','previous':'이전 단계를 볼게요',
+            'repeat':'이 단계를 다시 설명해 주세요','finish':'안내를 끝까지 확인했어요','resume':'신청 안내를 이어볼게요'}
+    remember(labels[direction],state)
+
+
+def show_recommendations():
+    state=deepcopy(st.session_state.dialog)
+    state.pop('recommendation_update',None)
+    state['helper_focus']=False
+    state['message']='현재 조건에서 확인한 추천을 다시 보여드릴게요. 접수 상태를 확인해 주세요.'
+    remember('앞선 추천 다시 보기',state)
+
+
+def application_panel(state,index,latest):
+    helper=state.get('application_helper')
+    row=next((r for r in activities if helper and r['id']==helper['program_id']),None)
+    if row is None:
+        st.warning('선택한 프로그램의 신청 자료를 확인할 수 없어요. 글로 계속 질문할 수 있어요.')
+        return
+    view=helper_view(row,state['conditions'],helper)
+    if not latest:
+        st.caption(f"{view['name']} · 이전 신청 안내 {view['index']+1}단계")
+        return
+    st.subheader(view['name'])
+    st.markdown('**접수 상태 · '+card_facts(row)['접수 상태']+'**')
+    st.markdown(f"### {view['index']+1}단계 / {view['total']}단계")
+    st.markdown('**'+view['step']['title']+'**')
+    st.write(view['step']['action'])
+    if view['step']['site_labels']:
+        st.markdown('**공식 사이트의 메뉴·버튼 → '+view['step']['site_labels']+'**')
+    st.write(view['step']['explanation'])
+    if view['mode']=='closed':st.warning('접수 마감 · '+view['next_date'])
+    for note in view['condition_notes']:st.warning(note)
+    st.info('아직 신청·예약·결제가 완료된 것은 아니에요. 비밀번호·인증번호·개인정보는 이음 AI에 입력하지 마세요.')
+    st.link_button('공식 신청 페이지 열기 →' if view['mode']=='online' else '공식 안내 페이지 열기 →',view['official_url'],type='primary',use_container_width=True)
+    choice_button('이전 단계',key='helper_previous',on_click=navigate_helper,args=('previous',),disabled=view['index']==0)
+    choice_button('이 단계를 확인했어요 · 다음 단계 →',key='helper_next',on_click=navigate_helper,args=('next',),disabled=view['index']>=view['total']-1)
+    choice_button('다시 설명',key='helper_repeat',on_click=navigate_helper,args=('repeat',))
+    if view['index']==view['total']-1:
+        choice_button('안내를 끝까지 확인했어요',key='helper_finish',on_click=navigate_helper,args=('finish',))
+    if view['finished_reading']:st.success('안내를 끝까지 확인했어요. 실제 신청 결과는 공식 사이트에서 직접 확인해 주세요.')
+    with st.expander('다른 신청 방법·문의·공식 근거'):
+        st.write('온라인 신청 · '+('공식 자료에 안내됨' if view['channels']['online'] else '확인 필요'))
+        st.write('전화 신청 · '+('공식 자료에 안내됨' if view['channels']['phone'] else '확인 필요 · 문의 전화와 달라요'))
+        st.write('방문 신청 · '+('공식 자료에 안내됨' if view['channels']['visit'] else '확인 필요'))
+        contact=view['contact']
+        if contact:
+            role='신청' if view['channels']['phone'] and contact['role']=='application' else '문의'
+            st.write(contact['organization']+' · '+role+' 전화')
+            phone=contact['phone']
+            st.markdown(f"[📞 {phone} {role} 전화하기](tel:{phone.replace('-','')})")
+            st.write(f"전화할 때: ‘{row['name']}에 관심이 있어요. 현재 접수 여부와 신청 방법을 알려주시겠어요?’")
+        else:st.write('공식 문의 전화번호 · 확인 필요')
+        visit=view['visit']
+        if view['channels']['visit'] and visit:
+            for label,key in (('시설명','facility_name'),('주소','address'),('방문 접수 장소','reception_desk'),('준비물','materials'),('방문 접수 가능 시간','hours')):
+                st.write(label+' · '+(visit.get(key) or '공식 자료 확인 필요'))
+            st.caption('행사 장소·운영 시간은 방문 접수 창구·접수 시간이 아니에요. 방문 전에 문의해 주세요.')
+        st.write('다음 접수 일정 · '+view['next_date'])
+        st.write('신청 방식 원문 · '+(row['registration_method'] or '공식 자료 확인 필요'))
+        st.caption('안내 자료 확인일 · '+(view['verified_at'] or '확인 필요'))
+        st.write(view['scope'])
+        st.link_button('이 단계의 공식 근거 확인',view['step']['source_url'],use_container_width=True)
+    choice_button('추천으로 돌아가기',key='helper_back',on_click=show_recommendations)
+
+
 def prepare(index):
     turn = st.session_state.turns[index]
     state = turn["state"]
@@ -132,9 +202,14 @@ def prepare(index):
     if state["selected_id"]:
         rows = [row for row in rows if row["id"] == state["selected_id"]]
     spoken = speech_text("선택하신 프로그램 정보예요." if turn.get("detail_first") and rows else state["message"], rows)
-    if state.get('alternatives') and not turn.get('detail_first'):
+    if state.get('helper_focus') and state.get('application_helper'):
+        official=next((r for r in activities if r['id']==state['application_helper']['program_id']),None)
+        if official:spoken=helper_speech(helper_view(official,state['conditions'],state['application_helper']))
+    elif (state.get('recommendation_update') or {}).get('hide_repeated_cards'):
+        spoken=state['message']
+    if state.get('alternatives') and not turn.get('detail_first') and not state.get('helper_focus') and not (state.get('recommendation_update') or {}).get('hide_repeated_cards'):
         spoken+=' 같은 지역의 공식 자료가 있는 대안이에요. '+ ' '.join(x['activity_type']+'. '+x['reason']+' '.join(row['name']+'. '+card_facts(row)['접수 상태'] for row in x['rows']) for x in state['alternatives'])
-    if state.get('ideas') and not turn.get('detail_first'):
+    if state.get('ideas') and not turn.get('detail_first') and not state.get('helper_focus'):
         spoken+=' 일반 활동 제안이며 실제 모집 강좌가 아니에요. '+ ' '.join(x['name']+'. '+x['reason'] for x in state['ideas'])
     if state.get('facilities'):
         spoken+=' '.join(x['name']+'. '+x['note'] for x in state['facilities'])
@@ -162,7 +237,9 @@ def card(row, index, position, *, reference=False, latest=False):
             value=facts[key].replace("~", r"\~")
             st.markdown(f"{label}  \n**{value}**")
         if latest and not reference and row.get("id"):
-            choice_button("이 활동 신청 방법",key=f"apply_{row['id']}",on_click=apply,args=(row["id"],))
+            choice_button("신청 도와주세요 →",key=f"apply_{row['id']}",on_click=apply,args=(row["id"],))
+        if latest and reference and row.get('id'):
+            choice_button('접수 상태·다음 모집 확인 도우미 →',key=f"helper_reference_{row['id']}",on_click=apply,args=(row['id'],))
         with st.expander("주의사항·공식 출처"):
             for label in DETAIL_FIELDS:
                 st.write(f"**{label}** · {facts[label]}")
@@ -281,14 +358,18 @@ for index, turn in enumerate(st.session_state.turns):
         if state["error"]:
             st.warning(state["error"])
         else:
-            detail_first=bool(turn.get('detail_first') and (state['results'] or state['references']))
+            guide_focus=bool(state.get('helper_focus') and state.get('application_helper'))
+            compact_update=bool((state.get('recommendation_update') or {}).get('hide_repeated_cards'))
+            display_cards=not guide_focus and not compact_update
+            detail_first=bool(display_cards and turn.get('detail_first') and (state['results'] or state['references']))
+            if guide_focus:application_panel(state,index,latest)
             rows=list({row['id']:row for row in (state['results'] or state['references'])}.values())[:3]
             if detail_first:
                 for position,row in enumerate(rows):
                     card(row,index,position,reference=not bool(state['results']),latest=latest)
             if state.get("notice"):
                 st.info(state["notice"])
-            if not detail_first:
+            if not detail_first and not guide_focus:
                 st.markdown('**'+('인접 지역 확인 결과' if state.get('flow')=='adjacent' else '활동 추천 안내')+'**')
                 st.write(state["message"])
                 if state.get('flow') in {'program','adjacent'}:
@@ -300,15 +381,25 @@ for index, turn in enumerate(st.session_state.turns):
                     if conditions.get('age') is not None:summary.append(f"{conditions['age']}세")
                     if conditions.get('beginner'):summary.append('처음 배우기')
                     if summary:st.caption('적용 조건 · '+' · '.join(summary))
-            if not detail_first and state['flow']=='adjacent':
+            if compact_update and not guide_focus:
+                st.caption('같은 추천 카드는 위 대화에 있어요. 앞선 추천 다시 보기로 펼칠 수 있어요.')
+                for row in recommended_rows(state)[:3]:
+                    st.write('**'+row['name']+'** · '+card_facts(row)['접수 상태'])
+                if latest:
+                    choice_button('앞선 추천 다시 보기',key='reopen_recommendations',on_click=show_recommendations)
+                    if state.get('selected_id') or len(state['results'])==1:
+                        choice_button('신청 도와주세요 →',key='compact_helper',on_click=apply,args=(state.get('selected_id') or state['results'][0]['id'],))
+                    if state.get('application_helper'):
+                        choice_button('신청 안내 이어보기 →',key='helper_resume',on_click=navigate_helper,args=('resume',))
+            if display_cards and not detail_first and state['flow']=='adjacent':
                 adjacent_rows=sorted(state['results']+state['references'],key=lambda row:(-row['score'],row['region'],row['id']))
                 for position,row in enumerate(adjacent_rows):
                     st.markdown('**'+row['region']+'의 공식 활동**')
                     card(row,index,position,reference=not row['available'],latest=latest)
-            elif not detail_first and state["code"]!="demo":
+            elif display_cards and not detail_first and state["code"]!="demo":
                 for position,row in enumerate(rows):
                     card(row,index,position,reference=not bool(state["results"]),latest=latest)
-            if state.get('alternatives') and not detail_first:
+            if display_cards and state.get('alternatives') and not detail_first:
                 st.markdown('**같은 지역의 대안 · 공식 자료 있음**')
                 for option in state['alternatives']:
                     with st.container(border=True):
@@ -345,7 +436,7 @@ for index, turn in enumerate(st.session_state.turns):
                         st.write('근거 프로그램 접수 상태: '+facility['source_status'])
                         st.write(facility['note'])
                         st.link_button('시설 근거 공식 출처',facility['source_url'],use_container_width=True)
-            if state.get('ideas') and not detail_first:
+            if display_cards and state.get('ideas') and not detail_first:
                 st.markdown('**일반 활동 제안 · 실제 모집 프로그램 아님**')
                 for idea in state['ideas']:
                     st.write('**'+idea['name']+'** · '+idea['reason'])
@@ -367,7 +458,7 @@ for index, turn in enumerate(st.session_state.turns):
                 choice_button('시간 조건 풀기',key='relax_time',on_click=send,args=('시간은 상관없어요',),kwargs={'fixed':True},use_container_width=True)
             if latest and state['code']=='unsupported_region':
                 choice_button('서울 강서구 자료로 찾기',key='supported_region',on_click=send,args=('서울 강서구요',),kwargs={'fixed':True},use_container_width=True)
-            if latest and state["code"] not in {"demo","start"} and state.get("flow")!="adjacent":
+            if latest and not guide_focus and state["code"] not in {"demo","start"} and state.get("flow")!="adjacent":
                 if state['pending']=='effort_preference':
                     for label in ('가볍게요','조금 활발하게요','상관없어요'):
                         choice_button(label,key='effort_'+label,on_click=send,args=(label,),kwargs={'fixed':True})

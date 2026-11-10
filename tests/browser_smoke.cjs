@@ -33,7 +33,7 @@ async function main(){
    const last=page.locator('[data-testid="stChatMessage"]').last();
    if(await last.getByRole('heading',{name:'2026 제27회 강서국악한마당',exact:true}).count()!==1)throw Error('Card outside answer');
    // Application guidance is a primary action, available without opening sources.
-   await page.getByRole('button',{name:'이 활동 신청 방법',exact:true}).click();
+   await page.getByRole('button',{name:'신청 도와주세요 →',exact:true}).click();
    await page.getByText('아직 신청·예약·결제가 완료된 것은 아니에요.',{exact:false}).last().waitFor();
    // Wait for the server render and its deferred latest-answer scroll before viewport testing.
    await page.waitForFunction(()=>document.querySelector('[data-testid=stApp]')?.getAttribute('data-test-script-state')==='notRunning');
