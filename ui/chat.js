@@ -1,9 +1,3 @@
-// Cancel deferred reply scrolling after a new user action; record no event content.
-if(!window.ieumInteractionTracking){
-  window.ieumInteractionTracking=true;
-  for(const event of ['pointerdown','touchstart','keydown','wheel'])
-    document.addEventListener(event,()=>{window.ieumInteractionSeq=(window.ieumInteractionSeq||0)+1},{capture:true,passive:true});
-}
 // Fixed UI code only. Never interpolate a transcript or provider response here.
 (() => {
   if (window.ieumChatObserver) window.ieumChatObserver.disconnect();
@@ -12,14 +6,6 @@ if(!window.ieumInteractionTracking){
     stChatInputCancelButton:'녹음 취소', stChatInputApproveButton:'말하기 끝내기'
   };
   const update = () => {
-    // Capture before footer scripts arrive: a quick click must cancel late scrolling.
-    window.ieumReplyInteractions ||= new Map();
-    for(const anchor of document.querySelectorAll('[id^="latest-reply-"]')) {
-      if(!window.ieumReplyInteractions.has(anchor.id))
-        window.ieumReplyInteractions.set(anchor.id,window.ieumInteractionSeq||0);
-    }
-    while(window.ieumReplyInteractions.size>30)
-      window.ieumReplyInteractions.delete(window.ieumReplyInteractions.keys().next().value);
     const root=document.querySelector('[data-testid="stChatInput"]');
     if(!root) return;
     for(const [id,name] of Object.entries(names)) {
@@ -72,27 +58,4 @@ if(!window.ieumInteractionTracking){
   window.ieumInputHandler=update;
   document.addEventListener('input',update);
   update();
-})();
-// Restore the latest answer when a virtual keyboard changes the visible viewport.
-(() => {
-  if(window.ieumViewportHandler) {
-    window.visualViewport?.removeEventListener('resize',window.ieumViewportHandler);
-    window.removeEventListener('resize',window.ieumViewportHandler);
-  }
-  window.ieumViewportHandler=()=>{
-    clearTimeout(window.ieumViewportTimer);
-    clearTimeout(window.ieumViewportRetry);
-    const focused=document.activeElement?.matches('[data-testid="stChatInputTextArea"]');
-    const interaction=window.ieumInteractionSeq||0;
-    const restore=()=>{
-      if((window.ieumInteractionSeq||0)!==interaction)return;
-      if(document.querySelector('[data-testid=stPopoverButton][aria-expanded=true]'))return;
-      if(focused||document.activeElement?.matches('[data-testid="stChatInputTextArea"]'))
-        [...document.querySelectorAll('[id^="latest-reply-"]')].at(-1)?.scrollIntoView({block:'start'});
-    };
-    window.ieumViewportTimer=setTimeout(restore,300);
-    window.ieumViewportRetry=setTimeout(restore,750);
-  };
-  window.visualViewport?.addEventListener('resize',window.ieumViewportHandler);
-  window.addEventListener('resize',window.ieumViewportHandler);
 })();

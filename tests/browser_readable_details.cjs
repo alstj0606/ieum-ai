@@ -13,7 +13,7 @@ function luminance(rgb){return rgb.match(/\d+/g).slice(0,3).map(x=>{x=Number(x)/
   const style=await choice.evaluate(el=>{let p=el.querySelector('p');return {bg:getComputedStyle(el).backgroundColor,fg:getComputedStyle(p||el).color,weight:getComputedStyle(p||el).fontWeight,margin:getComputedStyle(el).marginBottom}});
   const colors=[luminance(style.bg),luminance(style.fg)].sort((a,b)=>b-a);if((colors[0]+.05)/(colors[1]+.05)<4.5||Number(style.weight)<700||parseFloat(style.margin)<8)throw Error('Choice contrast/weight/spacing '+JSON.stringify(style));
   await choice.click();
-  const latest=page.locator('[data-testid=stChatMessage]').last();const title=latest.getByRole('heading',{name:/슬로우조깅/});await title.waitFor();await idle(page);await page.waitForTimeout(750);
+  const latest=page.locator('[data-testid=stChatMessage]').last();const title=latest.getByRole('heading',{name:/슬로우조깅/});await title.waitFor();await idle(page);await page.waitForFunction(()=>{const heading=[...document.querySelectorAll('[data-testid=stChatMessage]')].at(-1)?.querySelector('h3');const box=heading?.getBoundingClientRect();return box&&box.y>=0&&box.y<350;},null,{timeout:5000});
   const titleBox=await title.boundingBox();if(titleBox.y<0||titleBox.y>350)throw Error('Selected card was not brought into view '+JSON.stringify(titleBox));
   await page.screenshot({path:`/workspace/work/readable-details-${width}.png`});
   const text=(await latest.locator('[data-testid=stChatMessageContent]').innerText()).trim();const name=(await title.innerText()).trim();

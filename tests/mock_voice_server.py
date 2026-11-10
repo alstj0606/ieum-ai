@@ -11,6 +11,7 @@ import json
 import math
 import struct
 import wave
+import time
 
 from services.dialogue import basic_extract
 from services.generation_probe import PROBE_TEXT
@@ -76,6 +77,18 @@ class Handler(BaseHTTPRequestHandler):
             request = basic_extract(context["current_utterance"], {
                 "pending": context["pending"], "conditions": context["current_conditions"],
             })
+            if context['current_utterance']=='강서구 걷기 프로그램 찾아줘':
+                # Deliberate wrong successful extraction: the app must respect walking.
+                request['conditions']['activity_type']='파크골프'
+                request['conditions']['region']='양천구'
+                request['conditions']['time_slot']='오전'
+                request['conditions']['residence']='양천구'
+                request['conditions']['purpose']='관람'
+                for field in ('region','time_slot','residence','purpose'):
+                    if field not in request['update_fields']:request['update_fields'].append(field)
+                if 'activity_type' not in request['update_fields']:request['update_fields'].append('activity_type')
+            if context['current_utterance']=='강서구 걷기 프로그램 천천히 찾아줘':
+                time.sleep(1.0)  # Deterministic time to read earlier messages; no real API.
             data = {"candidates":[{"content":{"parts":[{"text":json.dumps(request,ensure_ascii=False)}],
                     "role":"model"}, "finishReason":"STOP", "index":0}]}
         elif self.path == "/v1/audio/transcriptions":

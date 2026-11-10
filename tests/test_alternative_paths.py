@@ -87,12 +87,13 @@ class AlternativePathsTest(TestCase):
         self.assertEqual(state['conditions']['region'],'강서구')
         self.assertEqual(application_guide(state,rows,as_of=DAY)['code'],'apply')
 
-    def test_consent_without_data_says_missing_not_live_search_and_retains_local_options(self):
+    def test_consent_without_data_is_separate_and_keeps_only_historical_local_options(self):
         state=self.turn(self.walk(),'네')
         self.assertEqual(state['code'],'expansion_empty')
-        self.assertIn('자료가 아직 없어',state['message'])
+        self.assertIn('현재 확인된 인접 지역 프로그램 자료가 없습니다',state['message'])
         self.assertIn('실시간 웹 검색은 하지 않았어요',state['message'])
-        self.assertTrue(state['alternatives'])
+        self.assertFalse(state['alternatives'])
+        self.assertTrue(state['previous_local']['alternatives'])
         self.assertFalse(state['results'])
 
     def test_beginner_qualification_time_and_budget_are_never_silently_relaxed(self):

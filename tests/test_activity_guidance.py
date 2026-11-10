@@ -51,7 +51,7 @@ class ActivityGuidanceTest(TestCase):
         state=self.turn(new_state(),'강서구에서 수영 배우고 싶어')
         self.assertEqual(state['code'],'no_match')
         self.assertEqual(state['conditions']['activity_type'],'수영')
-        self.assertTrue(state['ideas'])
+        self.assertTrue(state['ideas'] or state['alternatives'])
         self.assertFalse(state['facilities'])
         before=state['message']
         state=self.turn(state,'같은 조건으로 다시 찾아주세요')

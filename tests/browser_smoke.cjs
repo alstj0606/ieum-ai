@@ -1,10 +1,11 @@
 // Chromium + local mock API only. No real OpenAI/Safari/physical phone assertion.
 const {chromium}=require('playwright');
 const URL='http://127.0.0.1:18504';
-async function ready(page,url=URL){await page.goto(url);await page.getByRole('button',{name:'마이크로 말하기',exact:true}).waitFor();}
+async function ready(page,url=URL){await page.goto(url);await page.getByRole('button',{name:'마이크로 말하기',exact:true}).waitFor();await page.waitForFunction(()=>{const box=document.querySelector('[data-testid=stChatInputMicButton]')?.getBoundingClientRect();return box&&box.width>=64&&box.height>=64;});}
 async function idle(page){await page.waitForFunction(()=>document.querySelector('[data-testid=stApp]')?.getAttribute('data-test-script-state')==='notRunning');}
-async function send(page,text){await page.getByRole('textbox').fill(text);await page.getByRole('button',{name:'질문 전송',exact:true}).click();await page.getByText(text,{exact:true}).last().waitFor();await idle(page);}
+async function send(page,text){const before=await page.evaluate(()=>[...document.querySelectorAll('[id^=\"latest-reply-\"]')].at(-1)?.id||null);await page.getByRole('textbox').fill(text);await page.getByRole('button',{name:'질문 전송',exact:true}).click();await page.waitForFunction(previous=>{const node=[...document.querySelectorAll('[id^="latest-reply-"]')].at(-1);return node&&node.id!==previous;},before);await page.getByText(text,{exact:true}).last().waitFor();await idle(page);}
 async function concert(page){await page.getByRole('heading',{name:'2026 제27회 강서국악한마당',exact:true}).last().waitFor();await idle(page);}
+async function openMenuSection(page,label){const item=page.locator('[data-testid=stPopoverBody]').getByText(label,{exact:true});await item.evaluate(el=>{const body=el.closest('[data-testid=stPopoverBody]');body.scrollTop+=el.getBoundingClientRect().top-body.getBoundingClientRect().top-24;});await item.click();}
 async function main(){
  const browser=await chromium.launch({executablePath:process.env.CHROMIUM_PATH||'/usr/bin/chromium',headless:true,args:['--no-sandbox','--use-fake-device-for-media-stream','--use-fake-ui-for-media-stream']});
  try{
@@ -80,7 +81,7 @@ async function main(){
    await guide.getByText('현재 이용 가능 여부 미확인',{exact:false}).waitFor();
    await send(guide,'강서구에서 수영 배우고 싶어');
    await guide.getByText('수영에 정확히 맞는 신청 가능한 강좌는 확인하지 못했어요.',{exact:false}).waitFor();
-   await guide.getByRole('button',{name:'수중운동 알아보기',exact:true}).waitFor();
+   await guide.getByRole('button',{name:'아쿠아로빅 정보 보기 →',exact:true}).waitFor();
    await send(guide,'다른 운동도 추천해 줘');
    await guide.getByRole('button',{name:'파크골프 알아보기',exact:true}).waitFor();await idle(guide);
    await guide.getByRole('button',{name:'다른 활동 찾기',exact:true}).click();
@@ -103,7 +104,7 @@ async function main(){
   await fallback.getByText('Gemini 연결을 이용하지 못해 기본 규칙으로 안내하고 있어요.',{exact:false}).waitFor();
   await fallback.getByRole('button',{name:'가벼운 걷기 알아보기',exact:true}).waitFor();await idle(fallback);
   await fallback.getByRole('button',{name:'＋ 보조 메뉴',exact:false}).click();
-  await fallback.getByText('연결 상태 확인',{exact:true}).click();
+  await openMenuSection(fallback,'연결 상태 확인');
   await fallback.getByText('진단 코드: rate_limit',{exact:true}).waitFor();
   if((await fallback.locator('body').innerText()).includes('provider-private-canary-no-log'))throw Error('Provider error leaked');
   await fallback.getByRole('button',{name:'＋ 보조 메뉴',exact:false}).click();
@@ -115,7 +116,7 @@ async function main(){
   const probe=await browser.newPage({viewport:{width:390,height:850}});await ready(probe);
   await send(probe,'강서구 국악');await concert(probe);
   await probe.getByRole('button',{name:'＋ 보조 메뉴',exact:false}).click();
-  await probe.getByText('Gemini 모델 연결 점검',{exact:true}).click();
+  await openMenuSection(probe,'Gemini 모델 연결 점검');
   await probe.getByRole('button',{name:'모델 정보 확인',exact:true}).click();
   await probe.getByText('모델 정보: metadata_ok',{exact:true}).waitFor();
   await probe.getByText('모델 목록: list_ok',{exact:true}).waitFor();
@@ -127,7 +128,7 @@ async function main(){
   await probe.getByRole('heading',{name:'서남센터 파크골프장(18홀)',exact:true}).waitFor();
   await probe.getByText('2023.04.01~2026.12.31',{exact:false}).waitFor();
   await probe.getByRole('button',{name:'＋ 보조 메뉴',exact:false}).click();
-  await probe.getByText('연결 상태 확인',{exact:true}).click();
+  await openMenuSection(probe,'연결 상태 확인');
   await probe.getByText('진단 코드: generation_not_found',{exact:true}).waitFor();
   if((await probe.locator('body').innerText()).includes('private-provider-canary'))throw Error('404 raw error leaked');
   console.log('PASS mock generation 404 -> unresolved diagnostic -> official fallback');await probe.close();
@@ -135,7 +136,7 @@ async function main(){
   const generation=await browser.newPage({viewport:{width:390,height:850}});await ready(generation);
   await send(generation,'강서구 국악');await concert(generation);
   await generation.getByRole('button',{name:'＋ 보조 메뉴',exact:false}).click();
-  await generation.getByText('Gemini 생성 요청 점검',{exact:true}).click();
+  await openMenuSection(generation,'Gemini 생성 요청 점검');
   await generation.getByRole('button',{name:'고정 인사말로 생성 점검',exact:true}).click();
   await generation.getByText('단순 생성: ok',{exact:true}).waitFor();
   await generation.getByText('구조화 추출: generation_not_found',{exact:true}).waitFor();

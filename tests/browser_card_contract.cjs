@@ -1,7 +1,7 @@
 // All real records plus explicit old-formatter fixture; no real API requests.
 const {chromium}=require('playwright');
 async function idle(p){await p.waitForFunction(()=>document.querySelector('[data-testid=stApp]')?.getAttribute('data-test-script-state')==='notRunning');}
-async function send(p,text){await p.getByRole('textbox').fill(text);await p.getByRole('button',{name:'질문 전송',exact:true}).click();await p.getByText(text,{exact:true}).last().waitFor();await idle(p);}
+async function send(p,text){const before=await p.evaluate(()=>[...document.querySelectorAll('[id^=\"latest-reply-\"]')].at(-1)?.id||null);await p.getByRole('textbox').fill(text);await p.getByRole('button',{name:'질문 전송',exact:true}).click();await p.waitForFunction(previous=>{const node=[...document.querySelectorAll('[id^="latest-reply-"]')].at(-1);return node&&node.id!==previous;},before);await p.getByText(text,{exact:true}).last().waitFor();await idle(p);}
 async function actionStyle(button){return button.evaluate(e=>{const p=e.querySelector('p')||e,s=getComputedStyle(e),t=getComputedStyle(p);return{bg:s.backgroundColor,fg:t.color,weight:Number(t.fontWeight),height:e.getBoundingClientRect().height}});}
 (async()=>{const browser=await chromium.launch({executablePath:'/usr/bin/chromium',headless:true,args:['--no-sandbox']});
  try{for(const width of [320,390,768]){
@@ -12,7 +12,7 @@ async function actionStyle(button){return button.evaluate(e=>{const p=e.querySel
   await similar.waitFor();await other.waitFor();await idle(p);
   const order=await similar.evaluate((a)=>{const b=[...document.querySelectorAll('button')].find(e=>e.textContent.includes('파크골프 정보 보기'));return Boolean(a.compareDocumentPosition(b)&Node.DOCUMENT_POSITION_FOLLOWING)});if(!order)throw Error('Availability incorrectly outranks walking relevance');
   const style=await actionStyle(similar);if(style.height<48||style.weight<700)throw Error('Choice accessibility');
-  const idea=p.getByRole('button',{name:/가벼운 체조 알아보기|수중운동 알아보기/}).first();const istyle=await actionStyle(idea);if(style.bg!==istyle.bg||style.fg!==istyle.fg||istyle.height<48||istyle.weight<700)throw Error('Choice designs differ');
+  const idea=p.getByRole('button',{name:'네, 인접 지역도 확인',exact:true});const istyle=await actionStyle(idea);if(style.bg!==istyle.bg||style.fg!==istyle.fg||istyle.height<48||istyle.weight<700)throw Error('Choice designs differ');
   await similar.click();const last=p.locator('[data-testid=stChatMessage]').last();await last.getByRole('heading',{name:/슬로우조깅/}).waitFor();await idle(p);
   let text=await last.innerText();if(!text.includes('접수 마감')||!text.includes('2026.08.18 ~ 08.21')||text.includes('2026-08-18T'))throw Error('Archived detail/date');
   if(await last.getByRole('button',{name:'이 활동 신청 방법',exact:true}).count())throw Error('Closed application action');

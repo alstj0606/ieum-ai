@@ -1,7 +1,7 @@
 // Local official JSON and keyless deterministic flow; no real API or Safari claim.
 const {chromium}=require('playwright');
 async function idle(page){await page.waitForFunction(()=>document.querySelector('[data-testid=stApp]')?.getAttribute('data-test-script-state')==='notRunning');}
-async function send(page,text){await page.getByRole('textbox').fill(text);await page.getByRole('button',{name:'질문 전송',exact:true}).click();await page.getByText(text,{exact:true}).last().waitFor();await idle(page);}
+async function send(page,text){const before=await page.evaluate(()=>[...document.querySelectorAll('[id^=\"latest-reply-\"]')].at(-1)?.id||null);await page.getByRole('textbox').fill(text);await page.getByRole('button',{name:'질문 전송',exact:true}).click();await page.waitForFunction(previous=>{const node=[...document.querySelectorAll('[id^="latest-reply-"]')].at(-1);return node&&node.id!==previous;},before);await page.getByText(text,{exact:true}).last().waitFor();await idle(page);}
 (async()=>{
  const browser=await chromium.launch({executablePath:'/usr/bin/chromium',headless:true,args:['--no-sandbox']});
  try{
@@ -26,7 +26,8 @@ async function send(page,text){await page.getByRole('textbox').fill(text);await 
    const yes=await browser.newPage({viewport:{width,height:850},isMobile:true,hasTouch:true});await yes.goto('http://127.0.0.1:18502');
    await yes.getByRole('button',{name:'마이크로 말하기',exact:true}).waitFor();await send(yes,'강서구 걷기 프로그램 찾아줘');
    await yes.getByRole('button',{name:'네, 인접 지역도 확인',exact:true}).click();
-   await yes.getByText('인접 지역의 검증된 프로그램 자료가 아직 없어',{exact:false}).waitFor();await idle(yes);
+   await yes.getByText('현재 확인된 인접 지역 프로그램 자료가 없습니다',{exact:false}).waitFor();await idle(yes);
+   await yes.getByRole('button',{name:'강서구 추천 다시 보기',exact:true}).click();
    await yes.getByRole('button',{name:'슬로우조깅 정보 보기 →',exact:true}).click();
    await yes.getByRole('heading',{name:/슬로우조깅/}).last().waitFor();await idle(yes);
    await yes.getByText('접수 마감',{exact:false}).last().waitFor();
