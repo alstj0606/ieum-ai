@@ -32,7 +32,7 @@ async function atStart(p){await p.waitForFunction(()=>{const a=[...document.quer
   const slow='강서구 걷기 프로그램 천천히 찾아줘';await p.getByRole('textbox').fill(slow);await p.getByRole('button',{name:'질문 전송',exact:true}).click();
   await p.mouse.move(140,240);await p.mouse.wheel(0,-1500);await p.waitForTimeout(200);
   const before=await p.locator('.stMain').evaluate(e=>e.scrollTop);
-  await p.getByText(slow,{exact:true}).last().waitFor();await firstChoice(p);await p.waitForTimeout(1300);
+  await p.getByText(slow,{exact:true}).last().waitFor();await last(p).getByText(/앞서 안내한 활동과 순서는 같아요/).waitFor();await idle(p);if(await last(p).getByRole('button',{name:'슬로우조깅 정보 보기 →',exact:true}).count())throw Error('Condition followup duplicated full alternatives');await p.waitForTimeout(1300);
   const after=await p.locator('.stMain').evaluate(e=>e.scrollTop);if(Math.abs(after-before)>100)throw Error('Reading history forced away '+JSON.stringify({before,after}));
   console.log('PASS manual history reading while a delayed mock response arrives');await p.close();
  }finally{await browser.close();}

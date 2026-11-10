@@ -7,7 +7,7 @@ const last=p=>p.locator('[data-testid=stChatMessage]').last();
  const p=await b.newPage({viewport:{width,height:850},isMobile:true,hasTouch:true});await p.goto('http://127.0.0.1:18502');await p.getByRole('button',{name:'마이크로 말하기',exact:true}).waitFor();
  await send(p,'65세인데 집에만 있어서 가볍게 운동하고 싶어요. 강서구에 살아요.');
  await last(p).getByRole('heading',{name:/파크골프/}).waitFor();if(!(await last(p).innerText()).includes('원하신 강도에 맞는지는 확인이 필요해요'))throw Error('No honest profile explanation');
- await send(p,'오후가 좋아요');await last(p).getByRole('heading',{name:/파크골프/}).waitFor();
+ await send(p,'오후가 좋아요');await last(p).getByText(/앞서 안내한 활동과 순서는 같아요/).waitFor();if(await last(p).getByRole('heading',{name:/파크골프/}).count())throw Error('Repeated full card');
  await send(p,'무료로 찾아줘');if(!(await last(p).innerText()).includes('접수 마감'))throw Error('Free closed reference missing');
  await send(p,'수영 말고 다른 운동은요?');const choices=await last(p).getByRole('button').allTextContents();if(choices.some(x=>x.includes('초보 수영')))throw Error('Rejected activity returned');
  await send(p,'처음부터 다시');await send(p,'운동 추천해 줘');const gentle=last(p).getByRole('button',{name:'가볍게요',exact:true});await gentle.waitFor();const box=await gentle.boundingBox();if(box.height<48)throw Error('Small choice');await gentle.click();await last(p).getByText(/어느 지역/).waitFor();

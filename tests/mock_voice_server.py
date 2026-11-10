@@ -61,7 +61,7 @@ class Handler(BaseHTTPRequestHandler):
                 self.wfile.write(json.dumps({'error':{'code':404,'message':'private-response-canary'}}).encode())
                 return
             # Deliberate free-quota simulation, not a diagnosis of a real Google project.
-            if context["current_utterance"] == "강서구에서 어르신이 참여할 수 있는 운동을 추천해줘":
+            if context["current_utterance"] in {"강서구에서 어르신이 참여할 수 있는 운동을 추천해줘", "오후가 좋아요. (연결 실패 시험)"}:
                 self.send_response(429)
                 self.send_header("Content-Type", "application/json")
                 self.end_headers()

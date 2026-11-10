@@ -15,11 +15,11 @@ async function actionStyle(button){return button.evaluate(e=>{const p=e.querySel
   const idea=p.getByRole('button',{name:'네, 인접 지역도 확인',exact:true});const istyle=await actionStyle(idea);if(style.bg!==istyle.bg||style.fg!==istyle.fg||istyle.height<48||istyle.weight<700)throw Error('Choice designs differ');
   await similar.click();const last=p.locator('[data-testid=stChatMessage]').last();await last.getByRole('heading',{name:/슬로우조깅/}).waitFor();await idle(p);
   let text=await last.innerText();if(!text.includes('접수 마감')||!text.includes('2026.08.18 ~ 08.21')||text.includes('2026-08-18T'))throw Error('Archived detail/date');
-  if(await last.getByRole('button',{name:'이 활동 신청 방법',exact:true}).count())throw Error('Closed application action');
+  if(await last.getByRole('button',{name:'신청 도와주세요 →',exact:true}).count())throw Error('Closed application action');
   await send(p,'다른 활동');const resetChoice=p.getByRole('button',{name:'다른 활동 찾기',exact:true});await resetChoice.waitFor();if((await actionStyle(resetChoice)).bg!==style.bg)throw Error('Followup design differs');
   await send(p,'강서구 걷기 프로그램 찾아줘');await other.waitFor();await other.click();
   await p.locator('[data-testid=stChatMessage]').last().getByRole('heading',{name:/서남센터/}).waitFor();await idle(p);
-  await p.getByRole('button',{name:'이 활동 신청 방법',exact:true}).click();
+  await p.getByRole('button',{name:'신청 도와주세요 →',exact:true}).click();
   await p.getByText('아직 신청·예약·결제가 완료된 것은 아니에요.',{exact:false}).last().waitFor();
   if(await p.locator('[data-testid=stException]').count())throw Error('Flow exception');await p.close();
   for(const mode of ['', '?legacy=1']){

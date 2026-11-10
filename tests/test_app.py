@@ -129,7 +129,7 @@ class AppFlowTest(TestCase):
             app.chat_input(key='chat').set_value('신청 방법 알려줘').run()
             self.assertEqual(app.session_state['dialog']['code'],'apply')
             self.assertEqual(len(app.chat_message),6)
-            self.assertTrue(any('완료된 것은 아니에요' in x.value for x in app.chat_message[-1].markdown))
+            self.assertTrue(any('완료된 것은 아니에요' in x.value for x in app.chat_message[-1].info))
 
     def test_new_recording_replaces_previous_correction_draft(self):
         recording=SimpleNamespace(name='question.wav',getvalue=lambda:b'test')

@@ -18,7 +18,7 @@ async function send(page,text){const before=await page.evaluate(()=>[...document
    await alternative.click();
    await page.getByRole('heading',{name:/서남센터/}).last().waitFor();await idle(page);
    await page.getByText('주의사항·공식 출처',{exact:true}).last().click();
-   await page.getByRole('button',{name:'이 활동 신청 방법',exact:true}).click();
+   await page.getByRole('button',{name:'신청 도와주세요 →',exact:true}).click();
    await page.getByText('아직 신청·예약·결제가 완료된 것은 아니에요.',{exact:false}).last().waitFor();
    await send(page,'강서구 걷기 프로그램 찾아줘');
    // Prior refusal is respected; use a new session for a fresh consent question.
@@ -31,7 +31,7 @@ async function send(page,text){const before=await page.evaluate(()=>[...document
    await yes.getByRole('button',{name:'슬로우조깅 정보 보기 →',exact:true}).click();
    await yes.getByRole('heading',{name:/슬로우조깅/}).last().waitFor();await idle(yes);
    await yes.getByText('접수 마감',{exact:false}).last().waitFor();
-   if(await yes.getByRole('button',{name:'이 활동 신청 방법',exact:true}).count())throw Error('Closed program has an application action');
+   if(await yes.getByRole('button',{name:'신청 도와주세요 →',exact:true}).count())throw Error('Closed program has an application action');
    await yes.getByText('주의사항·공식 출처',{exact:true}).last().click();
    await yes.getByRole('link',{name:'공식 출처 확인',exact:true}).last().waitFor();
    if(await yes.evaluate(()=>document.documentElement.scrollWidth>innerWidth))throw Error('Horizontal overflow');

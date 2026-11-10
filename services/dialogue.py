@@ -116,6 +116,8 @@ def basic_extract(text, state):
                           ("쉬고", "휴식"), ("친구", "교류")):
         if word in compact:
             put("purpose", purpose)
+    if '보고' in compact and any(word in compact for word in ('공연','국악','전시')):
+        put('purpose','관람')
     age = re.search(r"(\d{1,3})\s*(?:세|살)", text)
     if age:
         put("age", int(age.group(1)))
@@ -228,7 +230,7 @@ def choose_idea(state, idea_id, activities, settings, *, as_of=None):
 
 def application_guide(state, activities, *, selected_id=None, as_of=None):
     state = deepcopy(state)
-    allowed = {row["id"] for row in state["results"]}
+    allowed = {row["id"] for row in state["results"]+state["references"]}
     choice = selected_id or state.get("selected_id")
     if choice is None and len(allowed) == 1:
         choice = next(iter(allowed))
@@ -237,16 +239,29 @@ def application_guide(state, activities, *, selected_id=None, as_of=None):
     # 이전 결과도 기준 시점·조건을 다시 검사해 마감된 활동을 신청 가능한 것처럼 안내하지 않는다.
     check_conditions=profile_conditions(state)
     if state.get('expanded'):
-        selected=next(row for row in state['results'] if row['id']==choice)
+        selected=next(row for row in state['results']+state['references'] if row['id']==choice)
         check_conditions['region']=selected['region']
         if check_conditions.get('activity_type')!=selected['activity_type']:
             check_conditions['activity_type']=selected['activity_type']
             check_conditions.pop('category',None);check_conditions.pop('tags',None)
     current = recommend([row for row in activities if row["id"] == choice], check_conditions, as_of=as_of)
     if not current["results"]:
+        if current['references']:
+            from services.application_helper import start_helper
+            row=current['references'][0]
+            state.update(results=[],references=current['references'],selected_id=choice,
+                         application_helper=start_helper(row,state['conditions'],as_of=as_of),helper_focus=True)
+            return _reply(state,current['message']+' 다음 모집을 확인하는 안내예요.',current['code'])
         state.update(results=[], selected_id=None)
+        state.pop('application_helper',None)
         return _reply(state, current["message"], current["code"])
     row = current["results"][0]
+    from services.application_helper import start_helper
+    previous_helper=state.get('application_helper')
+    state['application_helper']=(previous_helper if previous_helper and previous_helper['program_id']==choice
+                                 else start_helper(row,state['conditions'],as_of=as_of))
+    state.pop('recommendation_update',None)
+    state['helper_focus']=True
     state["selected_id"] = choice
     notes = " ".join(row.get("condition_notes", []))
     return _reply(state, f"{row['name']}의 공식 신청 방법을 확인해 주세요. "
@@ -273,9 +288,22 @@ def _search_adjacent(state,activities,as_of):
     return _reply(state,message+' 실시간 웹 검색은 하지 않았어요. 이전 강서구 활동은 이전 대화에 남아 있어요.', 'expansion_empty')
 
 
-def handle_turn(state, text, activities, settings, *, client=None, as_of=None, extraction=None):
+def _handle_turn(state, text, activities, settings, *, client=None, as_of=None, extraction=None):
     state = deepcopy(state)
-    state.update(error=None, diagnostic=None, notice=None)
+    original_helper=state.get('application_helper')
+    original_focus=state.get('helper_focus')
+    state.update(error=None, diagnostic=None, notice=None,helper_focus=False)
+    state.pop("recommendation_update",None)
+    state.pop("application_helper",None)
+    navigation={'다음단계':'next','이전단계':'previous','다시설명':'repeat'}
+    command=re.sub(r'\s+','',text).rstrip('.!?')
+    if original_focus and original_helper and command in navigation:
+        from services.application_helper import move_helper
+        # Only advance local instructions, never an external application.
+        state['application_helper']=deepcopy(original_helper)
+        state=move_helper(state,activities,navigation[command],as_of=as_of)
+        state['history'][-2]['content']=text
+        return state
     previous_flow=state.get("flow","program")
     if state.get('pending') == 'expand_region' and re.sub(r'\s+', '', text).rstrip('.!?') in {'네','예','좋아요','인접지역도확인','아니요','아니','강서구만볼게요','이지역만볼게요'}:
         agree=re.sub(r'\s+', '', text).rstrip('.!?') in {'네','예','좋아요','인접지역도확인'}
@@ -402,10 +430,12 @@ def handle_turn(state, text, activities, settings, *, client=None, as_of=None, e
             return _reply(state,'공식 프로그램 자료에 나온 관련 시설이에요. 현재 위치나 거리순으로 검색한 결과는 아니며, 운영·요금·강좌는 기관 확인이 필요해요.', 'facilities')
         state['ideas']=suggestions(profile_conditions(state))
         return _reply(state,'확인된 자료에서 해당 시설을 찾지 못했어요. 시설이 없다는 뜻은 아니에요. 다른 활동을 고르거나 지역 조건을 바꿔볼까요?', 'facility_no_match')
-    if intent == "apply" and not state['results'] and (state.get('ideas') or state.get('facilities')):
+    if intent == "apply" and not state['results'] and not state['references'] and (state.get('ideas') or state.get('facilities')):
         if not state.get('ideas'):state['ideas']=suggestions(profile_conditions(state))
         return _reply(state,'아직 신청 가능한 실제 프로그램을 확인하지 못했어요. 일반 활동 제안이나 시설 정보만으로 신청할 수는 없어요. 관심 활동을 골라 프로그램부터 확인할까요?', 'choose','activity_type')
     if intent == "apply" or (intent == "yes" and state["results"] and state["pending"] is None):
+        if original_helper and original_helper['program_id']==state.get('selected_id'):
+            state['application_helper']=deepcopy(original_helper)
         return application_guide(state, activities, as_of=as_of)
     if intent in {"yes", "no"}:
         return _reply(state, "신청은 자동으로 진행되지 않아요. 원하는 조건을 말씀하거나 아래 버튼을 골라주세요.", "clarify", state["pending"])
@@ -424,10 +454,18 @@ def handle_turn(state, text, activities, settings, *, client=None, as_of=None, e
     return _search(state, activities, as_of)
 
 
+def handle_turn(state, text, activities, settings, *, client=None, as_of=None, extraction=None):
+    from services.continuity import continue_turn
+    updated=_handle_turn(state,text,activities,settings,client=client,as_of=as_of,extraction=extraction)
+    return continue_turn(state,updated,text)
+
+
 def manual_search(state, activities, *, category=None, time_slot=None, as_of=None):
     state = deepcopy(state)
     state.update(conditions={"region": "서울 강서구"}, any_fields=[], history=[],
+                 selected_id=None,condition_modes={},excluded_types=[],recommendation_update=None,
                  pending=None, error=None, alternatives=[],expansion_consent=None,expanded=False,mode="manual", diagnostic=None, notice=None, ideas=[],facilities=[],flow="program")
+    state.pop('application_helper',None)
     # 지역 문자열은 원본 '서울특별시 강서구'와 부분 일치하도록 저장한다.
     state["conditions"]["region"] = "강서구"
     if category:
