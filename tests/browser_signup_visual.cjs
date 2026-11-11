@@ -13,8 +13,8 @@ async function diagram(p,id){await p.locator(`[data-guide-step=${id}]`).waitFor(
 (async()=>{const browser=await chromium.launch({executablePath:'/usr/bin/chromium',headless:true,args:['--no-sandbox']});try{for(const scheme of ['light','dark'])for(const width of [320,390,768]){
  const p=await browser.newPage({viewport:{width,height:850},isMobile:true,hasTouch:true,colorScheme:scheme});
  try{await p.goto('http://127.0.0.1:18507');await p.getByRole('button',{name:'온라인 신청 도와주세요',exact:true}).waitFor();await idle(p);
- assert.equal(await p.locator('.ieum-signup-visual').count(),0);await p.getByText('실험 · 버튼 찾기 예시',{exact:true}).click();await click(p,'버튼 찾기 예시 시작');await diagram(p,'signup_open');
- await click(p,'복지관 기존 회원이에요');await click(p,'다음 단계 →');await diagram(p,'signup_menu');
+ assert.equal(await p.locator('.ieum-signup-visual').count(),0);await p.getByText('실험 · 버튼 찾기 예시',{exact:true}).click();await click(p,'버튼 찾기 예시 시작');await p.getByRole('heading',{name:'1단계 / 6단계 · 복지관 회원이신가요?',exact:true}).waitFor();assert.equal(await p.locator('.ieum-signup-visual').count(),0);
+ await click(p,'복지관 기존 회원이에요');await p.getByRole('button',{name:'아이디가 없어요 · 온라인 아이디 만들기',exact:true}).waitFor();await click(p,'아이디가 없어요 · 온라인 아이디 만들기');await diagram(p,'signup_open');await click(p,'다음 단계 →');await diagram(p,'signup_menu');
  const cases=[['signup_id','아래쪽'],['signup_terms','체크박스'],['signup_verify','영역']];
  for(const[id,word]of cases){await click(p,'다음 단계 →');await diagram(p,id);await send(p,'버튼이 안 보여요');await diagram(p,id);assert.ok((await p.locator('[data-testid=stChatMessage]').innerText()).includes(word));await send(p,'어디를 눌러요?');await diagram(p,id);await click(p,'다시 설명');await diagram(p,id);}
  assert.ok(await p.getByRole('button',{name:'다음 단계 →',exact:true}).isDisabled());assert.ok((await p.locator('[data-testid=stChatMessage]').innerText()).includes('인증 이후 화면'));

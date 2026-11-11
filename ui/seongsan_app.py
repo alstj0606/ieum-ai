@@ -22,14 +22,20 @@ def _render_content():
     try:settings=load_settings(dict(st.secrets))
     except Exception:settings=load_settings()
     if 'institution_session' not in st.session_state:st.session_state.institution_session=new_institution_state()
+    if 'inst_visual_preference' not in st.session_state:
+        st.session_state.inst_visual_preference=bool(st.session_state.get('inst_visual_guide',False))
     def say(text,action=None):
         st.session_state.institution_session=guide_turn(st.session_state.institution_session,text,settings,action=action)
         st.session_state.inst_audio=None
         st.session_state.inst_voice_error=None
     def legacy():st.session_state.service_mode='gangseo'
     def start_visual():
-        st.session_state.inst_visual_guide=True
-        say('온라인 아이디 만들기',action='signup')
+        st.session_state.inst_visual_preference=True
+        # An experiment opt-in says nothing about welfare membership or account status.
+        say('회원 유형부터 확인할게요.',action='reset')
+    def remember_visual():
+        # Persist outside the widget key, which Streamlit removes when it is hidden.
+        st.session_state.inst_visual_preference=st.session_state.inst_visual_guide
     def button(label,key,text=None,action=None,disabled=False):
         return st.button(label,key=key,on_click=say,args=(text or label,action),type='primary',use_container_width=True,disabled=disabled)
     st.title('이음 AI')
@@ -62,7 +68,8 @@ def _render_content():
                 button('온라인 아이디가 있어요 · 로그인 안내','inst_has_id',action='member_with_id')
                 button('아이디가 없어요 · 온라인 아이디 만들기','inst_no_id',action='member_without_id')
             if signup:
-                if st.toggle('버튼 찾기 예시 보기 · 실제 사이트 아님',key='inst_visual_guide'):
+                if st.toggle('버튼 찾기 예시 보기 · 실제 사이트 아님',key='inst_visual_guide',
+                             value=st.session_state.inst_visual_preference,on_change=remember_visual):
                     st.html(visual_guide_html(step))
             if state.get('notice'):st.info(state['notice'])
             if state['message'] and state['message'] not in (step['instruction'],step['details'],'다시 짧게 안내할게요. '+step['instruction']):st.write(state['message'])
