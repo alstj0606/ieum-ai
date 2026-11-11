@@ -245,5 +245,26 @@
       "details": "확인된 안내는 여기까지예요. 인증하기 버튼의 존재만 확인됐고, 인증 이후 화면·회원가입 완료·실제 신청은 미검증이에요. 실제 인증은 공식 사이트에서 직접 진행하세요.",
       "help_text": "본인인증 화면에서 안심본인 인증(휴대폰 인증)이라는 영역 제목을 찾고 그 영역의 인증하기 버튼을 확인해 주세요. 버튼 이후의 화면이나 입력 항목은 안내하지 않아요."
     }
-  ]
+  ],
+  "visual_guide_verification": {
+    "checked_at": "2026-11-11",
+    "source_urls": [
+      "https://sssenior.e-ncom.co.kr/member/login.do",
+      "https://sssenior.e-ncom.co.kr/member/memberAuth.do"
+    ],
+    "content_method": "공식 URL의 웹 열람 텍스트와 이용자의 2026-11-11 iPad Safari 확인 내용",
+    "content_scope": "아이디 만들기·회원가입약관·휴대폰 인증 영역의 메뉴 이름만 확인. 현재 실화면의 크기·정확한 위치는 미검증.",
+    "response_headers": {
+      "x_frame_options": null,
+      "content_security_policy": null
+    },
+    "headers_verified": false,
+    "embedding_status": "unverified",
+    "http_probe_result": "공식 루트·로그인·본인인증 URL 모두 개발 환경 프록시의 CONNECT 403으로 응답 헤더 수신 실패. 공식 사이트의 HTTP 403 또는 삽입 차단으로 해석하지 않음.",
+    "shared_browser_result": "공유 Chromium에서 DNS 접근 실패. 공식 화면 표시 및 삽입 성공 미검증.",
+    "prototype_kind": "공식 화면의 캡처나 복제가 아닌 메뉴 이름 중심의 구조도 예시",
+    "screenshot_reuse_permission": "미확인: 공식 화면 이미지·로고를 재사용하지 않음",
+    "after_authentication": "미검증: 인증 이후 단계·완료 상태를 제공하지 않음",
+    "automated_iframe_result": "루트·로그인·본인인증 공개 URL 3건의 실제 Chromium iframe 요청 모두 net::ERR_TUNNEL_CONNECTION_FAILED. 공식 응답 헤더 미수신, 공식 화면 표시 미검증. 로그인·인증·결제 조작 없음."
+  }
 }

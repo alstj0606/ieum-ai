@@ -39,3 +39,10 @@ body:has(.st-key-seongsan_light) [role="tooltip"] {background:#172b3a;color:#fff
 .stApp:has(.st-key-seongsan_light) [data-testid="stSkipToContent"] {font-size:18px;color:#075985;background:#ffffff}
 /* Streamlit captions default to opacity .6; explicit text colour alone is insufficient. */
 .st-key-seongsan_light [data-testid="stCaptionContainer"] {opacity:1}
+/* Inert diagrams only: no external DOM, real form fields or screenshot coordinates. */
+.ieum-signup-visual {background:#ffffff;color:#172b3a;border:2px solid #124d78;border-radius:12px;padding:16px;overflow-wrap:anywhere}
+.ieum-signup-visual h4 {color:#172b3a;font-size:22px;margin:0 0 12px}
+.ieum-visual-target {display:flex;flex-direction:column;align-items:center;gap:8px;background:#e8f2fa;color:#10375c;border:3px solid #124d78;border-radius:8px;padding:16px;text-align:center}
+.ieum-visual-target strong {font-size:24px}
+.ieum-visual-arrow {font-size:40px;line-height:1;color:#10375c}
+.st-key-inst_visual_guide label {min-height:48px}
