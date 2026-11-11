@@ -5,6 +5,7 @@ from services.institution_dialogue import load_institution,new_institution_state
 from services.config import load_settings
 from services.voice import transcribe,synthesize,VoiceError
 from ui.signup_visual import visual_guide_html
+from services.member_diagnostics import record
 
 ROOT=Path(__file__).resolve().parents[1]
 
@@ -24,24 +25,27 @@ def _render_content():
     if 'institution_session' not in st.session_state:st.session_state.institution_session=new_institution_state()
     if 'inst_visual_preference' not in st.session_state:
         st.session_state.inst_visual_preference=bool(st.session_state.get('inst_visual_guide',False))
-    def say(text,action=None):
+    def say(text,action=None,source='chat'):
+        record(st.session_state,'before_action',action=action,source=source)
         st.session_state.institution_session=guide_turn(st.session_state.institution_session,text,settings,action=action)
+        record(st.session_state,'after_action',action=action,source=source)
         st.session_state.inst_audio=None
         st.session_state.inst_voice_error=None
     def legacy():st.session_state.service_mode='gangseo'
     def start_visual():
         st.session_state.inst_visual_preference=True
         # An experiment opt-in says nothing about welfare membership or account status.
-        say('회원 유형부터 확인할게요.',action='reset')
+        say('회원 유형부터 확인할게요.',action='reset',source='inst_start_visual')
     def remember_visual():
         # Persist outside the widget key, which Streamlit removes when it is hidden.
         st.session_state.inst_visual_preference=st.session_state.inst_visual_guide
     def button(label,key,text=None,action=None,disabled=False):
-        return st.button(label,key=key,on_click=say,args=(text or label,action),type='primary',use_container_width=True,disabled=disabled)
+        return st.button(label,key=key,on_click=say,args=(text or label,action,key),type='primary',use_container_width=True,disabled=disabled)
     st.title('이음 AI')
     st.caption(data['name']+' · 창원 성산구')
     state=st.session_state.institution_session
     if not state['active']:
+        record(st.session_state,'render',screen='welcome')
         st.write('안녕하세요. 이음 AI예요. 복지관 프로그램을 찾고 신청하는 과정을 함께 도와드릴게요.')
         button('프로그램 알아보기','inst_programs',action='program_info')
         button('온라인 신청 도와주세요','inst_start',action='repeat')
@@ -56,6 +60,7 @@ def _render_content():
         membership_help=len(steps)==1
         signup=state.get('guide_kind')=='signup'
         step=steps[state['index']]
+        record(st.session_state,'render',screen=step['step_id'])
         with st.chat_message('assistant'):
             st.markdown(f'<div id="latest-reply-inst-{state["seq"]}"></div>',unsafe_allow_html=True)
             st.subheader(step['title'] if membership_help else f'{state["index"]+1}단계 / {len(steps)}단계 · {step["title"]}')
