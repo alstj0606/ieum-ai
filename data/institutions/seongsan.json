@@ -127,5 +127,123 @@
       ],
       "details": "추첨 신청은 당첨이나 수강 확정과 달라요. 2025년 안내문에는 추첨 이후 별도 수납과 기한 내 미수납 시 취소 절차가 있어요. 현재 결제·수납 방식과 기한은 기관의 새 안내로 확인해야 해요. 여기까지 따라왔다고 실제 신청이 완료된 것은 아니에요."
     }
+  ],
+  "signup_verification_note": "2026-11-11 이용자가 iPad Safari에서 직접 확인한 공개 화면 순서에 근거. 인증하기 버튼 존재까지만 확인. 인증 이후·가입 완료·실제 신청·현재 모집 및 자격은 미확인. 에이전트의 실기기 검증이 아님.",
+  "signup_steps": [
+    {
+      "institution_id": "seongsan_senior",
+      "site_id": "seongsan_online",
+      "step_id": "signup_open",
+      "title": "공식 사이트를 열어요",
+      "instruction": "아래 공식 사이트 열기 버튼을 눌러 주세요.",
+      "button_label": null,
+      "official_url": "https://sssenior.e-ncom.co.kr/",
+      "verification_source": "https://sssenior.e-ncom.co.kr/",
+      "verified_at": "2026-11-11",
+      "verification_level": "실제 공개 웹페이지에서 확인",
+      "verification_origin": "user_report",
+      "verified_device": "iPad Safari",
+      "verification_scope": "공개 화면 및 인증하기 버튼 존재까지",
+      "screenshot_path": null,
+      "arrow_target": null,
+      "prerequisites": [
+        "복지관 회원 여부 별도 확인",
+        "실제 작업은 공식 사이트에서 직접 진행"
+      ],
+      "details": "새 창에서 공식 사이트를 보고 이음 AI로 돌아와 안내를 이어가세요.",
+      "help_text": "공식 사이트 열기는 이음 AI 화면의 큰 버튼이에요. 누르면 성산복지관 공식 온라인 수강신청 사이트로 이동해요."
+    },
+    {
+      "institution_id": "seongsan_senior",
+      "site_id": "seongsan_online",
+      "step_id": "signup_menu",
+      "title": "수강신청 메뉴를 찾아요",
+      "instruction": "공식 사이트 상단의 수강신청 및 결제를 선택해 주세요.",
+      "button_label": "수강신청 및 결제",
+      "official_url": "https://sssenior.e-ncom.co.kr/",
+      "verification_source": "https://sssenior.e-ncom.co.kr/",
+      "verified_at": "2026-11-11",
+      "verification_level": "실제 공개 웹페이지에서 확인",
+      "verification_origin": "user_report",
+      "verified_device": "iPad Safari",
+      "verification_scope": "공개 화면 및 인증하기 버튼 존재까지",
+      "screenshot_path": null,
+      "arrow_target": null,
+      "prerequisites": [
+        "복지관 회원 여부 별도 확인",
+        "실제 작업은 공식 사이트에서 직접 진행"
+      ],
+      "details": "선택하면 로그인 화면이 표시되는 것까지 확인됐어요. 현재 강좌 모집 여부는 미확인이에요.",
+      "help_text": "공식 사이트 화면의 상단 메뉴에서 수강신청 및 결제라는 글씨를 찾아 주세요. 다른 사이트나 이음 AI 메뉴가 아니에요."
+    },
+    {
+      "institution_id": "seongsan_senior",
+      "site_id": "seongsan_online",
+      "step_id": "signup_id",
+      "title": "아이디 만들기를 선택해요",
+      "instruction": "로그인 화면 아래의 아이디 만들기를 선택해 주세요.",
+      "button_label": "아이디 만들기",
+      "official_url": "https://sssenior.e-ncom.co.kr/",
+      "verification_source": "https://sssenior.e-ncom.co.kr/",
+      "verified_at": "2026-11-11",
+      "verification_level": "실제 공개 웹페이지에서 확인",
+      "verification_origin": "user_report",
+      "verified_device": "iPad Safari",
+      "verification_scope": "공개 화면 및 인증하기 버튼 존재까지",
+      "screenshot_path": null,
+      "arrow_target": null,
+      "prerequisites": [
+        "복지관 회원 여부 별도 확인",
+        "실제 작업은 공식 사이트에서 직접 진행"
+      ],
+      "details": "다음에 본인인증 화면이 표시돼요. 복지관 방문 회원등록과 온라인 아이디 생성은 별도예요.",
+      "help_text": "공식 로그인 화면의 아래쪽에서 아이디 만들기라는 글씨를 찾아 주세요. 아이디나 비밀번호를 이음 AI에 적을 필요는 없어요."
+    },
+    {
+      "institution_id": "seongsan_senior",
+      "site_id": "seongsan_online",
+      "step_id": "signup_terms",
+      "title": "회원가입약관을 확인해요",
+      "instruction": "공식 사이트의 회원가입약관을 읽어 주세요.",
+      "button_label": "회원가입약관 / 위 약관에 동의합니다.",
+      "official_url": "https://sssenior.e-ncom.co.kr/",
+      "verification_source": "https://sssenior.e-ncom.co.kr/",
+      "verified_at": "2026-11-11",
+      "verification_level": "실제 공개 웹페이지에서 확인",
+      "verification_origin": "user_report",
+      "verified_device": "iPad Safari",
+      "verification_scope": "공개 화면 및 인증하기 버튼 존재까지",
+      "screenshot_path": null,
+      "arrow_target": null,
+      "prerequisites": [
+        "복지관 회원 여부 별도 확인",
+        "실제 작업은 공식 사이트에서 직접 진행"
+      ],
+      "details": "내용에 동의하시는 경우에만 공식 사이트의 위 약관에 동의합니다. 체크박스를 직접 선택해 주세요. 이음 AI의 다음 버튼은 동의를 대신하지 않아요.",
+      "help_text": "본인인증 화면에서 회원가입약관 제목과 약관 내용을 확인한 뒤 위 약관에 동의합니다.라는 체크박스를 찾아 주세요. 동의 여부는 직접 결정해 주세요."
+    },
+    {
+      "institution_id": "seongsan_senior",
+      "site_id": "seongsan_online",
+      "step_id": "signup_verify",
+      "title": "인증하기 버튼을 찾아요",
+      "instruction": "안심본인 인증(휴대폰 인증) 영역의 인증하기 버튼을 찾아 주세요.",
+      "button_label": "안심본인 인증(휴대폰 인증) / 인증하기",
+      "official_url": "https://sssenior.e-ncom.co.kr/",
+      "verification_source": "https://sssenior.e-ncom.co.kr/",
+      "verified_at": "2026-11-11",
+      "verification_level": "실제 공개 웹페이지에서 확인",
+      "verification_origin": "user_report",
+      "verified_device": "iPad Safari",
+      "verification_scope": "공개 화면 및 인증하기 버튼 존재까지",
+      "screenshot_path": null,
+      "arrow_target": null,
+      "prerequisites": [
+        "복지관 회원 여부 별도 확인",
+        "실제 작업은 공식 사이트에서 직접 진행"
+      ],
+      "details": "확인된 안내는 여기까지예요. 인증하기 버튼의 존재만 확인됐고, 인증 이후 화면·회원가입 완료·실제 신청은 미검증이에요. 실제 인증은 공식 사이트에서 직접 진행하세요.",
+      "help_text": "본인인증 화면에서 안심본인 인증(휴대폰 인증)이라는 영역 제목을 찾고 그 영역의 인증하기 버튼을 확인해 주세요. 버튼 이후의 화면이나 입력 항목은 안내하지 않아요."
+    }
   ]
 }
