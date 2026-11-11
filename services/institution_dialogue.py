@@ -28,11 +28,26 @@ def load_institution(path=PATH):
 
 
 def current_steps(data,state):
-    return data['signup_steps'] if state.get('guide_kind')=='signup' else data['steps']
+    # Member checks are outcomes of the first question, not that question again.
+    if state['membership'] is False:
+        return [dict(data['steps'][0],step_id='membership_registration',title='비회원 · 방문 회원등록 안내',
+                     instruction='방문 전에 복지관에 전화해 회원등록 방법을 확인해 주세요.',
+                     details=f"{data['name']} · {data['address']}\n\n비회원은 복지관 방문 회원등록이 먼저예요. 회원등록 준비물·접수 창구·가능 시간은 공식 자료 확인 필요예요. 방문 전에 문의해 주세요.")]
+    if state.get('view')=='membership_check':
+        return [dict(data['steps'][0],step_id='membership_check',title='회원 여부 확인 안내',
+                     instruction='아래 문의 전화로 복지관 회원 여부를 확인해 주세요.',
+                     details='복지관 회원등록과 온라인 아이디는 별도예요. 이음 AI가 회원 여부나 신청 자격을 판단하지 않아요.')]
+    if state.get('guide_kind')=='signup':return data['signup_steps']
+    steps=list(data['steps'])
+    if state['membership'] is True and state.get('online_account') is None:
+        steps[1]=dict(steps[1],title='기존 회원 · 온라인 아이디 확인',
+                      instruction='아래에서 온라인 아이디가 있는지 골라 주세요.',
+                      details='온라인 아이디가 있으면 로그인 안내, 없으면 온라인 아이디 만들기 안내로 이어져요.')
+    return steps
 
 
 def _signup(state):
-    state.update(guide_kind='signup',index=0,online_account=False)
+    state.update(guide_kind='signup',view='guide',index=0,online_account=False)
     state['member_type']='new_online' if state['membership'] is True else 'unknown'
     state['message']='온라인 아이디 만들기를 한 단계씩 안내할게요. 복지관 회원등록과는 별도예요.'
     if state['membership'] is not True:state['message']+=' 복지관 회원인지 먼저 확인해 주세요.'
@@ -98,7 +113,8 @@ def has_credentials(text):
 
 def guide_turn(previous,text,settings,*,client=None,action=None):
     state=deepcopy(previous);data=load_institution()
-    state.update(notice=None,diagnostic=None,mode='basic',active=True,view='guide',seq=state.get('seq',0)+1)
+    state.update(notice=None,diagnostic=None,mode='basic',active=True,seq=state.get('seq',0)+1)
+    if state.get('view') in (None,'welcome'):state['view']='guide'
     # Do not retain or send suspected authentication/identity values to a provider.
     if has_credentials(text):
         state['message']=PRIVACY;return state
@@ -118,34 +134,35 @@ def guide_turn(previous,text,settings,*,client=None,action=None):
     if selected=='reset':
         fresh=new_institution_state();fresh.update(active=True,view='guide',seq=state['seq']);return fresh
     if selected=='member_with_id':
-        state.update(membership=True,online_account=True,member_type='existing_online',guide_kind='application',index=2)
+        state.update(membership=True,online_account=True,member_type='existing_online',guide_kind='application',view='guide',index=2)
         state['message']='복지관 회원이며 온라인 아이디가 있다고 말씀해 주셨군요. 공식 사이트에서 직접 로그인해 주세요.'
     elif selected=='member_without_id':
         state['membership']=True
         _signup(state)
     elif selected=='signup':
         if state['membership'] is False:
-            state.update(guide_kind='application',index=0)
+            state.update(guide_kind='application',view='membership_registration',index=0)
             state['message']='온라인 아이디를 만들기 전에 복지관 방문 회원등록이 필요해요. 기관에 먼저 문의해 주세요.'
         else:_signup(state)
     elif selected=='account_exists':
-        state.update(online_account=True,guide_kind='application')
+        state.update(online_account=True,guide_kind='application',view='guide')
         state['index']=2 if state['membership'] is True else 0
         state['member_type']='existing_online' if state['membership'] is True else 'unknown'
         state['message']='온라인 아이디와 복지관 회원 자격은 달라요. 복지관 회원이시면 공식 로그인 화면을 이용해 주세요.'
     elif selected=='unknown_member':
-        state.update(membership=None,online_account=None,member_type='unknown',guide_kind='application',index=0)
+        state.update(membership=None,online_account=None,member_type='unknown',guide_kind='application',view='membership_check',index=0)
         state['message']='회원 여부를 추측하지 않을게요. 공식 문의처 055-714-9178로 복지관 회원등록 여부를 확인해 주세요.'
     elif selected=='member':
-        state['membership']=True
+        state.update(membership=True,view='guide')
         if state.get('guide_kind')=='signup':state['member_type']='new_online'
-        else:state['index']=max(1,state['index'])
+        else:state.update(index=max(1,state['index']),member_type='existing_online' if state.get('online_account') is True else 'existing_member')
         state['message']='복지관 회원이라고 말씀해 주셨군요. 온라인 아이디는 별도로 준비해요.'
     elif selected=='nonmember':
-        state.update(membership=False,online_account=None,member_type='nonmember',guide_kind='application',index=0)
+        state.update(membership=False,online_account=None,member_type='nonmember',guide_kind='application',view='membership_registration',index=0)
         state['message']='온라인 신청 전에 복지관을 방문해 회원등록을 먼저 해 주세요. 준비 서류·등록 시간은 기관에 문의해 주세요.'
     elif selected=='next':
-        if state['membership'] is not True:state.update(index=0,message='복지관 회원인지 먼저 확인해 주세요. 비회원은 방문 회원등록이 필요해요.')
+        if state['membership'] is False or state.get('view')=='membership_check':state.update(index=0,message=current_steps(data,state)[0]['instruction'])
+        elif state['membership'] is not True:state.update(index=0,message='복지관 회원인지 먼저 확인해 주세요. 비회원은 방문 회원등록이 필요해요.')
         else:state['index']=advance_step(state['index'],len(current_steps(data,state)),'next');state['message']='다음 안내예요. 이음 AI가 로그인이나 신청 완료를 확인한 것은 아니에요.'
     elif selected=='previous':state['index']=advance_step(state['index'],len(current_steps(data,state)),'previous');state['message']='이전 안내로 돌아왔어요.'
     elif selected=='login_problem':state['message']='로그인이 어려우시군요. 복지관 회원이고 온라인 아이디가 있으면 로그인, 처음이면 아이디 만들기를 이용해요. 본인인증은 본인임을 확인하는 별도 과정이에요. 이음 AI는 로그인하지 않으며 현재 단계는 그대로 둘게요.'
@@ -154,7 +171,7 @@ def guide_turn(previous,text,settings,*,client=None,action=None):
     elif selected=='stuck':
         step=current_steps(data,state)[state['index']]
         target=('공식 자료의 메뉴 이름은 ‘'+step['button_label']+'’예요.' if step['button_label'] else '이 단계는 이음 AI 안내 화면에서 진행해요. '+step['instruction'])
-        state['message']=(step['help_text'] if state.get('guide_kind')=='signup' else f"{state['index']+1}단계에서 막히셨군요. {target} 위치는 검증하지 못해 오른쪽·아래 같은 위치를 추측하지 않을게요. 화면이 다르면 진행을 멈추고 공식 안내나 기관 문의를 이용해 주세요.")
+        state['message']=(step['details'] if state.get('view') in ('membership_registration','membership_check') else step['help_text'] if state.get('guide_kind')=='signup' else f"{state['index']+1}단계에서 막히셨군요. {target} 위치는 검증하지 못해 오른쪽·아래 같은 위치를 추측하지 않을게요. 화면이 다르면 진행을 멈추고 공식 안내나 기관 문의를 이용해 주세요.")
     elif selected=='payment':state['message']='2025년 안내문에는 추첨 이후 별도 수납이 안내돼 있어요. 현재 금액·결제 방법·수납 기한은 미확인이에요. 신청이나 당첨만으로 수강이 확정됐다고 볼 수 없어요. 현재 단계는 유지할게요.'
     elif selected=='status':state['message']='현재 모집 상태와 실제 신청 완료를 확인할 수 없어요. 공식 나의 신청프로그램에서 추첨 신청·대기·당첨 여부를 구분해 확인해 주세요. 현재 단계는 유지할게요.'
     elif selected=='program_info':state['message']='성산복지관의 현재 강좌 목록·모집 상태는 미확인이에요. 다른 기관 프로그램을 섞지 않을게요. 복지관 회원은 공식 수강신청 및 결제 메뉴에서 현재 안내를 확인해 주세요.'

@@ -47,47 +47,53 @@ def _render_content():
             st.button('버튼 찾기 예시 시작',key='inst_start_visual',on_click=start_visual,type='primary',use_container_width=True)
     else:
         steps=current_steps(data,state)
+        membership_help=len(steps)==1
         signup=state.get('guide_kind')=='signup'
         step=steps[state['index']]
         with st.chat_message('assistant'):
             st.markdown(f'<div id="latest-reply-inst-{state["seq"]}"></div>',unsafe_allow_html=True)
-            st.subheader(f'{state["index"]+1}단계 / {len(steps)}단계 · {step["title"]}')
+            st.subheader(step['title'] if membership_help else f'{state["index"]+1}단계 / {len(steps)}단계 · {step["title"]}')
+            with st.container(key='inst_instruction'):
+                st.markdown('**지금 할 일 → '+step['instruction']+'**')
+            if membership_help:
+                st.link_button('기관에 문의 전화하기 · 055-714-9178','tel:0557149178',type='primary',use_container_width=True)
+                st.caption('기관 문의 전화예요. 전화 신청 가능 여부는 확인하지 못했어요.')
+            if state['membership'] is True and not signup and state['index'] in (1,2):
+                button('온라인 아이디가 있어요 · 로그인 안내','inst_has_id',action='member_with_id')
+                button('아이디가 없어요 · 온라인 아이디 만들기','inst_no_id',action='member_without_id')
             if signup:
                 if st.toggle('버튼 찾기 예시 보기 · 실제 사이트 아님',key='inst_visual_guide'):
                     st.html(visual_guide_html(step))
             if state.get('notice'):st.info(state['notice'])
-            if state['message'] and state['message']!='다시 짧게 안내할게요. '+step['instruction']:st.write(state['message'])
-            with st.container(key='inst_instruction'):
-                st.markdown('**지금 할 일 → '+step['instruction']+'**')
+            if state['message'] and state['message'] not in (step['instruction'],step['details'],'다시 짧게 안내할게요. '+step['instruction']):st.write(state['message'])
             if step['button_label']:st.markdown('**공식 메뉴·버튼 이름 · '+step['button_label']+'**')
             st.write(step['details'])
             st.caption('검증 수준 · '+step['verification_level'])
-            st.warning('현재 모집·신청 자격 미확인 · 인증 이후 절차는 미검증이에요.' if signup else '현재 강좌·모집 상태 미확인 · 2025 안내문은 절차 참고용이에요.')
+            if not membership_help:st.warning('현재 모집·신청 자격 미확인 · 인증 이후 절차는 미검증이에요.' if signup else '현재 강좌·모집 상태 미확인 · 2025 안내문은 절차 참고용이에요.')
             if signup:st.caption('2026.11.11 iPad Safari · 이용자가 직접 확인한 절차')
-            if state['membership'] is False or (state['index']==0 and '회원등록' in state['message']):
+            if not membership_help and state['index']==0 and '회원등록' in state['message']:
                 st.write('**방문 회원등록 안내**')
                 st.write(data['name']+' · '+data['address'])
                 st.write('회원등록 준비물·접수 창구·가능 시간은 현재 확인이 필요해요. 방문 전에 전화로 확인해 주세요.')
-            if state['index']==0 and state['membership'] is not True:
+            if not membership_help and state['index']==0 and state['membership'] is not True:
                 button('복지관 기존 회원이에요','inst_member',text='기존 회원이에요',action='member')
                 button('복지관 비회원이에요','inst_nonmember',text='비회원이에요',action='nonmember')
                 button('회원 여부를 모르겠어요','inst_unknown_member',action='unknown_member')
-            if state['membership'] is True and not signup and state['index'] in (1,2):
-                button('온라인 아이디가 있어요 · 로그인 안내','inst_has_id',action='member_with_id')
-                button('아이디가 없어요 · 온라인 아이디 만들기','inst_no_id',action='member_without_id')
-            st.link_button('공식 신청 사이트 열기 →',step['official_url'],type='primary',use_container_width=True)
-            if not signup and (state['index']==2 or '아이디' in state['message'] or '로그인' in state['message']):
+            if not membership_help:st.link_button('공식 신청 사이트 열기 →',step['official_url'],type='primary',use_container_width=True)
+            if not membership_help and not signup and (state['index']==2 or '아이디' in state['message'] or '로그인' in state['message']):
                 st.link_button('공식 로그인 화면 열기',data['login_url'],use_container_width=True)
                 st.link_button('기존 회원의 아이디 만들기·본인인증 안내 열기',data['account_url'],use_container_width=True)
-            st.caption('확인된 화면 이미지가 없어 글로 안내해요. 버튼 위치는 추측하지 않아요.')
-            button('다음 단계 →','inst_next',text='다음',action='next',disabled=state['index']==len(steps)-1)
-            button('이전 단계','inst_previous',text='이전',action='previous',disabled=state['index']==0)
+            if not membership_help:
+                st.caption('확인된 화면 이미지가 없어 글로 안내해요. 버튼 위치는 추측하지 않아요.')
+                button('다음 단계 →','inst_next',text='다음',action='next',disabled=state['index']==len(steps)-1)
+                button('이전 단계','inst_previous',text='이전',action='previous',disabled=state['index']==0)
             button('다시 설명','inst_repeat',action='repeat')
             button('못 찾겠어요','inst_stuck',action='stuck')
-            button('처음으로' if signup else '처음부터 다시','inst_reset',action='reset')
+            button('회원 유형 다시 선택' if membership_help else '처음으로' if signup else '처음부터 다시','inst_reset',action='reset')
             st.info(PRIVACY+' 이음 AI는 실제 신청 완료를 확인하지 않아요.')
-            st.link_button('기관에 문의 전화하기 · 055-714-9178','tel:0557149178',use_container_width=True)
-            st.caption('문의 예시: 복지관 회원등록이나 온라인 신청 과정에서 막혔어요. 현재 신청 방법을 알려주시겠어요?')
+            if not membership_help:
+                st.link_button('기관에 문의 전화하기 · 055-714-9178','tel:0557149178',use_container_width=True)
+                st.caption('문의 예시: 복지관 회원등록이나 온라인 신청 과정에서 막혔어요. 현재 신청 방법을 알려주시겠어요?')
             if st.button('답변 듣기',key='inst_listen',disabled=not bool(settings.api_key),use_container_width=True):
                 try:st.session_state.inst_audio=synthesize((state['message']+' '+step['instruction']+' '+step['details']+' '+PRIVACY),settings)
                 except VoiceError as error:st.session_state.inst_voice_error=str(error)

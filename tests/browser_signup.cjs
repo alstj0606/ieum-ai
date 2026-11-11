@@ -9,9 +9,9 @@ async function layout(p){if(await p.locator('[data-testid=stException]').count()
 (async()=>{const b=await chromium.launch({executablePath:'/usr/bin/chromium',headless:true,args:['--no-sandbox']});try{for(const width of (process.env.SIGNUP_WIDTHS?process.env.SIGNUP_WIDTHS.split(',').map(Number):[320,390,768]))for(const[mode,port]of[['keyless',18507],['gemini-mock',18508]]){
 const p=await b.newPage({viewport:{width,height:850},isMobile:true,hasTouch:true});try{await p.goto(`http://127.0.0.1:${port}`);await p.getByRole('button',{name:'온라인 신청 도와주세요',exact:true}).waitFor();await idle(p);
 await click(p,'온라인 신청 도와주세요');await stage(p,1,6);
-await click(p,'회원 여부를 모르겠어요');await stage(p,1,6);await p.getByText(/회원 여부를 추측하지/).waitFor();
-await click(p,'복지관 비회원이에요');await send(p,'아이디가 없어요');await stage(p,1,6);await p.getByText(/온라인 아이디를 만들기 전에/).waitFor();
-await click(p,'복지관 기존 회원이에요');await stage(p,2,6);await click(p,'온라인 아이디가 있어요 · 로그인 안내');await stage(p,3,6);
+await click(p,'회원 여부를 모르겠어요');await p.getByRole('heading',{name:'회원 여부 확인 안내',exact:true}).waitFor();await p.getByText(/회원 여부를 추측하지/).waitFor();
+await click(p,'회원 유형 다시 선택');await click(p,'복지관 비회원이에요');await send(p,'아이디가 없어요');await p.getByRole('heading',{name:'비회원 · 방문 회원등록 안내',exact:true}).waitFor();await p.getByText(/온라인 아이디를 만들기 전에/).waitFor();
+await click(p,'회원 유형 다시 선택');await click(p,'복지관 기존 회원이에요');await stage(p,2,6);await click(p,'온라인 아이디가 있어요 · 로그인 안내');await stage(p,3,6);
 await click(p,'아이디가 없어요 · 온라인 아이디 만들기');await stage(p,1);await layout(p);
 const link=await p.getByRole('link',{name:'공식 신청 사이트 열기 →',exact:true}).getAttribute('href');if(link!=='https://sssenior.e-ncom.co.kr/')throw Error('Official URL changed');
 for(let n=2;n<=5;n++){await click(p,'다음 단계 →');await stage(p,n);await layout(p);await click(p,'못 찾겠어요');await stage(p,n);await click(p,'다시 설명');await stage(p,n);}

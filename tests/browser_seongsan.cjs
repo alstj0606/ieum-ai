@@ -9,8 +9,8 @@ async function click(p,name){const old=await p.locator('[id^=latest-reply-inst-]
  for(const name of ['프로그램 알아보기','온라인 신청 도와주세요','복지관 회원가입 안내']){const box=await p.getByRole('button',{name,exact:true}).boundingBox();if(box.height<48)throw Error('Small action');}
  if((await p.locator('body').innerText()).includes('서남센터'))throw Error('Institutions mixed at start');
  await click(p,'온라인 신청 도와주세요');await stage(p,1);await send(p,'다음');await stage(p,1);
- await click(p,'복지관 비회원이에요');await p.getByText('성산노인종합복지관 · 경남 창원시 성산구 창이대로 781',{exact:true}).waitFor();await send(p,'다음');await stage(p,1);
- await click(p,'복지관 기존 회원이에요');await stage(p,2);const official=await p.getByRole('link',{name:'공식 신청 사이트 열기 →',exact:true}).getAttribute('href');if(official!=='https://sssenior.e-ncom.co.kr/main/index.do')throw Error('Wrong institution link');
+ await click(p,'복지관 비회원이에요');await p.getByText(/성산노인종합복지관 · 경남 창원시 성산구 창이대로 781/).waitFor();await send(p,'다음');await p.getByRole('heading',{name:'비회원 · 방문 회원등록 안내',exact:true}).waitFor();
+ await click(p,'회원 유형 다시 선택');await click(p,'복지관 기존 회원이에요');await stage(p,2);const official=await p.getByRole('link',{name:'공식 신청 사이트 열기 →',exact:true}).getAttribute('href');if(official!=='https://sssenior.e-ncom.co.kr/main/index.do')throw Error('Wrong institution link');
  await send(p,'다음');await stage(p,3);await send(p,'로그인이 어려워요');await stage(p,3);await p.getByText(/본인인증은 본인임을 확인하는 별도 과정/).waitFor();
  await send(p,'로그인했는데 다음에 뭘 해야 해요');await stage(p,4);await send(p,'수강신청 버튼을 못 찾겠어요');await stage(p,4);await p.getByText(/4단계에서 막히셨군요/).waitFor();
  await send(p,'버튼을 못 찾겠어요 (연결 실패 시험)');await stage(p,4);if(mode==='gemini-mock')await p.getByText('Gemini 연결을 이용하지 못해 기본 안내로 도와드려요.',{exact:true}).waitFor();
