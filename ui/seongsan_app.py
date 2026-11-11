@@ -4,6 +4,7 @@ import streamlit as st
 from services.institution_dialogue import load_institution,new_institution_state,guide_turn,current_steps,has_credentials,PRIVACY
 from services.config import load_settings
 from services.voice import transcribe,synthesize,VoiceError
+from ui.signup_visual import visual_guide_html
 
 ROOT=Path(__file__).resolve().parents[1]
 
@@ -26,6 +27,9 @@ def _render_content():
         st.session_state.inst_audio=None
         st.session_state.inst_voice_error=None
     def legacy():st.session_state.service_mode='gangseo'
+    def start_visual():
+        st.session_state.inst_visual_guide=True
+        say('온라인 아이디 만들기',action='signup')
     def button(label,key,text=None,action=None,disabled=False):
         return st.button(label,key=key,on_click=say,args=(text or label,action),type='primary',use_container_width=True,disabled=disabled)
     st.title('이음 AI')
@@ -38,6 +42,9 @@ def _render_content():
         button('복지관 회원가입 안내','inst_membership',action='membership_help')
         st.link_button('전화로 문의하기 · 055-714-9178','tel:0557149178',type='primary',use_container_width=True)
         st.caption('기관 문의 전화예요. 전화 신청 가능 여부는 확인하지 못했어요.')
+        with st.expander('실험 · 버튼 찾기 예시'):
+            st.write('실제 사이트가 아닌 구조도로 버튼 이름을 연습해요. 공식 사이트의 앱 내부 표시는 아직 검증하지 못했어요.')
+            st.button('버튼 찾기 예시 시작',key='inst_start_visual',on_click=start_visual,type='primary',use_container_width=True)
     else:
         steps=current_steps(data,state)
         signup=state.get('guide_kind')=='signup'
@@ -45,6 +52,9 @@ def _render_content():
         with st.chat_message('assistant'):
             st.markdown(f'<div id="latest-reply-inst-{state["seq"]}"></div>',unsafe_allow_html=True)
             st.subheader(f'{state["index"]+1}단계 / {len(steps)}단계 · {step["title"]}')
+            if signup:
+                if st.toggle('버튼 찾기 예시 보기 · 실제 사이트 아님',key='inst_visual_guide'):
+                    st.html(visual_guide_html(step))
             if state.get('notice'):st.info(state['notice'])
             if state['message'] and state['message']!='다시 짧게 안내할게요. '+step['instruction']:st.write(state['message'])
             with st.container(key='inst_instruction'):
