@@ -7,7 +7,7 @@ from streamlit.testing.v1 import AppTest
 from services.config import Settings
 from services.institution_dialogue import guide_turn,new_institution_state,load_institution,current_steps,rule_action
 
-APP=str(Path(__file__).resolve().parents[1]/'app.py')
+APP=str(Path(__file__).resolve().parents[1]/'institution_app.py')
 class SignupGuideTest(TestCase):
  def turn(self,s,text,action=None):return guide_turn(s,text,Settings(),action=action)
  def signup(self):return self.turn(new_institution_state(),'복지관 회원이고 아이디가 없어요')

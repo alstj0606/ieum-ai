@@ -9,7 +9,7 @@ from streamlit.testing.v1 import AppTest
 from services.config import Settings
 from services.institution_dialogue import *
 
-APP=str(Path(__file__).resolve().parents[1]/'app.py')
+APP=str(Path(__file__).resolve().parents[1]/'institution_app.py')
 class SeongsanTest(TestCase):
  def turn(self,s,text,**kw):return guide_turn(s,text,Settings(),**kw)
  def member(self):return self.turn(new_institution_state(),'기존 회원이에요')

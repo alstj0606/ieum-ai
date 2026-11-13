@@ -10,6 +10,9 @@ from services.activity_guidance import IDEAS
 
 
 FIELDS = {
+    "weekdays": {"type": ["array", "null"], "items": {"type":"string","enum":["월","화","수","목","금","토","일"]}, "maxItems":7},
+    "companionship": {"enum": [None,"혼자","함께"]},
+    "movement_caution": {"enum": [None,"부담 확인"]},
     "region": {"type": ["string", "null"], "maxLength": 60},
     "category": {"enum": [None, "체육", "문화·취미", "평생학습"]},
     "activity_type": {"type": ["string", "null"], "maxLength": 40},
@@ -43,6 +46,8 @@ SCHEMA = {
 }
 
 PROMPT = """활동 아이디어 추천은 recommend_activity, 시설 찾기는 find_facility,
+동행 선호는 직접 말한 혼자/함께만 companionship에, 요일은 weekdays에 넣는다.
+신체 부담을 고려해 달라는 요청은 movement_caution='부담 확인'만 기록한다. 진단명·통증 부위·의학적 적합성은 생성하지 마라.
 구체적 강좌/프로그램 찾기는 search_program, 이미 말한 조건 수정은 change_condition으로 구분한다. '근처'만으로 지역/현재 위치를 추정하지 마라.
 운동 강도 선호는 직접 말한 경우만 effort_preference에 기록한다. 나이에서 강도 선호를 추정하지 마라.
 이동 편의는 직접 말한 경우만 mobility에 기록한다. '노인/어르신'에서 나이나 건강·운동 능력을 생성하지 마라.
@@ -118,8 +123,9 @@ def validate_extraction(payload):
         elif "boolean" in spec["type"]:
             valid = type(value) is bool
         elif "array" in spec["type"]:
-            valid = (isinstance(value, list) and len(value) <= 5
+            valid = (isinstance(value, list) and len(value) <= spec.get('maxItems',5)
                      and all(isinstance(x, str) and 0 < len(x.strip()) <= 30
+                             and ('enum' not in spec['items'] or x in spec['items']['enum'])
                              and not any(token in x.lower() for token in ("http", "www.", "<", ">", "\n"))
                              for x in value))
         else:

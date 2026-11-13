@@ -7,7 +7,7 @@ from streamlit.testing.v1 import AppTest
 from services.config import Settings
 from services.institution_dialogue import load_institution, new_institution_state, guide_turn, current_steps
 
-APP=str(Path(__file__).resolve().parents[1]/'app.py')
+APP=str(Path(__file__).resolve().parents[1]/'institution_app.py')
 
 class MembershipTransitionTest(TestCase):
     def turn(self,state,text):return guide_turn(state,text,Settings())

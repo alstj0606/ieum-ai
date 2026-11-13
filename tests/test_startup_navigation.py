@@ -53,7 +53,7 @@ class RejectLegacy(importlib.abc.MetaPathFinder):
             raise ModuleNotFoundError('legacy helper intentionally unavailable in startup test')
 sys.meta_path.insert(0,RejectLegacy())
 from streamlit.testing.v1 import AppTest
-app=AppTest.from_file('app.py',default_timeout=15).run()
+app=AppTest.from_file('institution_app.py',default_timeout=15).run()
 assert not app.exception
 app.button(key='inst_start').click().run()
 app.button(key='inst_member').click().run()

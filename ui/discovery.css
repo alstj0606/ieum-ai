@@ -1,0 +1,18 @@
+/* User-discovery light surfaces only; shared large touch targets remain in chat.css. */
+.stApp:has(#ieum-discovery-root) {background:#fff;color:#172b3a;color-scheme:light}
+.stApp:has(#ieum-discovery-root) :is([data-testid=stHeader],[data-testid=stBottom],[data-testid=stBottomBlockContainer]) {background:#fff;color:#172b3a}
+.stApp:has(#ieum-discovery-root) :is(h1,h2,h3,[data-testid=stMarkdownContainer]) {color:#172b3a}
+.stApp:has(#ieum-discovery-root) h2 {font-size:30px;line-height:1.4;overflow-wrap:anywhere}
+.stApp:has(#ieum-discovery-root) [data-testid=stCaptionContainer] {opacity:1}
+.stApp:has(#ieum-discovery-root) [data-testid=stCaptionContainer] p {color:#334e68}
+.stApp:has(#ieum-discovery-root) [data-testid=stChatMessage] {background:#f1f6fa;color:#172b3a}
+.stApp:has(#ieum-discovery-root) [data-testid=stAlert] {background:#fff4d6;color:#633600;border:1px solid #946122}
+.stApp:has(#ieum-discovery-root) [data-testid=stAlert] [data-testid=stMarkdownContainer] {color:#633600}
+.stApp:has(#ieum-discovery-root) .stLinkButton a {background:#124d78;color:#fff;border:2px solid #124d78}
+.stApp:has(#ieum-discovery-root) .stLinkButton a p {color:#fff}
+.stApp:has(#ieum-discovery-root) :is(.stChatInput textarea,.stTextArea textarea) {color:#172b3a;-webkit-text-fill-color:#172b3a;background:#fff}
+.stApp:has(#ieum-discovery-root) .stChatInput textarea::placeholder {color:#475569;-webkit-text-fill-color:#475569;opacity:1}
+.stApp:has(#ieum-discovery-root) .stExpander {background:#fff;color:#172b3a}
+.stApp:has(#ieum-discovery-root) .stButton button:disabled {background:#e2e8f0;color:#475569;opacity:1;border:2px solid #64748b}
+.stApp:has(#ieum-discovery-root) .stButton button:disabled p {color:#475569}
+.stApp:has(#ieum-discovery-root) a:not([data-testid^=stBaseLinkButton]) {color:#075985}

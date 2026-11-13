@@ -31,8 +31,9 @@ def district(region):
 
 
 def local_rows(activities, region):
-    key = district(region)
-    return [row for row in activities if key and district(row['region']) == key and '서울' in row['region']]
+    value=(region or '').replace(' ','').replace('서울특별시','서울').replace('창원시','창원')
+    if value in {'강서구','양천구','마포구','은평구','서대문구','중구','용산구','구로구','영등포구'}:value='서울'+value
+    return [row for row in activities if value and value in row['region'].replace(' ','').replace('서울특별시','서울').replace('창원시','창원')]
 
 
 from services.activity_ranking import ACTIVITY_TRAITS, SIMILAR, MATCH_LABELS, alternative_rank
