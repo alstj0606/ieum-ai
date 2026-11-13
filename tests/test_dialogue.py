@@ -84,7 +84,7 @@ class DialogueTest(TestCase):
     def test_ai_conditions_context_and_request_contract(self):
         payload = extraction(region="강서구", activity_type="가드닝", time_slot="오전", purpose="배우기")
         client = mock_client(payload)
-        state = handle_turn(new_state(), "아침에 식물 키우기를 배우고 싶어요", self.rows,
+        state = handle_turn(new_state(), "강서구에서 아침에 식물 키우기를 배우고 싶어요", self.rows,
                             Settings(gemini_api_key="test-only"), client=client, as_of=DAY)
         self.assertEqual(state["mode"], "gemini")
         self.assertEqual(state["code"], "found")

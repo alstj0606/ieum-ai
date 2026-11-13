@@ -9,7 +9,7 @@ from services.activities import availability_status
 
 
 def explicit_activity(text):
-    aliases={'걷기':('걷기','걷는','걷고','산책'), '슬로우조깅':('슬로우조깅',),
+    aliases={'걷기':('걷기','걷는','걷고','산책'), '슬로우조깅':('슬로우조깅','슬로우러닝','슬로우런닝'),
              '파크골프':('파크골프',),'체조':('체조',),'아쿠아로빅':('아쿠아로빅','수중운동'),
              '수영':('수영',),'숲체험':('숲체험','숲산책'),'미술':('그림','미술'),
              '가드닝':('가드닝','식물가꾸기'),'인문학':('인문학',),'국악공연':('국악',)}
@@ -35,10 +35,34 @@ def anchor_request(text, request):
         'effort_preference':('가볍','가벼','무리하지','천천히','활발','보통','강하게'),
         'budget_amount':('원','무료','공짜','예산','돈','저렴'),
         'budget_unit':('회','번','달','월','일','금액'),
+        'movement_caution':('부담','주의','무리'),
+        'companionship':('혼자','함께','같이','사람'),
+        'weekdays':('요일','주말','평일'),
     }
     for field,words in markers.items():
         if field in request['update_fields'] and not any(word in compact for word in words):
             request['update_fields'].remove(field);request['conditions'][field]=None
+    if 'weekdays' in request['update_fields']:
+        day_text=compact.rsplit('말고',1)[-1]
+        days=[d for d in ('월','화','수','목','금','토','일') if d+'요일' in day_text]
+        if '주말' in day_text:days=['토','일']
+        elif '평일' in day_text:days=['월','화','수','목','금']
+        if days:request['conditions']['weekdays']=days
+        else:request['update_fields'].remove('weekdays');request['conditions']['weekdays']=None
+    if 'companionship' in request['update_fields']:
+        people=list(re.finditer('혼자|함께|같이|사람들과',compact))
+        if people:request['conditions']['companionship']='혼자' if people[-1].group()=='혼자' else '함께'
+        else:request['update_fields'].remove('companionship');request['conditions']['companionship']=None
+    if 'budget_amount' in request['update_fields'] and not re.search(r'\d.*원|만원|무료|공짜',compact):
+        request['update_fields'].remove('budget_amount');request['conditions']['budget_amount']=None
+    if 'region' in request['update_fields']:
+        value=request['conditions']['region']
+        place=re.search(r'([가-힣]+구)',value)
+        normalized=value.replace(' ','').replace('서울특별시','서울').replace('서울시','서울').replace('부산광역시','부산').replace('창원시','창원')
+        if (place and place.group(1) not in compact) or (not place and normalized not in compact):
+            request['update_fields'].remove('region');request['conditions']['region']=None
+            if '서울' in compact:
+                request['conditions']['region']='서울';request['update_fields'].append('region')
     purpose_words={'운동':('운동','체육','걷','수영','조깅','체조','골프'),
                    '배우기':('배우','배워','초보','처음','입문'),
                    '관람':('관람','구경','보고','공연','전시'),
@@ -59,7 +83,16 @@ def anchor_request(text, request):
         if 'region' not in request['update_fields']:request['update_fields'].append('region')
         if 'region' in request['clear_fields']:request['clear_fields'].remove('region')
     kind=explicit_activity(text)
-    if not kind:return request
+    if not kind:
+        value=request['conditions'].get('activity_type')
+        if 'activity_type' in request['update_fields'] and value.replace(' ','') not in compact:
+            request['update_fields'].remove('activity_type');request['conditions']['activity_type']=None
+        focused=compact.rsplit('말고',1)[-1]
+        category='체육' if any(w in focused for w in ('운동','체육')) else '문화·취미' if any(w in focused for w in ('취미','문화','만들기')) else None
+        if category:
+            request['conditions']['category']=category
+            if 'category' not in request['update_fields']:request['update_fields'].append('category')
+        return request
     old_kind=request['conditions'].get('activity_type')
     expected='체육' if kind in ACTIVITY_TRAITS else '문화·취미' if kind in {'미술','가드닝','국악공연'} else None
     if expected and request['conditions'].get('category') not in {None,expected}:

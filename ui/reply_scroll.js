@@ -62,8 +62,9 @@
     const anchor=[...document.querySelectorAll('[id^="latest-reply-"]')].at(-1);
     if(anchor&&!seen.has(anchor.id)){
       seen.add(anchor.id);if(seen.size>40)seen.delete(seen.values().next().value);
-      window.ieumLatest=Number(anchor.id.replace('latest-reply-',''));
+      window.ieumLatest=Number(anchor.id.replace('latest-reply-',''))||0;
       if(pending){const preserve=pending.manual?pending.position:null;pending=null;follow(anchor.id,preserve);}
+      else if(anchor.id.startsWith('latest-reply-welcome-'))follow(anchor.id);
     }
     if(active)schedule();
   };

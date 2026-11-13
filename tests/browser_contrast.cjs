@@ -25,8 +25,8 @@ async function measure(p,label){await idle(p);return p.evaluate(label=>{
  await p.getByRole('textbox').fill('다음');await p.getByRole('button',{name:'질문 전송',exact:true}).click();await p.getByText(/복지관 회원인지 먼저 확인/).waitFor();
  await p.getByText('기존 기능 · 강서구 활동 검색',{exact:true}).click();await p.getByRole('button',{name:'강서구 기존 서비스 열기',exact:true}).click();await p.getByRole('button',{name:'성산복지관 신청 도우미로 돌아가기',exact:true}).waitFor();await idle(p);
  if(await p.locator('.st-key-seongsan_light').count())throw Error('Theme scope leaked to legacy');
- if(scheme==='dark'&&(await p.locator('[data-testid=stApp]').evaluate(e=>getComputedStyle(e).backgroundColor))==='rgb(255, 255, 255)')throw Error('Legacy dark theme changed');
- console.log('PASS light contrast/layout/inputs/step/gate/legacy isolation',scheme,width);await p.close();
+ if((await p.locator('[data-testid=stApp]').evaluate(e=>getComputedStyle(e).backgroundColor))!=='rgb(255, 255, 255)')throw Error('Shared light theme missing');
+ console.log('PASS light contrast/layout/inputs/step/gate/shared legacy light theme',scheme,width);await p.close();
  }
  fs.writeFileSync(`/workspace/work/contrast/report${TAG}.json`,JSON.stringify(reports,null,2));const failed=reports.flatMap(r=>r.failures.map(x=>({label:r.label,...x})));const small=reports.flatMap(r=>r.small.map(x=>({label:r.label,...x})));const overflow=reports.filter(r=>r.overflow||r.appBackground!=='rgb(255, 255, 255)');
  console.log(JSON.stringify({samples:reports.reduce((s,r)=>s+r.checks.length,0),minimum:Math.min(...reports.flatMap(r=>r.checks.map(x=>x.ratio))),failed,small,overflow},null,2));if(failed.length||small.length||overflow.length)throw Error('Contrast/font/layout regression');

@@ -36,9 +36,15 @@ def basic_extract(text, state):
             request["update_fields"].append(key)
 
     pending = state.get("pending")
+    if '부담' in compact and any(word in compact for word in ('해제','고려하지','상관없')):
+        request['clear_fields']=['movement_caution'];return request
     if "시간" in compact and "상관없" in compact:
         request["clear_fields"] = ["time_slot"]
         return request
+    if '요일' in compact and '상관없' in compact:
+        request['clear_fields']=['weekdays'];return request
+    if any(word in compact for word in ('동행','혼자든','같이든')) and '상관없' in compact:
+        request['clear_fields']=['companionship'];return request
     if "다른운동" in compact or "다른취미" in compact:
         request["intent"] = "recommend_activity"
         put("category", "체육" if "운동" in compact else "문화·취미")
@@ -84,17 +90,17 @@ def basic_extract(text, state):
         elif "서울" in text:
             put("residence", "서울")
     aliases = {
-        "걷기": ["걷기", "걷고", "걷는"], "체조": ["체조"], "미술": ["그림", "미술"],
+        "걷기": ["걷기", "걷고", "걷는"], "체조": ["체조"],
         "수영": ["수영"], "아쿠아로빅": ["아쿠아", "수중운동"],
-        "슬로우조깅": ["조깅"], "파크골프": ["파크골프"],
-        "가드닝": ["가드닝", "정원", "식물", "만들기"],
+        "슬로우조깅": ["조깅","슬로우러닝","슬로우런닝"], "파크골프": ["파크골프"],
+        "가드닝": ["가드닝", "정원", "식물"], "미술": ["미술","그림","만들기"],
         "국악공연": ["국악"], "숲체험": ["숲체험", "숲산책"],
         "인문학": ["인문학"], "시민교육": ["정비사업", "시민교육"],
     }
     for kind, words in aliases.items():
         if any(word in compact for word in words):
             put("activity_type", kind)
-    for word, category in (("운동", "체육"), ("체육", "체육"), ("문화", "문화·취미"),
+    for word, category in (("운동", "체육"), ("체육", "체육"), ("문화", "문화·취미"), ('체험','문화·취미'),('교육','평생학습'),
                            ("취미", "문화·취미"), ("평생학습", "평생학습")):
         if word in compact:
             put("category", category)
@@ -102,7 +108,7 @@ def basic_extract(text, state):
     if times:
         value = times[-1].group()
         put("time_slot", {"아침": "오전", "밤": "저녁"}.get(value, value))
-    if any(word in compact for word in ('가벼운','가볍게','무리하지','천천히')):
+    if any(word in compact for word in ('가벼운','가볍게','무리하지','천천히','힘든건싫','힘들지않')):
         put('effort_preference','가볍게')
     elif '활발' in compact:
         put('effort_preference','활발하게')
@@ -139,6 +145,18 @@ def basic_extract(text, state):
     interest_words={'그림':'그림','만들기':'만들기','식물':'식물','산책':'산책','야외':'야외','실내':'실내','공연':'공연'}
     tags=[value for word,value in interest_words.items() if word in compact]
     if tags:put('tags',tags[:5])
+    day_text=compact.rsplit('말고',1)[-1]
+    weekdays=[day for day in ('월','화','수','목','금','토','일') if day+'요일' in day_text]
+    if '주말' in day_text:weekdays=['토','일']
+    elif '평일' in day_text:weekdays=['월','화','수','목','금']
+    if weekdays:put('weekdays',weekdays)
+    companions=list(re.finditer('함께|같이|사람들과|혼자',compact))
+    if companions:
+        value='혼자' if companions[-1].group()=='혼자' else '함께'
+        put('companionship',value)
+        if value=='함께':put('purpose','교류')
+    if '부담확인' in compact:put('movement_caution','부담 확인')
+    if '성산구' in text and '창원' in text:put('region','창원 성산구')
     request['intent']=route_intent(text,request,state)
     return validate_extraction(request)
 
@@ -251,7 +269,9 @@ def application_guide(state, activities, *, selected_id=None, as_of=None):
             row=current['references'][0]
             state.update(results=[],references=current['references'],selected_id=choice,
                          application_helper=start_helper(row,state['conditions'],as_of=as_of),helper_focus=True)
-            return _reply(state,current['message']+' 다음 모집을 확인하는 안내예요.',current['code'])
+            from services.activities import availability_status
+            context=' 다음 모집을 확인하는 안내예요.' if availability_status(row,as_of=as_of) in {'closed','ended'} else ' 현재 접수 상태와 조건을 확인하는 안내예요.'
+            return _reply(state,current['message']+context,current['code'])
         state.update(results=[], selected_id=None)
         state.pop('application_helper',None)
         return _reply(state, current["message"], current["code"])
@@ -405,6 +425,9 @@ def _handle_turn(state, text, activities, settings, *, client=None, as_of=None, 
         else:
             return _reply(state, "화면에 나온 활동 번호를 다시 골라주세요.", "choose", "selection")
     if intent == 'recommend_activity':
+        if not state['conditions'].get('region') and 'region' not in state['any_fields'] and state.get('discovery_mode'):
+            state.update(flow='ideas',ideas=[],alternatives=[],results=[],references=[])
+            return _reply(state,QUESTIONS['region'],'question','region')
         if not different and '아이디어' not in text and state['conditions'].get('category')=='체육' and not (previous_flow=='ideas' and state.get('ideas')):
             if state['conditions'].get('region'):
                 return _search(state,activities,as_of)
@@ -422,7 +445,7 @@ def _handle_turn(state, text, activities, settings, *, client=None, as_of=None, 
                 state['ideas']=suggestions(profile_conditions(state))
                 return _reply(state,'지역은 상관없다고 하셨군요. 현재 공식 자료는 서울 강서구만 있어요. 강서구 자료로 찾거나 일반 활동을 골라볼까요?', 'unsupported_region')
             return _reply(state,'근처를 알려면 지역이 필요해요. 어느 구나 동에서 찾아볼까요? 현재 공식 자료는 서울 강서구만 있어요.', 'question','region')
-        if not supported_region(state['conditions']['region']):
+        if not supported_region(state['conditions']['region']) and not local_rows(activities,state['conditions']['region']):
             state.update(facilities=[],ideas=suggestions(profile_conditions(state)))
             return _reply(state,'요청 지역의 시설 자료는 아직 없어요. 실시간 지도 검색은 하지 않아요. 서울 강서구 자료로 바꾸거나 일반 활동을 골라볼까요?', 'unsupported_region')
         state['facilities']=facility_references(activities,state['conditions'],as_of=as_of)

@@ -38,7 +38,10 @@ def helper_view(row,conditions,helper=None,*,as_of=None,guides=None):
               'phone':guide.get('phone_application',False),'visit':guide.get('visit_application',False)}
     status=availability_status(row,as_of=as_of)
     eligible,notes=eligibility(row,conditions)
-    blocked=not eligible or _budget(row,hard_conditions(conditions))=='over'
+    from services.activity_catalog import attribute_fit
+    attribute_match,attribute_notes,attribute_unknown=attribute_fit(row,conditions)
+    notes.extend(attribute_notes)
+    blocked=not eligible or not attribute_match or _budget(row,hard_conditions(conditions))=='over'
     source=row['source_url'];closed=status in {'closed','ended'}
     next_date=registration_display(row,as_of=as_of)[2]
     if blocked:
@@ -49,9 +52,9 @@ def helper_view(row,conditions,helper=None,*,as_of=None,guides=None):
         steps=guide.get('closed_steps') or [
             _step('이번 접수는 마감됐어요','공식 페이지에서 접수 상태를 확인해 주세요.','지금 신청할 수 있다고 확인된 자료가 아니에요. '+next_date+'.',source),
             _step('다음 모집을 확인해요','공식 페이지의 새 모집 안내를 확인해 주세요.','새 공고의 정확한 날짜가 확인되기 전에는 다음 접수 일정 미정이에요. 과거 접수 기간을 다음 일정으로 쓰지 않아요.',source)]
-    elif status!='open':
+    elif status!='open' or attribute_unknown:
         mode='check'
-        action='공식 페이지에서 예정일을 확인해 주세요.' if status=='upcoming' else '공식 페이지에서 현재 참여 방식을 확인해 주세요.'
+        action='공식 페이지에서 요청하신 조건과 운영 방식을 확인해 주세요.' if attribute_unknown else '공식 페이지에서 예정일을 확인해 주세요.' if status=='upcoming' else '공식 페이지에서 현재 참여 방식을 확인해 주세요.'
         steps=[_step('현재 상태부터 확인해요',action,'현장 선착순은 좌석을 보장하지 않으며, 미확인 접수는 신청 가능으로 안내하지 않아요. '+next_date+'.',source)]
     elif guide.get('steps') and channels['online']:
         mode='online';steps=guide['steps']

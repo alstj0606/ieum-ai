@@ -1,0 +1,18 @@
+/* User-discovery light surfaces only; shared large touch targets remain in chat.css. */
+.stApp:has(#ieum-discovery-root) {background:var(--ieum-white);color:var(--ieum-ink);color-scheme:light}
+.stApp:has(#ieum-discovery-root) :is([data-testid=stHeader],[data-testid=stBottom],[data-testid=stBottomBlockContainer]) {background:var(--ieum-white);color:var(--ieum-ink)}
+.stApp:has(#ieum-discovery-root) :is(h1,h2,h3,[data-testid=stMarkdownContainer]) {color:var(--ieum-ink)}
+.stApp:has(#ieum-discovery-root) h2 {font-size:30px;line-height:1.4;overflow-wrap:anywhere}
+.stApp:has(#ieum-discovery-root) [data-testid=stCaptionContainer] {opacity:1}
+.stApp:has(#ieum-discovery-root) [data-testid=stCaptionContainer] p {color:var(--ieum-muted)}
+.stApp:has(#ieum-discovery-root) [data-testid=stChatMessage] {background:var(--ieum-surface);color:var(--ieum-ink)}
+.stApp:has(#ieum-discovery-root) [data-testid=stAlert] {background:var(--ieum-warm);color:var(--ieum-warning-ink);border:1px solid var(--ieum-orange)}
+.stApp:has(#ieum-discovery-root) [data-testid=stAlert] [data-testid=stMarkdownContainer] {color:var(--ieum-warning-ink)}
+.stApp:has(#ieum-discovery-root) .stLinkButton a {background:var(--ieum-red);color:var(--ieum-white);border:2px solid var(--ieum-red)}
+.stApp:has(#ieum-discovery-root) .stLinkButton a p {color:var(--ieum-white)}
+.stApp:has(#ieum-discovery-root) :is(.stChatInput textarea,.stTextArea textarea) {color:var(--ieum-ink);-webkit-text-fill-color:var(--ieum-ink);background:var(--ieum-white)}
+.stApp:has(#ieum-discovery-root) .stChatInput textarea::placeholder {color:var(--ieum-muted);-webkit-text-fill-color:var(--ieum-muted);opacity:1}
+.stApp:has(#ieum-discovery-root) .stExpander {background:var(--ieum-white);color:var(--ieum-ink)}
+.stApp:has(#ieum-discovery-root) .stButton button:disabled {background:var(--ieum-disabled);color:var(--ieum-muted);opacity:1;border:2px solid var(--ieum-border)}
+.stApp:has(#ieum-discovery-root) .stButton button:disabled p {color:var(--ieum-muted)}
+.stApp:has(#ieum-discovery-root) a:not([data-testid^=stBaseLinkButton]) {color:var(--ieum-link)}

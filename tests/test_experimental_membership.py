@@ -5,7 +5,7 @@ from unittest.mock import patch
 from streamlit.testing.v1 import AppTest
 from services.config import Settings
 
-APP=str(Path(__file__).resolve().parents[1]/'app.py')
+APP=str(Path(__file__).resolve().parents[1]/'institution_app.py')
 
 class ExperimentalMembershipTest(TestCase):
     def test_both_entries_ask_membership_before_assuming_an_online_account(self):

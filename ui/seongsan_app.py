@@ -11,6 +11,7 @@ ROOT=Path(__file__).resolve().parents[1]
 
 def render():
     st.set_page_config(page_title='이음 AI · 성산복지관 신청 도우미',page_icon='💬')
+    st.markdown('<style>'+(ROOT/'ui/theme.css').read_text()+'</style>',unsafe_allow_html=True)
     st.markdown('<style>'+(ROOT/'ui/chat.css').read_text()+'</style>',unsafe_allow_html=True)
     st.markdown('<style>'+(ROOT/'ui/seongsan_light.css').read_text()+'</style>',unsafe_allow_html=True)
     with st.container(key='seongsan_light'):

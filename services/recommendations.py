@@ -50,9 +50,11 @@ def eligibility(item, conditions):
         if not residence:
             warnings.append(f"{rule['residence']} 거주 자격을 확인해 주세요. 찾는 지역과 거주지는 달라요.")
     if conditions.get("beginner"):
+        if item.get('beginner_friendly') is False:
+            return False,['공식 자료의 초보 참여 조건과 맞지 않아요.']
         if rule.get("training_required"):
             return False, ["초보 교육이 필요한 시설 이용이며 배우는 강좌가 아니에요."]
-        warnings.append("초보 참여 가능 여부는 확인된 자료만으로 확정할 수 없어요.")
+        if item.get('beginner_friendly') is not True:warnings.append("초보 참여 가능 여부는 확인된 자료만으로 확정할 수 없어요.")
     return True, warnings
 
 
@@ -102,6 +104,11 @@ def recommend(activities, conditions, *, as_of=None):
         broad += 1
         row = found[0]
         warnings = []
+        from services.activity_catalog import attribute_fit
+        fits,attribute_notes,attribute_unknown=attribute_fit(row,conditions)
+        if not fits:continue
+        warnings.extend(attribute_notes)
+        if attribute_unknown:reasons['insufficient']+=1
         eligible, eligibility_notes = eligibility(row, conditions)
         if not eligible:
             reasons["qualification"] += 1
@@ -129,7 +136,7 @@ def recommend(activities, conditions, *, as_of=None):
         elif status in {"unknown", "upcoming"}:
             reasons["unknown"] += 1
             archived.append(row)
-        elif budget == "unknown":
+        elif budget == "unknown" or attribute_unknown:
             uncertain.append(row)
         else:
             candidates.append(row)
@@ -147,7 +154,7 @@ def recommend(activities, conditions, *, as_of=None):
         message = "관련 활동은 있지만 접수 가능 여부가 확인되지 않았거나 아직 접수 전이에요. 공식 안내를 확인해 주세요."
     elif reasons["insufficient"]:
         code = "insufficient"
-        message = "관련 활동의 시간이나 비용 자료가 부족해 조건에 맞는지 확인할 수 없어요. 조건을 바꾸거나 기관에 확인해 볼까요?"
+        message = "관련 활동의 요일·시간·비용 자료가 부족해 조건에 맞는지 확인할 수 없어요. 조건을 바꾸거나 기관에 확인해 볼까요?"
     elif reasons["budget"]:
         code = "budget"
         message = "확인한 요금이 말씀하신 예산보다 높아요. 예산이나 활동을 바꿔볼까요?"

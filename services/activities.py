@@ -104,6 +104,14 @@ def validate_activities(data):
                 and schedule["starts_on"] > schedule["ends_on"]):
             raise ValueError(f"{label}.schedule: 종료일이 시작일보다 빠릅니다")
         slots = schedule["time_slots"]
+        if 'weekdays' in schedule and schedule['weekdays'] is not None:
+            days=schedule['weekdays']
+            if not isinstance(days,list) or any(day not in ('월','화','수','목','금','토','일') for day in days):
+                raise ValueError(f'{label}.schedule.weekdays: 요일 목록이 필요합니다')
+        for field,allowed in (('physical_intensity',{'낮음','보통','높음'}),('companionship',{'혼자','함께'})):
+            if item.get(field) is not None and (not isinstance(item[field],str) or item[field] not in allowed):raise ValueError(f'{label}.{field}: 지원하지 않는 값')
+        if item.get('beginner_friendly') is not None and type(item['beginner_friendly']) is not bool:
+            raise ValueError(f'{label}.beginner_friendly: bool 또는 null이 필요합니다')
         if not isinstance(slots, list) or any(
             not isinstance(slot, str) or slot not in TIME_SLOTS for slot in slots
         ):
@@ -238,7 +246,7 @@ def search_activities(activities=None, *, activity_type=None, region=None,
             continue
         if activity_type is not None and item["activity_type"] != activity_type.strip():
             continue
-        if region is not None and region.strip() not in item["region"]:
+        if region is not None and region.strip().replace(' ','').replace('서울특별시','서울').replace('창원시','창원') not in item["region"].replace(' ','').replace('서울특별시','서울').replace('창원시','창원'):
             continue
         if time_slot is not None and time_slot not in item["schedule"]["time_slots"]:
             continue

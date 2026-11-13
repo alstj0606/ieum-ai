@@ -58,7 +58,7 @@ class SignupVisualTest(TestCase):
     def test_streamlit_opt_in_navigation_and_no_completion_inference(self):
         root=Path(__file__).resolve().parents[1]
         with patch('ui.seongsan_app.load_settings',return_value=Settings()):
-            app=AppTest.from_file(str(root/'app.py'),default_timeout=15).run()
+            app=AppTest.from_file(str(root/'institution_app.py'),default_timeout=15).run()
             self.assertFalse(app.exception)
             app.button(key='inst_start_visual').click().run()
             self.assertIsNone(app.session_state['institution_session']['membership'])
