@@ -3,35 +3,42 @@
 .stMain p,.stMain label p,.stMain .stText pre {font-size:20px!important;line-height:1.65;overflow-wrap:anywhere}
 .stMain .stText pre {white-space:pre-wrap;font-family:inherit}
 .stMain h3 {font-size:23px;overflow-wrap:anywhere}
-.stButton button,.stLinkButton a,.stFormSubmitButton button,.stPopover button {min-height:56px;border-radius:12px}
+.stButton button,.stLinkButton a,.stFormSubmitButton button,.stPopover button {min-height:56px;border-radius:var(--ieum-radius)}
 .stButton button p,.stLinkButton a p {font-size:20px!important}
 .stChatMessage {padding:12px 8px;min-width:0}
 .stChatMessage [data-testid=stChatMessageContent] {min-width:0;width:100%}
-.stChatInput {border:2px solid #526d88;border-radius:24px;background:#fff;padding:6px;box-sizing:border-box;display:flex;flex-direction:column}
+.stChatInput {border:2px solid var(--ieum-border);border-radius:24px;background:var(--ieum-white);padding:6px;box-sizing:border-box;display:flex;flex-direction:column}
 .stChatInput>div {background:transparent!important;border:0!important;width:100%;min-width:0}
 .stChatInput>div>div {display:flex;align-items:center;gap:6px;min-width:0}
 .stChatInput>div>div>div:first-child:has(textarea) {flex:1 1 0;min-width:0;padding:8px 4px}
 .stChatInput>div>div>div:last-child {display:flex;align-items:center;gap:4px;flex:0 0 auto}
 .stChatInput textarea {font-size:20px!important;min-width:0;line-height:1.5;min-height:32px;background:transparent;padding:0!important}
-.stChatInput button {box-sizing:border-box;flex:0 0 auto;color:#10375c;border:0}
-.stChatInput button[data-testid=stChatInputMicButton],.stChatInput button[data-testid=stChatInputSubmitButton] {width:64px;height:64px;min-height:64px;min-width:64px;border-radius:50%;background:#eaf4ff;display:flex;align-items:center;justify-content:center;padding:12px}
+.stChatInput button {box-sizing:border-box;flex:0 0 auto;color:var(--ieum-ink);border:0}
+.stChatInput button[data-testid=stChatInputMicButton],.stChatInput button[data-testid=stChatInputSubmitButton] {width:64px;height:64px;min-height:64px;min-width:64px;border-radius:50%;background:var(--ieum-warm);display:flex;align-items:center;justify-content:center;padding:12px}
 .stChatInput button svg {width:28px;height:28px}
 .stChatInput button[data-testid=stChatInputSubmitButton]:disabled {display:none}
 .stChatInput[data-has-text=true] button[data-testid=stChatInputMicButton] {width:44px;height:44px;min-width:44px;min-height:44px;background:transparent;padding:8px}
-.stChatInput:has(button[data-testid=stChatInputApproveButton])::before {content:'🔴 듣고 있어요';display:block;font-size:22px;font-weight:bold;color:#233a50;padding:6px 12px}
-.stChatInput button[data-testid=stChatInputApproveButton] {min-width:132px;min-height:64px;border-radius:16px;background:#eaf4ff;display:flex;align-items:center;gap:4px;padding:8px}
+.stChatInput:has(button[data-testid=stChatInputApproveButton])::before {content:'🔴 듣고 있어요';display:block;font-size:22px;font-weight:bold;color:var(--ieum-ink);padding:6px 12px}
+.stChatInput button[data-testid=stChatInputApproveButton] {min-width:132px;min-height:64px;border-radius:16px;background:var(--ieum-warm);display:flex;align-items:center;gap:4px;padding:8px}
 .stChatInput button[data-testid=stChatInputApproveButton]::after {content:'말하기 끝내기';font-size:18px}
 .stChatInput button[data-testid=stChatInputCancelButton] {min-width:48px;min-height:48px;border-radius:50%;background:transparent}
-button:focus-visible,a:focus-visible,textarea:focus-visible {outline:3px solid #0067b8!important;outline-offset:2px}
+button:focus-visible,a:focus-visible,textarea:focus-visible {outline:3px solid var(--ieum-link)!important;outline-offset:2px}
 .stExpander summary {min-height:56px}
-.stMain [data-testid=stCaptionContainer] p {color:#384454}
+.stMain [data-testid=stCaptionContainer] p {color:var(--ieum-muted)}
 [id^=latest-reply-] {scroll-margin-top:70px}
 @media(max-width:400px) {.stMainBlockContainer {padding-left:8px;padding-right:8px}.stChatMessage [data-testid=stChatMessageAvatarUser],.stChatMessage [data-testid=stChatMessageAvatarAssistant] {display:none}}
 /* Common native action-button style; expanders remain an outlined disclosure. */
-.stButton button,.stFormSubmitButton button {min-height:64px!important;border-radius:12px;margin:6px 0 12px;padding:14px 16px;white-space:normal;width:100%}
-.stButton button:not(:disabled),.stFormSubmitButton button:not(:disabled) {background:#124d78!important;color:#fff!important;border:2px solid #124d78!important}
+.stButton button,.stFormSubmitButton button {min-height:64px!important;border-radius:var(--ieum-radius);margin:6px 0 12px;padding:14px 16px;white-space:normal;width:100%}
+.stButton button:not(:disabled),.stFormSubmitButton button:not(:disabled) {background:var(--ieum-red)!important;color:var(--ieum-white)!important;border:2px solid var(--ieum-red)!important}
 .stButton button p,.stFormSubmitButton button p {font-weight:750!important;line-height:1.5}
-.stButton button:not(:disabled) p,.stFormSubmitButton button:not(:disabled) p {color:#fff!important}
-.stButton button:not(:disabled):hover,.stFormSubmitButton button:not(:disabled):hover {background:#0c3858!important;border-color:#0c3858!important}
-.stExpander summary {border:2px solid #526d88;border-radius:10px;background:#f1f6fa;color:#10375c;padding:10px;cursor:pointer}
+.stButton button:not(:disabled) p,.stFormSubmitButton button:not(:disabled) p {color:var(--ieum-white)!important}
+.stButton button:not(:disabled):hover,.stFormSubmitButton button:not(:disabled):hover {background:var(--ieum-red-hover)!important;border-color:var(--ieum-red-hover)!important}
+.stExpander summary {border:2px solid var(--ieum-border);border-radius:10px;background:var(--ieum-surface);color:var(--ieum-ink);padding:10px;cursor:pointer}
 .stExpander summary p {font-weight:700!important}
+
+/* Shared cards and action hierarchy; native widgets retain their behaviour. */
+.stMain [data-testid=stVerticalBlockBorderWrapper] {border-color:var(--ieum-border);border-radius:var(--ieum-radius)}
+.stChatInput {border-color:var(--ieum-border)}
+.stChatInput button[data-testid=stChatInputSubmitButton],.stChatInput button[data-testid=stChatInputMicButton] {background:var(--ieum-red);color:var(--ieum-white)}
+.stChatInput[data-has-text=true] button[data-testid=stChatInputMicButton] {background:var(--ieum-warm);color:var(--ieum-ink)}
+.stMain a:not([data-testid^=stBaseLinkButton]) {text-underline-offset:3px}

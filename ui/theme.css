@@ -1,0 +1,37 @@
+/* SK-inspired palette only: no SK logo or affiliation. */
+:root {
+  --ieum-red:#ea002c;
+  --ieum-red-hover:#bf0024;
+  --ieum-orange:#ff7a00;
+  --ieum-warm:#fff2e5;
+  --ieum-white:#ffffff;
+  --ieum-ink:#111111;
+  --ieum-muted:#454545;
+  --ieum-border:#767676;
+  --ieum-surface:#f7f7f7;
+  --ieum-disabled:#e8e8e8;
+  --ieum-link:#b50023;
+  --ieum-warning-ink:#633600;
+  --ieum-space-sm:8px;
+  --ieum-space-md:16px;
+  --ieum-radius:12px;
+}
+
+/* All service entrypoints share a light palette, independent of system theme. */
+.stApp {color-scheme:light;background:var(--ieum-white);color:var(--ieum-ink)}
+.stApp :is([data-testid=stHeader],[data-testid=stBottom],[data-testid=stBottomBlockContainer]) {background:var(--ieum-white);color:var(--ieum-ink)}
+.stMain :is(h1,h2,h3,h4,[data-testid=stMarkdownContainer]) {color:var(--ieum-ink)}
+.stMain [data-testid=stCaptionContainer] {opacity:1}
+.stMain [data-testid=stCaptionContainer] p {color:var(--ieum-muted)}
+.stMain [data-testid=stChatMessage] {background:var(--ieum-surface);color:var(--ieum-ink)}
+.stMain [data-testid=stChatMessageAvatarAssistant] {background:var(--ieum-red);color:var(--ieum-white)}
+.stMain .stLinkButton a {background:var(--ieum-red);color:var(--ieum-white);border:2px solid var(--ieum-red)}
+.stMain .stLinkButton a p {color:var(--ieum-white)}
+.stApp :is(.stChatInput textarea,.stTextArea textarea) {background:var(--ieum-white);color:var(--ieum-ink);-webkit-text-fill-color:var(--ieum-ink)}
+.stMain [data-testid=stAlert] {background:var(--ieum-warm);color:var(--ieum-warning-ink);border:1px solid var(--ieum-orange)}
+.stMain [data-testid=stAlert] [data-testid=stMarkdownContainer] {color:var(--ieum-warning-ink)}
+/* Native secondary menu surfaces also need explicit colours under system dark. */
+.stPopover button {background:var(--ieum-warm);color:var(--ieum-ink);border:2px solid var(--ieum-border);font-weight:700}
+.stPopover button p {color:var(--ieum-ink)}
+[data-testid=stPopoverBody] {background:var(--ieum-white);color:var(--ieum-ink);color-scheme:light}
+[data-testid=stPopoverBody] :is(p,label) {color:var(--ieum-ink)}

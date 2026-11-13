@@ -26,6 +26,7 @@ DISCOVERY=globals().get('DISCOVERY',False)
 
 ROOT = Path(__file__).parent
 st.set_page_config(page_title="이음 AI · 활동 찾기", page_icon="💬")
+st.markdown('<style>'+(ROOT/'ui/theme.css').read_text()+'</style>',unsafe_allow_html=True)
 st.markdown(f"<style>{(ROOT/'ui/chat.css').read_text()}</style>", unsafe_allow_html=True)
 if DISCOVERY:
     st.markdown('<div id="ieum-discovery-root"></div>',unsafe_allow_html=True)
