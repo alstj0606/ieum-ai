@@ -1,5 +1,6 @@
 """어르신을 위한 하나의 대화창. 사실은 공식 JSON, AI는 조건만 이해한다."""
 import hashlib
+import html
 import json
 from copy import deepcopy
 from pathlib import Path
@@ -58,8 +59,10 @@ if DISCOVERY:
     st.session_state.dialog["life_mode"]=True
 
 
-def remember(text, state, *, voice=False, preserve=False):
+def remember(text, state, *, voice=False, preserve=False, model_turn=False):
     scroll_after_picker=state.pop('_scroll_after_picker',False)
+    if DISCOVERY and not model_turn:
+        state['ai_call']={'attempted':False,'status':'not_attempted'};state['gemini_reply_used']=False;state['mode']='basic'
     if DISCOVERY:
         snapshot={'state':deepcopy(st.session_state.dialog),'detail_first':bool(st.session_state.turns and st.session_state.turns[-1].get('detail_first'))}
         st.session_state.navigation_history=(st.session_state.navigation_history+[snapshot])[-20:]
@@ -76,7 +79,8 @@ def remember(text, state, *, voice=False, preserve=False):
 
 def send(text, *, voice=False, fixed=False):
     st.session_state.voice_error = None
-    state = st.session_state.dialog
+    state = deepcopy(st.session_state.dialog)
+    if DISCOVERY:state.update(life_mode=True,web_enabled=True)
     compact = text.replace(" ", "").rstrip(".!?")
     if compact in {"다시말해줘", "다시들려줘", "천천히알려줘", "천천히말해줘"} and state["code"] != "start":
         state = deepcopy(state)
@@ -94,9 +98,9 @@ def send(text, *, voice=False, fixed=False):
             state = handle_turn(state, text, activities, settings,
                                 extraction=basic_extract(text, state) if fixed else None)
         if DISCOVERY and state.get('code')=='start' and any(word in compact for word in ('처음부터','새로시작','초기화')):
-            reset()
+            ask_reset()
             return
-        remember(text, state, voice=voice)
+        remember(text, state, voice=voice,model_turn=True)
 
 
 
@@ -122,11 +126,10 @@ def pick_step(stage):
 
 
 def apply_national_location(location):
-    text=region_label(location)+'에서 찾아주세요'
-    state=deepcopy(st.session_state.dialog)
-    updated,_=discovery_turn(state,text,activities,settings,extraction=basic_extract(text,state))
-    updated['location']=location;updated['_scroll_after_picker']=True
-    remember(region_label(location),updated)
+    from services.location_events import confirm_location
+    state=deepcopy(st.session_state.dialog);state.update(life_mode=True,web_enabled=True)
+    updated=confirm_location(state,location,activities,settings)
+    remember(region_label(updated['location']),updated)
 
 
 def pick_city(city):
@@ -231,8 +234,10 @@ def picker_buttons(state):
 
 def speaker_label(role):
     # Fixed app-owned roles: alignment never depends on Streamlit avatar internals.
-    name='나' if role=='user' else '이음 AI'
-    st.markdown(f'<strong class="ieum-speaker" data-ieum-role="{role}">{name}</strong>',unsafe_allow_html=True)
+    if role=='user':
+        st.markdown('<span class="ieum-user-speaker" data-ieum-role="user">사용자 메시지</span>',unsafe_allow_html=True)
+    else:
+        st.markdown('<strong class="ieum-speaker" data-ieum-role="assistant"><span class="ieum-ai-icon" aria-hidden="true">💬</span> 이음 AI</strong>',unsafe_allow_html=True)
 
 
 def choice_button(label, **kwargs):
@@ -285,6 +290,38 @@ def edit_transcript():
     # Callback runs before widgets: each recording starts with its own transcript.
     st.session_state.corrected = st.session_state.transcript
     st.session_state.edit_voice = True
+
+
+def open_header_menu():st.session_state.show_header_menu=True
+
+def close_header_menu():st.session_state.show_header_menu=False
+
+def menu_action(action):
+    close_header_menu()
+    if action=='previous':undo_navigation()
+    else:pick_step('condition')
+
+@st.dialog('대화 메뉴',width='small',dismissible=True,on_dismiss=close_header_menu)
+def header_menu_dialog():
+    st.button('이전 대화로',key='nav_previous',on_click=menu_action,args=('previous',),disabled=not st.session_state.navigation_history,use_container_width=True)
+    st.button('다시 선택',key='nav_reselect',on_click=menu_action,args=('reselect',),use_container_width=True)
+    st.button('대화 지우기',key='nav_reset',on_click=ask_reset,use_container_width=True)
+    if not st.session_state.get('show_header_menu'):st.rerun()
+
+def ask_reset():
+    st.session_state.show_header_menu=False
+    st.session_state.confirm_reset=True
+
+def cancel_reset():st.session_state.confirm_reset=False
+
+@st.dialog('대화를 지울까요?',width='small',dismissible=True,on_dismiss=cancel_reset)
+def reset_dialog():
+    st.write('대화와 선택한 조건을 지우고 처음부터 시작해요.')
+    left,right=st.columns(2)
+    if left.button('지우고 처음부터',key='confirm_reset_yes',type='primary',use_container_width=True):
+        cancel_reset();reset();st.rerun()
+    if right.button('취소',key='confirm_reset_no',use_container_width=True):
+        cancel_reset();st.rerun()
 
 
 def reset():
@@ -545,6 +582,10 @@ def compact_chat_actions(state):
             left,right=st.columns(2,gap='small')
             left.button('추천받기',key='counsel_suggest',on_click=send,args=(state.get('interest','취미')+' 추천을 받고 싶어요',),use_container_width=True,type='primary')
             right.button('직접 말하기',key='counsel_direct',on_click=direct_activity,use_container_width=True)
+        elif pending=='location_confirmation':
+            for i,loc in enumerate(state.get('location_candidates',[])[:4]):
+                st.button(region_label(loc),key='location_candidate_'+str(i),on_click=apply_national_location,args=(loc,),use_container_width=True)
+            st.button('다른 지역 선택',key='candidate_other_region',on_click=pick_step,args=('region_city',),use_container_width=True)
         elif pending in {'region','web_location','web_dong'}:
             st.button('지역 선택하기',key='choose_region',on_click=pick_step,args=('region_city',),use_container_width=True,type='primary')
             st.caption('동네 이름을 아래에 직접 적어도 괜찮아요.')
@@ -581,7 +622,9 @@ if DISCOVERY:
         with brand:st.title('이음 AI')
         with font:
             if st.button('글자 크기',key='font_settings',type='secondary',use_container_width=True):font_dialog()
-        with restart:st.button('처음부터',key='header_reset',on_click=reset,type='secondary',use_container_width=True)
+        with restart:st.button('메뉴',key='header_menu',on_click=open_header_menu,use_container_width=True)
+    if st.session_state.get('confirm_reset'):reset_dialog()
+    elif st.session_state.get('show_header_menu'):header_menu_dialog()
     if st.session_state.get('region_open'):national_picker.render(apply_national_location)
 else:st.title('이음 AI')
 if not DISCOVERY and st.button('성산복지관 신청 도우미로 돌아가기',key='back_to_seongsan'):
@@ -647,6 +690,9 @@ with st.popover("＋ 보조 메뉴", use_container_width=False):
                      'search_diagnostic':(state.get('search_failure') or {}).get('code'),
                      'search_cache_hit':bool(state.get('web',{}).get('cache_hit')),
                      'ai_mode':state.get('mode'),'paid_search_enabled':settings.allow_paid_search})
+        if DISCOVERY:
+            from services.runtime_diagnostics import snapshot
+            st.json(snapshot(st.session_state.dialog,settings))
         diagnostic=st.session_state.dialog.get('diagnostic')
         if diagnostic:
             code=diagnostic['code']
@@ -692,17 +738,19 @@ with st.popover("＋ 보조 메뉴", use_container_width=False):
                     st.write(DIAGNOSTICS.get(code, DIAGNOSTICS["unknown"]))
             st.write(COMPARISON_LABELS[probe["comparison"]])
             st.caption("고정 문장 점검은 무료 자격·남은 한도나 실제 사용자 질문의 정상 동작을 보장하지 않아요.")
-    choice_button("처음부터 다시 찾기",key="reset",on_click=reset)
+    choice_button("처음부터 다시 찾기",key="reset",on_click=ask_reset if DISCOVERY else reset)
 
 for index, turn in enumerate(st.session_state.turns):
     latest=index==len(st.session_state.turns)-1
     state=deepcopy(turn['state']) if turn['state'].get('life_mode') else prepare_view(turn["state"],activities,user_text=turn['user'])
+    if DISCOVERY and latest and state['code']!='demo':state.update(life_mode=True,web_enabled=True)
     if latest and state["code"]!="demo":
         st.session_state.dialog=state
         st.session_state.turns[index]['state']=deepcopy(state)
     with st.chat_message("user"):
-        if DISCOVERY:speaker_label('user')
-        st.write(turn["user"])
+        if DISCOVERY:
+            st.markdown('<div class="ieum-user-text"><span class="ieum-user-speaker" data-ieum-role="user">사용자 메시지</span>'+html.escape(str(turn['user']))+'</div>',unsafe_allow_html=True)
+        else:st.write(turn["user"])
     with st.chat_message("assistant"):
         if latest:
             st.markdown(f'<div id="latest-reply-{st.session_state.turn_seq}" data-ieum-scroll="'+('selection' if turn.get('scroll_after_picker') else 'turn')+'"></div>',unsafe_allow_html=True)
@@ -757,7 +805,7 @@ for index, turn in enumerate(st.session_state.turns):
                     if conditions.get('companionship'):summary.append(conditions['companionship']+' 참여 선호 · 참여 방식 확인 필요')
                     if conditions.get('neighbourhood'):summary.append(conditions['neighbourhood']+' · 공식 주소 기준')
                     if conditions.get('weekdays'):summary.append('·'.join(conditions['weekdays'])+'요일 희망')
-                    if summary:st.caption('적용 조건 · '+' · '.join(summary))
+                    if summary and not DISCOVERY:st.caption('적용 조건 · '+' · '.join(summary))
             if compact_update and not guide_focus:
                 st.caption('같은 추천 카드는 위 대화에 있어요. 앞선 추천 다시 보기로 펼칠 수 있어요.')
                 for row in recommended_rows(state)[:3]:
@@ -889,12 +937,6 @@ for index, turn in enumerate(st.session_state.turns):
             if state["code"] != "demo":
                 render_listen(index,state)
 
-if DISCOVERY and st.session_state.turns:
-    with st.container(key='easy_navigation'):
-        left,middle,right=st.columns(3,gap='small')
-        left.button('이전 단계',key='nav_previous',on_click=undo_navigation,disabled=not st.session_state.navigation_history,use_container_width=True)
-        middle.button('다시 선택',key='nav_reselect',on_click=pick_step,args=('condition',),use_container_width=True)
-        right.button('대화 지우기',key='nav_reset',on_click=reset,use_container_width=True)
 
 if st.session_state.voice_error:
     st.warning(st.session_state.voice_error)
@@ -917,11 +959,6 @@ if st.session_state.transcript:
         st.caption("다시 말하려면 아래 입력창의 마이크를 누르세요. 조건을 모두 바꾸려면 보조 메뉴에서 처음부터 다시 찾으세요.")
 
 # Native pinned composer supports audio submit on stop and text submit without two forms.
-if DISCOVERY and not settings.api_key:
-    st.button('음성 입력 · 현재 설정되지 않았어요',key='voice_unavailable',disabled=True,use_container_width=True)
-    st.caption('글자로 계속 질문할 수 있어요. 음성은 별도 OpenAI 키와 사용량이 필요해요.')
-elif DISCOVERY:
-    st.caption('마이크 권한이 없거나 음성 연결이 실패해도 아래에 글자로 질문할 수 있어요.')
 request=st.chat_input("질문을 적어주세요",key="chat",accept_audio=not DISCOVERY or bool(settings.api_key),max_chars=1500)
 if request:
     if getattr(request,"audio",None) is not None:

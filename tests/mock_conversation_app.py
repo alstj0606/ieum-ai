@@ -27,6 +27,10 @@ def fixture(text,state,*a,**kw):
         route='explore';answer='함께 배우는 시간이 좋으시군요. 합창이나 춤은 어떠세요?';items=[hobby('댄스'),hobby('합창')]
     if '못' in text and '춤' in text:
         route='howto';answer='익숙하지 않아 걱정되시는군요. 입문 동작부터 천천히 익히는 방법도 있어요.';items=[hobby('댄스')]
+    if '처음 배우면' in text:
+        route='howto';answer='종이와 연필로 그리는 방법부터 천천히 익혀보세요.';items=[hobby('그림') ]
+    if '돈 안 들고' in text:
+        route='explore';answer='집에 있는 재료로 시작하는 취미도 있어요.';items=[hobby('종이 접기')]
     if '집에서' in text:
         route='home';answer='사진에 짧은 글을 붙여 일기를 만들어 보세요. 어떤 장면을 남기고 싶으세요?';items=[hobby('스마트폰 사진 일기')]
     return validate_plan(dict(extraction=extraction,route=route,reply=answer,idea_ids=[],hobbies=items))

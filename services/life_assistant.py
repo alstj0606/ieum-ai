@@ -109,6 +109,8 @@ def ideas_reply(state,text,route,plan):
             if re.sub(r'\s+','',question_text) in old_questions:answer=answer.replace(question_text,'').strip()
         if not answer:answer='다른 방향의 취미도 골라볼 수 있어요.'
     result=reply(state,text,answer,route)
+    result['search_requested']=False
+    result['gemini_reply_used']=bool(plan and plan.get('reply'))
     result['counselling_mode']='gemini' if plan else 'basic'
     if plan and plan.get('hobbies'):
         rejected=set(state.get('rejected_hobbies',[]))
@@ -117,7 +119,7 @@ def ideas_reply(state,text,route,plan):
         return result
     if not plan and state.get('mode')=='fallback':
         result['counselling_mode']='basic'
-        result['message']='AI와 연결되지 않아 기본 선택으로 안내할게요. 아래에서 활동을 고를 수 있어요.'
+        result['message']=('AI 답변을 확인하지 못해 기본 선택으로 안내할게요.' if state.get('ai_call',{}).get('stage') in {'parse','validation','policy'} else 'AI와 연결되지 않아 기본 선택으로 안내할게요.')+' 아래에서 활동을 고를 수 있어요.'
         if route=='howto':result['message']='AI와 연결되지 않아 기본 시작 방법만 안내할게요. '+answer.split('. ')[0]+'.'
     excluded=state.get('declined_idea_ids',[])
     pool=[deepcopy(x) for x in IDEAS if x['id'] not in excluded and (route!='home' or x['near_home'])]
@@ -143,7 +145,7 @@ def present_search(result,state,settings):
     from services.discovery import visible_activities
     result['life_mode']=True;result['conversation_route']='search';result['search_requested']=True
     result['mode']=state.get('mode','basic');result['diagnostic']=state.get('diagnostic')
-    result['notice']=None
+    result['notice']=None;result['gemini_reply_used']=False
     web=result.get('web') or {}
     rows=web.get('rows',[]) if web else visible_activities(result)
     failure=result.get('search_failure')
@@ -161,7 +163,7 @@ def present_search(result,state,settings):
     return result
 
 
-def turn(state,text,activities,settings,*,extraction=None,client=None,as_of=None):
+def _turn(state,text,activities,settings,*,extraction=None,client=None,as_of=None):
     from services.discovery import safe_input, _decision, visible_activities
     from services.live_discovery import before_turn
     state=deepcopy(state);safe,caution,blocked=safe_input(text,state)
@@ -170,6 +172,13 @@ def turn(state,text,activities,settings,*,extraction=None,client=None,as_of=None
     compact=re.sub(r'\s+','',safe).rstrip('.!?')
     if compact in {'처음부터','처음부터다시','처음부터다시찾기','처음으로돌아가기','새로시작','초기화','대화초기화'}:
         return dict(new_state(),life_mode=True,web_enabled=True),safe
+    from services.conversation_policy import YES
+    if compact in YES and state.get('pending')=='location_confirmation':
+        candidates=state.get('location_candidates',[])
+        if len(candidates)==1:
+            from services.location_events import confirm_location
+            return confirm_location(state,candidates[0],activities,settings),safe
+        return reply(state,safe,'어느 동네인지 아래에서 골라주세요.','search','location_confirmation'),safe
     # Existing verified selection/application and consent logic runs before free conversation.
     if state.get('helper_focus') and state.get('application_helper') and compact in {'다음단계','이전단계','다시설명'}:
         from services.dialogue import handle_turn
@@ -211,7 +220,7 @@ def turn(state,text,activities,settings,*,extraction=None,client=None,as_of=None
     if compact in {'네','예','좋아요','신청방법알려줘','이거어떻게신청해','전화로신청할수있어'} or re.fullmatch('[123]번',compact):
         action=_decision(state,safe,activities,settings,{'as_of':as_of})
         if action is not None:return action,safe
-        if compact in {'네','예','좋아요'} and state.get('conversation_route')=='howto':
+        if compact in {'네','예','좋아요'} and state.get('conversation_route')=='howto' and any(w in state.get('message','') for w in ('근처에서','배울 곳도 찾아')):
             state.update(search_requested=True,conversation_route='search',pending='region')
     if compact in {'다른시간','다른시간찾기','다른시간에요'}:
         result=reply(state,safe,'오전, 오후, 저녁 중 언제가 편하세요?','search','time_slot');result['search_requested']=True
@@ -220,32 +229,43 @@ def turn(state,text,activities,settings,*,extraction=None,client=None,as_of=None
     try:
         if extraction is not None:request=extraction;mode='basic';diagnostic=None
         elif settings.gemini_api_key:
-            plan=conversation_ai.understand(safe,state,activities,settings,client=client);request=plan['extraction'];mode='gemini';diagnostic=None
+            state['ai_call']={'attempted':True,'status':'calling'}
+            from services.conversation_policy import counselling_request
+            model_state=deepcopy(state)
+            if counselling_request(safe):model_state.update(pending=None,search_requested=False)
+            plan=conversation_ai.understand(safe,model_state,activities,settings,client=client)
+            if counselling_request(safe) and re.search(r'어느.{0,15}(?:동네|지역|시·구|시군구)',plan['reply']):
+                error=AIError(code='response_format');error.stage='policy';error.request_sent=True;raise error
+            request=plan['extraction'];mode='gemini';diagnostic=None
+            state['ai_call']={'attempted':True,'status':'success','parsed':True,'response_route':plan['route']}
         else:raise AIError(code='key_missing')
     except AIError as error:
+        plan=None
         request=basic_extract(safe,state);mode='fallback';diagnostic={'code':error.code}
+        state['ai_call']={'attempted':getattr(error,'request_sent',bool(settings.gemini_api_key)),'status':'error' if settings.gemini_api_key else 'not_configured','error':error.code,'stage':getattr(error,'stage','request' if settings.gemini_api_key else 'configuration')}
+        stage=state['ai_call']['stage'];state['ai_call'].update(response_received=stage in {'parse','validation','policy'},parsed=stage in {'validation','policy'})
         state['ai_unavailable']=True
         LOG.info('conversation_fallback code=%s',error.code)
     request=grounded_request(safe,state,request)
     old=deepcopy(state);state=merge(state,safe,request)
     state.update(mode=mode,diagnostic=diagnostic,notice=None,life_mode=True)
     route=rule_route(safe,old,request)
-    # Explicit local controls override ambiguous model routing; model handles open language.
-    explicit_search=any(w in compact for w in ('찾아','찾고','어디서','근처','강좌','강습'))
-    waiting=old.get('pending') in {'region','web_location','web_dong','life_budget','time_slot'} and old.get('search_requested')
-    if plan and route not in {'chat','followup','home'} and not explicit_search and not waiting:
-        route=plan['route']
+    from services.conversation_policy import choose_route,search_request
+    explicit_search=search_request(safe)
+    route=choose_route(safe,old,request,plan,route)
     if plan:state.pop('ai_unavailable',None)
     if caution:state['conditions']['movement_caution']='부담 확인'
     if any(w in compact for w in ('시간은상관없','오후','오전','무료로')) and old.get('conversation_route') in {'howto','explore','home'} and route!='search':
         route=old['conversation_route']
+    state['gemini_reply_used']=False
     if route=='chat':
         answer='안녕하세요. 해보고 싶은 일이나 요즘 관심사를 편하게 말씀해 주세요.'
         if any(w in compact for w in ('고마','감사')):answer='도움이 되어 기뻐요. 또 궁금한 게 있으면 말씀해 주세요.'
         elif request['conditions'].get('region'):
             answer=(location_label(state['location'])+'에서 찾는 걸 기억할게요.' if state['location'].get('city') else '동네는 프로그램을 찾을 때 함께 확인할게요.')+' 어떤 활동이 궁금하세요?'
         if plan and plan.get('reply'):answer=plan['reply']
-        return reply(state,safe,answer,'chat'),safe
+        result=reply(state,safe,answer,'chat');result['search_requested']=False;result['gemini_reply_used']=bool(plan)
+        return result,safe
     if route in {'explore','home','howto'}:
         if any(w in compact for w in ('다른취미','다른운동','다른활동')):
             state['declined_idea_ids']=list(set(state.get('declined_idea_ids',[]))|{i['id'] for i in old.get('ideas',[])})
@@ -278,10 +298,21 @@ def turn(state,text,activities,settings,*,extraction=None,client=None,as_of=None
     if not any(state['conditions'].get(k) for k in ('activity_type','category','purpose')):
         return ideas_reply(state,safe,'explore',plan),safe
     loc=state['location']
+    if loc.get('province') and loc.get('district') and loc.get('neighbourhood'):
+        from services.regions import selection
+        try:verified=selection(loc['province'],loc['district'],loc['neighbourhood'])
+        except ValueError:loc['status']='provided'
+        else:loc.update(code=verified['code'],status='confirmed',origin='typed_administrative_name')
     if old.get('pending')=='web_dong' and not {'region','neighbourhood'} & set(request['update_fields']):
         result=reply(state,safe,'기준으로 삼을 동네 이름을 알려주세요.','search','web_dong');result['search_requested']=True
         return result,safe
     if not loc.get('city'):
+        from services.regions import matching_localities
+        candidates=matching_localities(safe)
+        if candidates:
+            result=reply(state,safe,'같은 이름의 동네가 있어요. 어느 곳인가요?','search','location_confirmation')
+            result.update(location_candidates=candidates,search_requested=True)
+            return result,safe
         prompt=loc.get('question') or (question(loc) if loc.get('neighbourhood') or loc.get('district') else '어느 동네에서 찾아볼까요?')
         result=reply(state,safe,prompt,'search','web_location' if loc.get('neighbourhood') or loc.get('district') else 'region');result['search_requested']=True
         return result,safe
@@ -294,4 +325,17 @@ def turn(state,text,activities,settings,*,extraction=None,client=None,as_of=None
             result['message']='조건을 바꿨어요. '+('앞서 안내한 활동과 순서는 같아요.' if update['same'] else '새 조건에 맞춰 활동을 다시 살펴봤어요.')
             if state['conditions'].get('time_slot'):result['message']+=' 시간은 카드의 공식 일정에서 확인해 주세요.'
     result['history']=(old.get('history',[])+[{'role':'user','content':safe},{'role':'assistant','content':result['message']}])[-20:]
+    return result,safe
+
+
+def turn(state,text,activities,settings,**kwargs):
+    """Migrate old session snapshots and report per-turn use, not presumed AI success."""
+    from services.conversation_policy import phase
+    base=new_state();base.update(deepcopy(state));base.update(life_mode=True,web_enabled=True,engine_contract=2)
+    base['ai_call']={'attempted':False,'status':'not_attempted'};base['gemini_reply_used']=False
+    result,safe=_turn(base,text,activities,settings,**kwargs)
+    result.update(life_mode=True,web_enabled=True,engine_contract=2)
+    result['phase']=phase(result)
+    result.setdefault('ai_call',{'attempted':False,'status':'not_attempted'})
+    if result['ai_call'].get('status')!='not_attempted':result['last_ai_call']=deepcopy(result['ai_call'])
     return result,safe

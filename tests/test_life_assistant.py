@@ -110,8 +110,8 @@ class LifeAssistantTest(TestCase):
  def test_howto_yes_keeps_user_words_and_selected_city_survives_picker(self):
   from services.guided_flow import open_picker,choose_city
   s=self.say(initial(),'그림을 처음 배우려면?')
-  s,shown=discovery_turn(s,'네',self.rows,self.settings)
-  self.assertEqual(shown,'네');self.assertEqual(s['pending'],'region')
+  s,shown=discovery_turn(s,'근처에서 찾아줘',self.rows,self.settings)
+  self.assertEqual(shown,'근처에서 찾아줘');self.assertEqual(s['pending'],'region')
   s=choose_city(open_picker(s,'region_city'),'부천')
   self.assertEqual(s['conditions']['region'],'부천')
   s=self.say(s,'수영 배우고 싶어요');self.assertEqual(s['conditions']['region'],'부천');self.assertNotEqual(s['pending'],'region')

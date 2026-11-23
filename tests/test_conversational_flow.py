@@ -76,7 +76,7 @@ class ConversationTest(TestCase):
    self.assertEqual(app.session_state['dialog']['selected_id'],row['id'])
    app.button(key='detail_back').click().run();app.button(key='reject_recommendations').click().run()
    self.assertFalse(visible_activities(app.session_state['dialog']));self.assertTrue(app.button(key='request_adjacent'))
-   app.chat_input(key='chat').set_value('대화 초기화').run();self.assertFalse(app.session_state['dialog']['conditions']);self.assertFalse(app.session_state['turns']);self.assertFalse(app.exception)
+   app.chat_input(key='chat').set_value('대화 초기화').run();app.button(key='confirm_reset_yes').click().run();self.assertFalse(app.session_state['dialog']['conditions']);self.assertFalse(app.session_state['turns']);self.assertFalse(app.exception)
 
  def test_back_command_preserves_recommendations_without_external_completion(self):
   s=self.turn(new_state(),'강서구 수영 프로그램');ids=[r['id'] for r in visible_activities(s)]
