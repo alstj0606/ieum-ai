@@ -177,6 +177,7 @@ def programme_options(activities, conditions, *, as_of=None):
 def prepare_view(state, activities, *, user_text="", as_of=None):
     """Final boundary re-sorts even persisted/reversed legacy session candidates."""
     state=deepcopy(state)
+    activities=[row for row in activities if row['id'] not in set(state.get('declined_ids',[]))]
     query=profile_conditions(state)
     if state.get('flow')=='adjacent' or state.get('search_scope',{}).get('kind')=='adjacent' or (state.get('code')=='expansion_empty' and 'search_scope' not in state):
         # Migrate persisted pre-isolation states: old local cards are not new neighbours.

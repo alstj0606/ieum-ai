@@ -17,6 +17,12 @@ APP=str(Path(__file__).resolve().parents[1]/"gangseo_app.py")
 DAY=date(2026,11,9)
 
 class AppFlowTest(TestCase):
+    def setUp(self):
+        from services.activities import _reference
+        clock=patch('services.activities._reference',side_effect=lambda value: _reference(DAY if value is None else value))
+        clock.start()
+        self.addCleanup(clock.stop)
+
     def test_manual_search_and_official_values_with_no_key(self):
         with patch('services.config.load_settings',return_value=Settings()):
             app=AppTest.from_file(APP).run()

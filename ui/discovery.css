@@ -16,3 +16,36 @@
 .stApp:has(#ieum-discovery-root) .stButton button:disabled {background:var(--ieum-disabled);color:var(--ieum-muted);opacity:1;border:2px solid var(--ieum-border)}
 .stApp:has(#ieum-discovery-root) .stButton button:disabled p {color:var(--ieum-muted)}
 .stApp:has(#ieum-discovery-root) a:not([data-testid^=stBaseLinkButton]) {color:var(--ieum-link)}
+
+/* Conversation layout; native Streamlit controls keep keyboard/audio semantics. */
+.stApp:has(#ieum-discovery-root) .stMainBlockContainer {max-width:780px;padding-top:2rem}
+.stApp:has(#ieum-discovery-root) h1 {font-size:26px;letter-spacing:-.04em;margin-bottom:4px}
+.stApp:has(#ieum-discovery-root) h2 {font-size:clamp(24px,6vw,30px);letter-spacing:-.035em}
+.stApp:has(#ieum-discovery-root) [data-testid=stChatMessage] {border:0;border-radius:20px 20px 20px 5px;padding:18px 16px;background:var(--ieum-surface);margin:8px 0;max-width:96%;box-shadow:none}
+.stApp:has(#ieum-discovery-root) [data-testid=stChatMessageAvatarAssistant] {display:none}
+.stApp:has(#ieum-discovery-root) [data-testid=stChatMessage]:has([data-testid=stChatMessageAvatarUser]) {margin-left:auto;max-width:86%;background:var(--ieum-red);border-radius:20px 20px 5px 20px;flex-direction:row-reverse}
+.stApp:has(#ieum-discovery-root) [data-testid=stChatMessageAvatarUser] {display:none}
+.stApp:has(#ieum-discovery-root) [data-testid=stChatMessage]:has([data-testid=stChatMessageAvatarUser]) [data-testid=stMarkdownContainer] {color:var(--ieum-white)}
+.stApp:has(#ieum-discovery-root) [class*=st-key-activity_card_] {padding:16px 0 8px;border-top:1px solid #dedee3}
+.stApp:has(#ieum-discovery-root) [class*=st-key-activity_card_] h3 {font-size:22px;line-height:1.5;letter-spacing:-.025em}
+.stApp:has(#ieum-discovery-root) .stButton button {min-height:52px;border-radius:16px;margin:2px 0 6px;padding:12px 16px}
+.stApp:has(#ieum-discovery-root) .stButton button:not(:disabled) {border:1px solid var(--ieum-red)}
+.stApp:has(#ieum-discovery-root) .stButton button[kind=secondary]:not(:disabled) {background:var(--ieum-white);color:var(--ieum-ink);border-color:#c6c6cd}
+.stApp:has(#ieum-discovery-root) .stButton button[kind=secondary]:not(:disabled) p {color:var(--ieum-ink);font-weight:650}
+.stApp:has(#ieum-discovery-root) .stButton button[kind=secondary]:not(:disabled):hover {background:var(--ieum-warm);border-color:var(--ieum-orange)}
+.stApp:has(#ieum-discovery-root) .stExpander summary {background:transparent;border:0;border-radius:12px;color:var(--ieum-muted);padding:8px 0;min-height:48px}
+.stApp:has(#ieum-discovery-root) .stExpander {background:transparent;border:0}
+.stApp:has(#ieum-discovery-root) .stLinkButton a {border-width:1px;border-radius:16px;min-height:52px;text-decoration:none}
+.stApp:has(#ieum-discovery-root) .stPopover button {border-width:1px;background:var(--ieum-white)}
+.stApp:has(#ieum-discovery-root) [data-testid=stAlert] {border:0;border-left:3px solid var(--ieum-orange);border-radius:12px}
+.stApp:has(#ieum-discovery-root) .stChatInput {border:1px solid #888891;border-radius:26px;padding:6px 8px;box-shadow:none}
+.stApp:has(#ieum-discovery-root) .stChatInput button[data-testid=stChatInputMicButton],
+.stApp:has(#ieum-discovery-root) .stChatInput button[data-testid=stChatInputSubmitButton] {width:56px;height:56px;min-width:56px;min-height:56px}
+.stApp:has(#ieum-discovery-root) .stChatInput[data-has-text=true] button[data-testid=stChatInputMicButton] {width:44px;height:44px;min-width:44px;min-height:44px}
+@media(max-width:400px) {
+ .stApp:has(#ieum-discovery-root) [data-testid=stChatMessage] {padding:16px 12px;max-width:100%}
+ .stApp:has(#ieum-discovery-root) [data-testid=stChatMessage]:has([data-testid=stChatMessageAvatarUser]) {max-width:90%}
+}
+.stApp:has(#ieum-discovery-root) h1 {color:var(--ieum-red)}
+/* Captions remain legible while the main conversation stays at 20px. */
+.stApp:has(#ieum-discovery-root) [data-testid=stCaptionContainer] p {font-size:18px!important;line-height:1.5}
