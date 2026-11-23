@@ -33,6 +33,13 @@ class Settings:
     stt_model: str = "gpt-transcribe"
     tts_model: str = "gpt-4o-mini-tts"
     search_api_key: str = field(default="", repr=False)  # Brave, server-side only
+    tavily_api_key: str = field(default="", repr=False)
+    search_provider: str = "tavily"
+    allow_paid_search: bool = False
+
+    @property
+    def search_configured(self):
+        return bool(self.tavily_api_key if self.search_provider=="tavily" else self.search_api_key if self.search_provider=="brave" else True)
 
 
 def load_settings(secrets=None):
@@ -50,8 +57,12 @@ def load_settings(secrets=None):
         model = candidate.strip() if isinstance(candidate, str) else "__invalid_model_setting__"
         model_source = source
         break
+    paid_setting=os.environ.get("ALLOW_PAID_SEARCH",(secrets or {}).get("ALLOW_PAID_SEARCH",False))
     return Settings(
         search_api_key=value("BRAVE_SEARCH_API_KEY"),
+        tavily_api_key=value("TAVILY_API_KEY"),
+        search_provider=value("SEARCH_PROVIDER", "tavily").lower(),
+        allow_paid_search=paid_setting is True or (isinstance(paid_setting,str) and paid_setting.strip().lower()=="true"),
         gemini_api_key=value("GEMINI_API_KEY"),
         model=model, model_source=model_source,
         api_key=value("OPENAI_API_KEY"),

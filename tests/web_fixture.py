@@ -23,3 +23,20 @@ class FakeTransport:
   if self.mode=='page_error':return 503,{},b''
   if url.endswith('/program/apply'):return 200,{'content-type':'text/html; charset=utf-8'},b'<html>Public application route fixture</html>'
   return 200,{'content-type':'text/html; charset=utf-8'},self.html.encode()
+
+
+class TavilyTransport(FakeTransport):
+ def get(self,url,**kwargs):
+  from services.search_providers import TAVILY_USAGE
+  if url==TAVILY_USAGE:
+   self.requests.append((url,kwargs))
+   return 200,{},json.dumps({'key':{'usage':0,'limit':1000},'account':{'current_plan':'Researcher','plan_usage':0,'plan_limit':1000,'paygo_usage':0,'paygo_limit':0}}).encode()
+  return super().get(url,**kwargs)
+ def post(self,url,*,body,**kwargs):
+  self.requests.append((url,dict(kwargs,body=body)))
+  data=json.loads(body)
+  from urllib.parse import urlencode
+  status,headers,payload=super().get(ENDPOINT+'?'+urlencode({'q':data['query']}))
+  self.requests.pop()  # internal fixture translation is not an outbound Brave request
+  if status!=200:return status,headers,payload
+  return 200,headers,json.dumps({'results':json.loads(payload)['web']['results'],'answer':'생성 답변은 절대 사용하지 않음'}).encode()

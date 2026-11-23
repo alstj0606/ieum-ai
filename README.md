@@ -8,7 +8,7 @@
 
 [배포 앱 이용하기](https://ieum-ai-demo.streamlit.app) · [개발 PR 기록](https://github.com/alstj0606/ieum-ai/pulls?q=is%3Apr) · [트러블슈팅](docs/troubleshooting.md)
 
-> Brave 검색 키를 설정하면 입력한 시·구·동과 활동으로 웹 검색을 수행합니다. 공식 페이지를 확인한 프로그램과 일반 검색 자료를 구분합니다. 기존 강서구 공식 자료 **10건**은 별도 저장 참고 자료입니다. 잔여석 조회·자동 신청 서비스는 아닙니다.
+> Tavily 무료 계정의 검색 키를 설정하면 입력한 시·구·동과 활동으로 웹 검색을 수행합니다. 공식 페이지를 확인한 프로그램과 일반 검색 자료를 구분합니다. 기존 강서구 공식 자료 **10건**은 별도 저장 참고 자료입니다. 잔여석 조회·자동 신청 서비스는 아닙니다.
 
 ## 1. 왜 만들었나요?
 
@@ -68,14 +68,25 @@
 
 ### 웹 검색 범위와 한계
 
-- [Brave Web Search 공식 문서](https://api-dashboard.search.brave.com/app/documentation/web-search/get-started)의 HTTPS API를 별도로 호출합니다. [Gemini 검색 도구](https://ai.google.dev/gemini-api/docs/google-search)는 현재 조건 추출 요청에 연결하지 않았으며, Gemini 호출 성공을 검색 성공으로 처리하지 않습니다.
+- 기본 공급자는 [Tavily Search](https://docs.tavily.com/documentation/api-reference/endpoint/search)입니다. `basic` 1크레딧 요청만 하며 `auto_parameters`·생성 답변·유료 Extract/Crawl/Research는 사용하지 않습니다. Brave는 `SEARCH_PROVIDER="brave"`와 `ALLOW_PAID_SEARCH=true`를 모두 명시한 경우만 사용하고, Tavily 실패 시 자동 전환하지 않습니다. [Gemini 검색 도구](https://ai.google.dev/gemini-api/docs/google-search)는 현재 조건 추출 요청에 연결하지 않았으며, Gemini 호출 성공을 검색 성공으로 처리하지 않습니다.
+- 중복 검색 목록은 공급자·키별로 10분 캐싱하고 동시에 같은 검색을 요청해도 1회만 호출합니다. 오류는 60초 재사용합니다. 공식 페이지와 프로그램 사실은 매번 다시 확인합니다. 캐시 미스 API 시도는 키별 분당 3회·UTC 하루 30회·월 900회로 제한합니다. 캐시·카운터는 프로세스 메모리이며 재시작/다중 프로세스 전체를 합산하는 계량기가 아닙니다. 실제 계정의 무료 잔여량과 결제 설정을 최종 기준으로 사용하며, 다른 앱의 사용도 무료 한도에 포함됩니다.
 - `.go.kr` 및 기존 검증 자료에 근거한 공식 호스트를 우선 확인합니다. 새 `.or.kr` 사이트를 이름만으로 공식 기관이라고 판단하지 않습니다. 일반 결과는 별도 펼침 영역에서 공식 미확인으로 표시합니다.
 - 최대 8개 검색 결과 중 공식 페이지 최대 5개를 확인하고, JSON-LD 또는 명확한 프로그램 필드가 있는 단일 프로그램 HTML만 카드로 만듭니다. 검색 요약문·게시일을 비용·모집 일정으로 사용하지 않습니다. PDF·이미지 공고·로그인/자바스크립트 전용 화면은 자동 추출을 지원하지 않으며 확인 실패로 남깁니다.
 - 확인 시각은 페이지를 읽은 시각이며 잔여석·신청 완료를 확인한 시각이 아닙니다. 다른 동네 확대는 동의 후에만 수행하고 거리·실제 인접성을 추정하지 않습니다. 접수 종료·운영 종료·모집 상태 미확인을 구분합니다.
 - 전화는 확인된 번호에만 연결합니다. 신청 버튼은 공식 본문의 명확한 신청 링크를 다시 열어 확인한 경우에만 제공하며, 소개 페이지는 공식 홈페이지로 표시합니다. 외부 사이트에서 로그인·본인인증·신청은 사용자가 직접 진행합니다.
 - UI는 Streamlit 1.66.1에 고정해 검사합니다. 기본 대화상자로 글자 선택을 제공하고 전체 rerun으로 닫으며 DOM 클릭 조작을 추가하지 않습니다. 모바일 스타일의 `data-testid` 선택자는 Streamlit 버전 변경 시 재검사가 필요합니다.
 
-**Gemini는 질문을 조건으로 바꾸고, Python은 Brave 검색과 공식 페이지 확인·구조 검증·표시를 담당합니다.** 프로그램 이름·가격·전화번호·일정·접수 상태를 LLM의 자유 생성 결과로 사용하지 않습니다.
+### 무료 검색 비교 (공식 문서 확인: 2026.11.23)
+
+| 방식 | 공식 무료 한도 | 이번 적용 |
+| --- | --- | --- |
+| [Tavily](https://docs.tavily.com/documentation/api-credits) | 월 1,000크레딧, basic 검색 1회 1크레딧, 카드 등록 불필요 | 기본. 무료 요금제·Pay-as-you-go 꺼짐 확인 후 사용 |
+| [Brave](https://api-dashboard.search.brave.com/app/documentation/web-search/get-started) | 계정의 구독·요금·한도 확인 필요 | 명시적 선택 및 유료 허용 때만 사용 |
+| [Gemini 2.5 Flash Grounding](https://ai.google.dev/gemini-api/docs/pricing#gemini-2.5-flash) | 공식 Standard Free Tier 표 기준 일 500 RPD, Flash-Lite와 공유 | 검토만 수행, 자동 활성화하지 않음 |
+
+현재 SDK `google-genai==3.0.0`의 `GoogleSearch` 도구 타입 생성은 로컬에서 확인했습니다. 하지만 [구조화 응답+도구의 동시 사용](https://ai.google.dev/gemini-api/docs/structured-output#tools)은 공식 문서상 Gemini 3/4 계열 기능이므로, 현재 2.5 Flash의 엄격한 조건 추출 요청에 검색 도구만 덧붙이지 않습니다. 별도 Grounding 요청·인용 정보 처리·공식 본문 검증이 필요하며 실제 키로 모델 접근·무료 한도는 확인하지 못했습니다. 공식 가격 문서에는 2026.12.01부터 2.5 Flash 요청의 3.5 Flash-Lite 자동 라우팅 안내도 있어 재확인이 필요합니다. 이번 작업에서 모델이나 Gemini 과금 설정은 변경하지 않았습니다.
+
+**Gemini는 질문을 조건으로 바꾸고, Python은 선택한 검색 API와 공식 페이지 확인·구조 검증·표시를 담당합니다.** 프로그램 이름·가격·전화번호·일정·접수 상태를 LLM의 자유 생성 결과로 사용하지 않습니다.
 
 ```mermaid
 flowchart TD
@@ -89,7 +100,7 @@ flowchart TD
     S -->|필요한 조건 부족| Q[추가 질문 하나]
     Q --> UI
     S --> K{검색 키 설정}
-    K -->|설정됨| W[Brave 검색 → 공식 HTTPS 본문 확인]
+    K -->|설정됨| W[검색 API → 공식 HTTPS 본문 확인]
     W --> E[단일 프로그램 필드 검증·출처·확인 시각]
     E --> C
     K -->|미설정 또는 사용자가 저장 자료 선택| F[저장 자료의 지역·자격·시간·예산 확인]
@@ -108,7 +119,8 @@ flowchart TD
 | 탐색 연결 | `services/discovery.py`, `services/guided_flow.py` | 버튼·자유 입력의 공통 상태, 시·구·동 선택, 공식 카드 최대 3개 및 선택 검증 |
 | AI | `services/ai.py`, `config.py`, `diagnostics.py` | Gemini 호출, 허용 스키마 검증, 안전한 오류 분류 |
 | 대화·개인화 | `dialogue.py`, `personalization.py`, `continuity.py` | 조건 누적·수정·해제, 필수/선호 구분, 결과 변화와 선택 맥락 유지 |
-| 웹 검색 | `services/web_search.py`, `live_discovery.py`, `neighbourhood.py`, `ui/live_cards.py` | 지역 확인, Brave HTTP 요청, 공식 본문 필드 검증, 동의·선택·재검색 및 별도 카드 |
+| 검색 공급자·비용 | `services/search_providers.py` | Tavily/Brave 선택, 무료 계정 확인, 중복 캐시·동시 요청·횟수 제한 |
+| 웹 검색 | `services/web_search.py`, `live_discovery.py`, `neighbourhood.py`, `ui/live_cards.py` | 지역 확인, Tavily/Brave HTTP 요청, 공식 본문 필드 검증, 동의·선택·재검색 및 별도 카드 |
 | 저장 자료·검색 | `activities.py`, `activity_catalog.py`, `recommendations.py` | JSON 검증, 기관에 종속되지 않는 읽기 모델, 사실 기반 조건 비교 |
 | 정렬·대안 | `recommendation_pipeline.py`, `alternative_paths.py` | 명시한 활동 보존, 공통 정렬, 중복 제거, 동의한 검색 범위 관리 |
 | 신청 안내 | `application_helper.py`, `institution_dialogue.py`, `guide_navigation.py` | 근거 있는 단계, 선택 기관·신청 상태 분리, 완료 오인 방지 |
@@ -181,11 +193,11 @@ PR #26·#27의 변경은 현재 main에 포함되어 있습니다. 성산복지�
 
 | 구분 | 확인한 내용 | 의미하지 않는 것 |
 | --- | --- | --- |
-| 자동 테스트 | 이번 개선 기준 **308개 통과, 실API 통합 1개 건너뜀**: 데이터·조건·대화·정렬·신청·오류·import·앱 시작 | 실제 API 호출 성공이나 운영 무장애 보장 |
+| 자동 테스트 | 이번 개선 기준 **325개 통과, 실API 통합 2개 건너뜀**: 데이터·조건·대화·정렬·신청·오류·import·앱 시작 | 실제 API 호출 성공이나 운영 무장애 보장 |
 | 로컬 Chromium | 320·390·430·768px 새 탐색·글자 선택·모의 웹 검색·행동 버튼, 기존 음성·권한 거부 및 기관 화면 회귀 | 실제 Safari·Android 기기에서 모든 기능 검증 |
 | 테마·접근성 | 라이트/다크 화면 12개 조합과 추천·상세 4개 상태, 검사한 텍스트 대비 최저 **4.63:1** | 전체 WCAG 적합성 인증·실제 어르신 사용성 검증 |
 | 실제 배포 화면 | 작성자가 제공한 첫 화면·추천 카드 스크린샷 확인 | 전체 시나리오·Gemini·음성·로그인·신청 완료 검증 |
-| 실제 웹 검색 API | 별도 키·실행 플래그가 없으면 통합 테스트를 건너뜀. 모의 HTTP 검색·공식 본문 파싱·실패·재시도·저장 자료 복귀 검사 | 실제 Brave 계정 권한·요금·검색 결과 품질 보장 |
+| 실제 웹 검색 API | 별도 키·실행 플래그가 없으면 통합 테스트를 건너뜀. 모의 HTTP 검색·공식 본문 파싱·실패·재시도·저장 자료 복귀 검사 | 실제 Tavily/Brave 계정 권한·요금·검색 결과 품질 보장 |
 | Gemini·음성 API | 구조화 요청·모의 성공/실패·대체 검색·텍스트 복귀 검사 | 실제 한국어·사투리 인식 품질과 계정 권한·할당량 검증 |
 
 기존 기준은 [PR #27](https://github.com/alstj0606/ieum-ai/pull/27)이며, 위 자동 테스트·대비 수치는 현재 작업 브랜치에서 다시 검사한 결과입니다. 공식 원본 데이터는 유지합니다. 날짜에 민감한 기존 앱 테스트는 조사일을 고정하고, 현재 날짜의 과거 프로그램이 신청 가능으로 표시되지 않는 별도 회귀 검사를 추가했습니다. 실제 API·Cloud·실기기 검증과 모의 검사는 구분합니다. 이번 개발 환경에서 저장 자료 중 sports.gangseo.seoul.kr의 DNS 조회가 실패했으며, 그 사이트가 일반 사용자에게도 중단됐다고 판단하지 않았습니다. 배포 후 실제 키로 검색·본문 접속을 확인해야 합니다.
@@ -219,7 +231,9 @@ Windows에서는 가상환경 활성화 명령을 `.venv\Scripts\activate`로 �
 ```toml
 GEMINI_API_KEY = "여기에 발급받은 키를 직접 설정"
 GEMINI_MODEL = "gemini-2.5-flash"
-BRAVE_SEARCH_API_KEY = "Brave Search에서 발급한 별도 키"
+TAVILY_API_KEY = "Tavily 무료 계정에서 발급한 키"
+SEARCH_PROVIDER = "tavily"
+ALLOW_PAID_SEARCH = false
 
 # 음성 기능을 사용할 때만 필요한 별도 설정
 OPENAI_API_KEY = "음성용 키를 직접 설정"
@@ -227,13 +241,13 @@ OPENAI_STT_MODEL = "gpt-transcribe"
 OPENAI_TTS_MODEL = "gpt-4o-mini-tts"
 ```
 
-**검색 설정:** `.env.example`의 이름을 서버 환경변수 또는 위 Secrets에 설정합니다. `.env` 파일을 자동 로드하지 않습니다. Brave 계정의 요금·한도를 확인한 뒤 키를 등록하세요. 키가 없으면 인터넷 검색 미설정을 알리고 저장 자료를 사용합니다. Gemini·Brave·OpenAI 키는 서로 대체되지 않습니다.
+**검색 설정:** `.env.example`의 이름을 서버 환경변수 또는 위 Secrets에 설정합니다. `.env` 파일을 자동 로드하지 않습니다. Tavily Researcher/Free 요금제에서 Pay-as-you-go를 꺼 주세요. 매번 캐시 미스 시 `/usage`에서 무료 요금제·잔여 크레딧·추가 결제 꺼짐을 확인하고, 확인 불가·한도 초과면 저장 자료로 자동 전환합니다. Brave는 별도 `BRAVE_SEARCH_API_KEY`와 위의 명시적 유료 활성화가 필요합니다. 키가 없으면 인터넷 검색 미설정을 알리고 저장 자료를 사용합니다. Gemini·Tavily·Brave·OpenAI 키는 서로 대체되지 않습니다. `ALLOW_PAID_SEARCH`는 검색 공급자 설정이며 기존 Gemini 조건 추출과 OpenAI 음성의 계정 요금까지 통제하지는 않습니다.
 
 STT/TTS 모델명은 현재 코드 설정값이며 실호출 성공을 보증하지 않습니다. 계정별 모델 접근·요금·한도를 확인해야 합니다. 키가 없어도 텍스트 기반 기본 탐색은 실행됩니다. 로컬 테스트의 모의 API 주소를 실제 배포에 사용하지 않습니다.
 
 ```bash
 python -m unittest discover -s tests
-# 서버 환경변수 BRAVE_SEARCH_API_KEY 설정 후에만 실API 선택 검사
+# 서버 환경변수 TAVILY_API_KEY 설정 후 무료 계정 실API 선택 검사
 IEUM_RUN_LIVE_SEARCH=1 python -m unittest discover -s tests -p test_web_live.py
 ```
 

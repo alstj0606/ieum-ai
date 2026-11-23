@@ -82,7 +82,7 @@ def send(text, *, voice=False, fixed=False):
         remember(text, state, voice=True)
     else:
         if DISCOVERY:
-            with st.spinner('공식 페이지를 확인하고 있어요…' if settings.search_api_key else '조건을 확인하고 있어요…'):
+            with st.spinner('공식 페이지를 확인하고 있어요…' if settings.search_configured else '조건을 확인하고 있어요…'):
                 state,text=discovery_turn(state,text,activities,settings,
                                       extraction=basic_extract(text,state) if fixed else None)
         else:
@@ -499,7 +499,7 @@ if DISCOVERY:
 if not DISCOVERY and st.button('성산복지관 신청 도우미로 돌아가기',key='back_to_seongsan'):
     st.session_state.service_mode='seongsan'
     st.rerun()
-st.caption(('공식 웹 검색 · 저장 자료 '+str(len(activities))+'건은 별도 참고' if settings.search_api_key else '인터넷 검색 미설정 · 저장된 강서구 자료 10건 참고') if DISCOVERY else '기존 기능 · 서울 강서구 공식 활동 검색')
+st.caption(('공식 웹 검색 · 저장 자료 '+str(len(activities))+'건은 별도 참고' if settings.search_configured else '인터넷 검색 미설정 · 저장된 강서구 자료 10건 참고') if DISCOVERY else '기존 기능 · 서울 강서구 공식 활동 검색')
 if not st.session_state.turns:
     with st.chat_message("assistant"):
         if DISCOVERY:
@@ -629,6 +629,9 @@ for index, turn in enumerate(st.session_state.turns):
                 render_listen(index,state)
                 continue
             if DISCOVERY and state.get('web',{}).get('status')=='not_configured':st.caption('저장 자료 참고 · 인터넷 검색은 수행하지 않았어요. 현재 모집 여부는 기관 확인이 필요해요.')
+            if DISCOVERY and state.get('search_failure'):
+                st.caption(state['search_failure']['message'])
+                choice_button('인터넷 검색 다시 하기',key='fallback_retry',on_click=send,args=('인터넷 검색 다시 하기',))
             guide_focus=bool(state.get('helper_focus') and state.get('application_helper'))
             compact_update=bool((state.get('recommendation_update') or {}).get('hide_repeated_cards'))
             display_cards=not guide_focus and not compact_update

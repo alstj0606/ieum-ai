@@ -24,9 +24,13 @@ def select_web(state,activity_id):
  return state
 
 def search(state,settings,activities,*,expanded=False,transport=None):
- state=deepcopy(state);state.pop('cache_only',None);previous=state.get('web') or {}
+ state=deepcopy(state);state.pop('cache_only',None);state.pop('search_failure',None);previous=state.get('web') or {}
  try:outcome=search_programs(settings,state['location'],state['conditions'],hosts=official_hosts(activities),excluded=previous.get('excluded',[]),expanded=expanded,transport=transport)
- except SearchError as error:outcome=dict(status=error.code,rows=[],references=[],checked_at=None,expanded=expanded)
+ except SearchError as error:
+  result=cache_search(state,activities)
+  result['search_failure']={'code':error.code,'message':ERRORS[error.code]}
+  result['message']=ERRORS[error.code]+' '+result['message']
+  return result
  outcome.update(selected_id=None,excluded=previous.get('excluded',[]));state['web']=outcome
  count=len(outcome['rows'])
  answer=f'공식 페이지에서 프로그램 {count}개를 확인했어요. 현재 신청 여부는 각 카드에서 확인해 주세요.' if count else ERRORS.get(outcome['status'],ERRORS['unverified'])
@@ -62,7 +66,7 @@ def before_turn(state,text,settings,activities,**kwargs):
  return None
 
 def after_turn(state,previous,text,settings,activities,**kwargs):
- if not previous.get('web_enabled') and not settings.search_api_key:return state
+ if not previous.get('web_enabled') and not settings.search_configured:return state
  if state['code']=='start':return state
  result=deepcopy(state);result['web_enabled']=True
  if result.get('picker'):return result
@@ -83,10 +87,10 @@ def after_turn(state,previous,text,settings,activities,**kwargs):
   result['message']='어느 시·구·동에서 찾아볼까요? 자세한 집 주소는 필요하지 않아요.'
   return result
  if result.get('pending') in {'budget_unit','activity_type','time_slot','effort_preference'}:return result
- if not settings.search_api_key:
-  result['web']=dict(status='not_configured',rows=[],references=[],selected_id=None,checked_at=None,excluded=[])
-  # Stored candidates are retained only in the explicit cache section; never relabelled as live.
-  return result
+ if not settings.search_configured:
+  cached=result;cached['cache_only']=True;cached['search_failure']={'code':'not_configured','message':ERRORS['not_configured']}
+  cached['message']=ERRORS['not_configured']+' '+cached['message']
+  return cached
  return search(result,settings,activities,**kwargs)
 
 
@@ -99,6 +103,8 @@ def cache_search(state,activities):
  result.update(selected_id=None,helper_focus=False,detail_focus=False,cache_only=True)
  result=handle_turn(result,'같은 조건으로 저장 자료를 찾아줘',activities,Settings(),extraction=empty_extraction('search_program'))
  result.pop('recommendation_update',None)
+ from services.discovery import visible_activities
+ if result.get('pending')=='expand_region' and visible_activities(result):result['pending']=None
  result['message']='저장 자료만 확인했어요. 인터넷 검색 결과가 아니에요. '+result['message']
  result['notice']='기존 자료의 확인일과 모집 상태를 확인해 주세요. 현재 정보를 새로 확인한 것은 아니에요.'
  return result

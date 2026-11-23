@@ -1,4 +1,4 @@
-"""Brave discovery + conservative public-page verification. No LLM-written facts.
+"""Provider-neutral discovery + conservative public-page verification. No LLM-written facts.
 
 Only HTTPS government hosts and hosts already grounded in the checked-in official
 sources are trusted. Search snippets never become programme fields. Fetches have
@@ -17,6 +17,11 @@ import time
 
 ENDPOINT='https://api.search.brave.com/res/v1/web/search'
 ERRORS={'not_configured':'인터넷 검색이 아직 설정되지 않았어요. 저장 자료로 찾아볼 수 있어요.',
+ 'configuration':'검색 서비스 설정을 확인해 주세요. 저장 자료로 계속 안내할게요.',
+ 'paid_disabled':'유료 검색은 켜지 않았어요. 저장 자료로 계속 안내할게요.',
+ 'free_plan_required':'무료 요금제와 추가 결제 꺼짐을 확인해야 해요. 저장 자료로 안내할게요.',
+ 'usage_unavailable':'검색의 무료 사용량을 확인하지 못했어요. 저장 자료로 안내할게요.',
+ 'request_limit':'앱의 검색 횟수 제한에 도달했어요. 저장 자료로 계속 안내할게요.',
  'authentication':'검색 연결 설정을 확인해야 해요. 저장 자료로 계속 이용해 주세요.',
  'quota':'인터넷 검색 사용량이 잠시 초과됐어요. 잠시 뒤 다시 찾아주세요.',
  'timeout':'인터넷 검색이 오래 걸려요. 다시 시도해 주세요.',
@@ -30,7 +35,11 @@ class SearchError(Exception):
 
 class Transport:
  """Pinned public IP connection with TLS hostname verification (no DNS rebinding)."""
- def get(self,url,*,headers=None,timeout=6,max_bytes=1500000):
+ def get(self,url,**kwargs):return self._request('GET',url,**kwargs)
+ def post(self,url,*,body,**kwargs):
+  if url!='https://api.tavily.com/search':raise SearchError('api_error')
+  return self._request('POST',url,body=body,**kwargs)
+ def _request(self,method,url,*,body=None,headers=None,timeout=6,max_bytes=1500000):
   import http.client,ssl
   parsed=urlparse(url)
   if parsed.scheme!='https' or parsed.username or parsed.password or parsed.port not in (None,443):raise SearchError('page_error')
@@ -44,7 +53,7 @@ class Transport:
    conn.sock=conn._context.wrap_socket(sock,server_hostname=host)
    path=parsed.path or '/'
    if parsed.query:path+='?'+parsed.query
-   conn.request('GET',path,headers={'User-Agent':'IeumAI/1.0 (public programme information)',**(headers or {})})
+   conn.request(method,path,body=body,headers={'User-Agent':'IeumAI/1.0 (public programme information)',**(headers or {})})
    response=conn.getresponse();payload=response.read(max_bytes+1)
    if len(payload)>max_bytes:raise SearchError('page_error')
    return response.status,dict((k.lower(),v) for k,v in response.getheaders()),payload
@@ -236,8 +245,7 @@ def validate_program(row):
  return row
 
 
-def search_programs(settings,location,conditions,*,transport=None,hosts=(),excluded=(),expanded=False):
- if not settings.search_api_key:raise SearchError('not_configured')
+def search_programs(settings,location,conditions,*,transport=None,hosts=(),excluded=(),expanded=False,control=None):
  transport=transport or Transport();started=time.monotonic()
  activity=conditions.get('activity_type') or {'체육':'운동','문화·취미':'문화 취미','평생학습':'교육'}.get(conditions.get('category'),'활동')
  # Only whitelisted short slots go to search, never raw utterances/history or age/medical data.
@@ -247,16 +255,8 @@ def search_programs(settings,location,conditions,*,transport=None,hosts=(),exclu
  if expanded:query+=' 인접 지역'
  if conditions.get('budget_amount')==0:query+=' 무료'
  checked_at=datetime.now(timezone.utc).isoformat(timespec='seconds')
- try:
-  status,_,body=transport.get(ENDPOINT+'?'+urlencode({'q':query,'country':'KR','search_lang':'ko','count':8}),headers={'X-Subscription-Token':settings.search_api_key},timeout=8,max_bytes=1000000)
- except SearchError as error:raise SearchError('timeout' if error.code=='timeout' else 'api_error') from None
- if status in (401,403):raise SearchError('authentication')
- if status==429:raise SearchError('quota')
- if status!=200:raise SearchError('api_error')
- try:
-  payload=json.loads(body);hits=payload.get('web',{}).get('results',[])
-  if not isinstance(hits,list):raise ValueError()
- except (ValueError,TypeError,AttributeError):raise SearchError('api_error') from None
+ from services.search_providers import search_hits
+ hits,cache_hit,provider=search_hits(settings,query,transport,control=control)
  rows=[];references=[];failures=0;seen=set();official_count=0
  for hit in sorted(hits[:8],key=lambda h:not is_official(h.get('url','') if isinstance(h,dict) else '',hosts)):
   if not isinstance(hit,dict):continue
@@ -300,4 +300,4 @@ def search_programs(settings,location,conditions,*,transport=None,hosts=(),exclu
  unique={}
  for row in sorted(rows,key=rank):unique.setdefault((row['name'],row['address'] or row['facility'] or row['official_url'],row['schedule'] or row['starts_at']),row)
  rows=list(unique.values())[:3]
- return dict(rows=rows,references=references[:6],checked_at=checked_at,status='ok' if rows else 'page_error' if official_count and failures==official_count else 'unverified' if references else 'empty',expanded=expanded)
+ return dict(provider=provider,cache_hit=cache_hit,rows=rows,references=references[:6],checked_at=checked_at,status='ok' if rows else 'page_error' if official_count and failures==official_count else 'unverified' if references else 'empty',expanded=expanded)

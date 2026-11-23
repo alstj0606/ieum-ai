@@ -13,11 +13,14 @@ from services.dialogue import new_state
 from services.discovery import discovery_turn
 from services.activities import load_activities
 from web_fixture import FakeTransport,HTML,URL
+from services.search_providers import SearchControl
 
 LOC={'city':'서울','district':'강서구','neighbourhood':'화곡동'}
 class WebSearchTest(TestCase):
- def setUp(self):self.settings=Settings(search_api_key='test-only-not-a-real-key');self.rows=load_activities()
- def search(self,mode='ok',conditions=None):return search_programs(self.settings,LOC,conditions or {'activity_type':'수영'},transport=FakeTransport(mode))
+ def setUp(self):
+  self.settings=Settings(search_api_key='test-only-not-a-real-key',search_provider='brave',allow_paid_search=True);self.rows=load_activities()
+  patcher=patch('services.search_providers.CONTROL',SearchControl(minute_limit=1000,day_limit=1000,month_limit=1000));patcher.start();self.addCleanup(patcher.stop)
+ def search(self,mode='ok',conditions=None):return search_programs(self.settings,LOC,conditions or {'activity_type':'수영'},transport=FakeTransport(mode),control=SearchControl())
  def test_request_and_parsing_do_not_use_snippet_facts(self):
   http=FakeTransport();out=search_programs(self.settings,LOC,{'activity_type':'수영'},transport=http);r=out['rows'][0]
   self.assertEqual(r['fee_amount'],0);self.assertNotIn('999',str(r));self.assertEqual(r['phone'],'02-0000-0000');self.assertTrue(r['application_url']);self.assertEqual(r['source_kind'],'official_web');self.assertIn('verified_at',r)
@@ -100,7 +103,7 @@ class WebSearchTest(TestCase):
   from services.ai import AIError
   s=dict(new_state(),web_enabled=True)
   with patch('services.dialogue.extract_conditions',side_effect=AIError(code='timeout')),patch('services.web_search.Transport',return_value=FakeTransport()):
-   s=discovery_turn(s,'서울 강서구 화곡동 수영',self.rows,Settings(gemini_api_key='fake',search_api_key='fake'))[0]
+   s=discovery_turn(s,'서울 강서구 화곡동 수영',self.rows,Settings(gemini_api_key='fake',search_api_key='fake',search_provider='brave',allow_paid_search=True))[0]
   self.assertEqual(s['mode'],'fallback');self.assertTrue(s['web']['rows'])
  def test_font_menu_native_callback_preserves_dialogue(self):
   with patch('services.config.load_settings',return_value=Settings()):
