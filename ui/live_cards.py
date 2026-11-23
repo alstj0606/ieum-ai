@@ -15,8 +15,8 @@ def fact(label,value):st.markdown('**'+label+'** · '+display_date_text(str(valu
 
 def render(state,*,on_select,on_send,on_cache):
  web=state['web'];rows=web.get('rows',[]);selected=web.get('selected_id')
- if web.get('cache_hit'):st.caption('검색 목록 재사용 · 출처별 본문 확인 결과를 표시해요.')
- if rows:st.caption('인터넷 검색 · 공식 페이지 확인 '+checked(web['checked_at'])+' · 잔여 자리 실시간 조회 아님')
+ if web.get('cache_hit') and not state.get('life_mode'):st.caption('검색 목록 재사용 · 출처별 본문 확인 결과를 표시해요.')
+ if rows:st.caption('공식 출처 확인 '+checked(web['checked_at'])+' · 신청 전 모집 상태를 확인해 주세요.')
  for row in rows:
   if selected and selected!=row['id']:continue
   detail=selected==row['id'];status=recruitment_status(row)

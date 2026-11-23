@@ -117,6 +117,12 @@ def safe_input(text,state):
 
 
 def discovery_turn(state,text,activities,settings,**kwargs):
+    if state.get('life_mode'):
+        from services.life_assistant import turn
+        from services.guided_flow import contextual_text
+        text=contextual_text(state,text)
+        state=deepcopy(state);state.pop('picker',None)
+        return turn(state,text,activities,settings,**kwargs)
     from services.guided_flow import contextual_text
     draft=deepcopy(state.get('picker') or {})
     text=contextual_text(state,text)

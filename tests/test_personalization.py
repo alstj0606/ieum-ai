@@ -17,7 +17,7 @@ class PersonalizationTest(TestCase):
  def test_explicit_profile_without_health_inference(self):
   s=self.profile();c=s['conditions']
   self.assertEqual((c['age'],c['region'],c['effort_preference'],c['purpose']),(65,'강서구','가볍게','운동'))
-  self.assertEqual(c['residence'],'서울 강서구')
+  self.assertEqual(c['residence'],'강서구')  # City was not explicitly stated.
   self.assertFalse({'health','disability','gender','mobility'} & c.keys())
   self.assertNotIn('residence',self.turn(new_state(),'65세 강서구에서 가볍게 운동하고 싶어요')['conditions'])
  def test_accumulate_soft_time_hard_budget_and_clear(self):

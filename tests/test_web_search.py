@@ -133,8 +133,9 @@ class WebSearchTest(TestCase):
  def test_same_city_but_different_district_is_not_local(self):
   http=FakeTransport(html=HTML.replace('강서구','마포구'))
   self.assertFalse(search_programs(self.settings,LOC,{'activity_type':'수영'},transport=http)['rows'])
- def test_confirming_city_only_still_asks_district_when_dong_ambiguous(self):
-  self.assertIsNotNone(question({'city':'서울','district':None,'neighbourhood':'신정동'}))
+ def test_city_and_dong_can_search_without_inventing_a_district(self):
+  self.assertIsNone(question({'city':'부천','district':None,'neighbourhood':'중동'}))
+  self.assertIsNotNone(question({'city':None,'district':None,'neighbourhood':'중동'}))
  def test_keyless_cache_refusal_never_calls_live_transport(self):
   s=dict(new_state(),web={'status':'not_configured','rows':[]})
   with patch('services.web_search.Transport') as transport:self.assertIsNone(before_turn(s,'이건 별로예요',Settings(),self.rows));transport.assert_not_called()

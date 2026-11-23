@@ -28,20 +28,28 @@ def _step(state,label,message,picker):
     return result
 
 def open_picker(state,stage):
-    prompts={'activity':'어떤 활동을 해보고 싶으세요?', 'condition':'무엇을 다시 선택할까요?', 'region_city':'어느 시에서 찾아볼까요? 다른 시는 직접 입력할 수 있어요. 저장 자료와 인터넷 검색은 구분해요.'}
+    prompts={'activity':'어떤 활동을 해보고 싶으세요?', 'condition':'무엇을 다시 선택할까요?', 'region_city':'어느 시에서 찾아볼까요? 다른 시는 직접 입력할 수 있어요.'}
     if stage not in prompts:raise ValueError('unknown navigation stage')
     return _step(state,'다시 선택' if stage=='condition' else '지역 다시 선택' if stage=='region_city' else '활동 다시 선택',prompts[stage],{'stage':stage})
 
 def choose_city(state,city):
     if city not in REGIONS:raise ValueError('unknown city')
-    return _step(state,city,city+'의 어느 구에서 찾아볼까요?',{'stage':'region_district','city':city})
+    result=_step(state,city,city+'의 어느 구에서 찾아볼까요?',{'stage':'region_district','city':city})
+    if result.get('life_mode'):
+        result['conditions']['region']=city;result['conditions'].pop('neighbourhood',None)
+        result['location']=dict(city=city,district=None,neighbourhood=None)
+    return result
 
 def choose_district(state,area,activities,settings):
     city=(state.get('picker') or {}).get('city')
     if city not in REGIONS or area not in REGIONS[city]:raise ValueError('unknown district')
     if not any(city in r['region'] and area in r['region'] for r in activities):
         return choose_area(state,city,area,None,activities,settings)
-    return _step(state,area,'어느 동에서 찾아볼까요? 동을 모르시면 구 전체를 선택해도 괜찮아요. 공식 주소에 동이 확인되는 자료만 골라요.',{'stage':'region_dong','city':city,'district':area})
+    result=_step(state,area,'어느 동에서 찾아볼까요? 동을 모르시면 구 전체를 선택해도 괜찮아요.',{'stage':'region_dong','city':city,'district':area})
+    if result.get('life_mode'):
+        result['conditions']['region']=city+' '+area;result['conditions'].pop('neighbourhood',None)
+        result['location']=dict(city=city,district=area,neighbourhood=None)
+    return result
 
 def choose_area(state,city,area,dong,activities,settings):
     if city not in REGIONS or area not in REGIONS[city]:raise ValueError('unknown region')

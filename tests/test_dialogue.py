@@ -192,7 +192,7 @@ class DialogueTest(TestCase):
         self.assertIn("직접", state["message"])
         state = self.turn(state, "아니요")
         self.assertEqual(state["code"], "clarify")
-        multiple = manual_search(new_state(), self.rows, as_of=DAY)
+        multiple = manual_search(dict(new_state(),conditions={"region":"강서구"}), self.rows, as_of=DAY)
         multiple = self.turn(multiple, "신청하고 싶어요")
         self.assertEqual(multiple["pending"], "selection")
         selected = self.turn(multiple, "두 번째 신청")

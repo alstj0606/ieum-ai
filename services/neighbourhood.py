@@ -11,7 +11,7 @@ def location_from(conditions,text='',previous=None):
  area=re.search(r'([가-힣]{2,8}구)',region)
  district=area.group(1) if area else None
  dong=conditions.get('neighbourhood')
- explicit_dong=re.search(r'(?:^|\s)([가-힣]{2,10}\d{0,2}동)(?:에|에서|근처|요|\s|$)',text)
+ explicit_dong=re.search(r'(?:^|\s)([가-힣]{1,10}\d{0,2}동)(?:에|이|에서|근처|요|\s|$)',text)
  if explicit_dong and not explicit_dong.group(1).endswith(('운동','활동','이동')):dong=explicit_dong.group(1)
  if not city and previous.get('district')==district and district:city=previous.get('city')
  if not city and not region:city=previous.get('city');district=previous.get('district')
@@ -20,7 +20,7 @@ def location_from(conditions,text='',previous=None):
 def question(location):
  if not location.get('city'):
   return (location.get('neighbourhood')+'은 ' if location.get('neighbourhood') else '')+'어느 시·구인가요? 동 이름이 같은 곳이 있어 한 번 확인할게요.'
- if location.get('neighbourhood') and not location.get('district'):return location['city']+'의 어느 구에 있는 '+location['neighbourhood']+'인가요?'
+ # A stated city + dong is a usable search query; no district is fabricated.
  return None
 
 def location_label(location):return ' '.join(location[k] for k in ('city','district','neighbourhood') if location.get(k))

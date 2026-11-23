@@ -84,17 +84,17 @@ def basic_extract(text, state):
     if region and region.group(1) not in {"친구","도구","농구","축구","탁구","당구","배구","가구","입구","출구"}:
         value = region.group(1)
         put("region", next((city+" "+value for city in ("부산","창원") if city in text),value))
-    dong=re.search(r'(?:^|\s)([가-힣]{2,10}\d{0,2}동)(?:에서|에|근처|요|\s|$)',text)
+    dong=re.search(r'(?:^|\s)([가-힣]{1,10}\d{0,2}동)(?:에서|에|이|근처|요|\s|$)',text)
     if dong and not dong.group(1).endswith(('활동','운동','이동')):put('neighbourhood',dong.group(1))
     if not region:
-        city_match=re.search(r'(?:^|\s)([가-힣]{2,8}시)(?:에서|로|요|\s|$)',text)
+        city_match=re.search(r'(?:^|\s)([가-힣]{2,8}시)(?:에서|에|로|요|\s|$)',text)
         if city_match:put('region',{'서울시':'서울','서울특별시':'서울','부산시':'부산','부산광역시':'부산','창원시':'창원'}.get(city_match.group(1),city_match.group(1)))
         else:
             for city in ('서울','부산','창원','부천','대구','대전','인천','광주','울산','세종'):
                 if re.search(r'(?:^|\s)'+city+r'(?:에서|에|로|요|\s|$)',text):put('region',city);break
     if re.search(r"살[아고]|거주", text):
         if "강서구" in text:
-            put("residence", "서울 강서구" if "부산" not in text else "부산 강서구")
+            put("residence", "부산 강서구" if "부산" in text else "서울 강서구" if "서울" in text else "강서구")
         elif "서울" in text:
             put("residence", "서울")
     aliases = {
@@ -495,14 +495,17 @@ def handle_turn(state, text, activities, settings, *, client=None, as_of=None, e
 
 def manual_search(state, activities, *, category=None, time_slot=None, as_of=None):
     state = deepcopy(state)
-    state.update(conditions={"region": "서울 강서구"}, any_fields=[], history=[],
+    state.update(conditions=deepcopy(state.get("conditions",{})), any_fields=[], history=[],
                  selected_id=None,condition_modes={},excluded_types=[],recommendation_update=None,
                  pending=None, error=None, alternatives=[],expansion_consent=None,expanded=False,mode="manual", diagnostic=None, notice=None, ideas=[],facilities=[],flow="program")
     state.pop('application_helper',None)
-    # 지역 문자열은 원본 '서울특별시 강서구'와 부분 일치하도록 저장한다.
-    state["conditions"]["region"] = "강서구"
     if category:
         state["conditions"]["category"] = category
     if time_slot:
         state["conditions"]["time_slot"] = time_slot
+    if state.get('life_mode'):
+        state.update(search_requested=True,conversation_route='search')
+    if not state["conditions"].get("region"):
+        state.update(results=[],references=[])
+        return _reply(state,"어느 동네에서 찾아볼까요?", "question", "region")
     return _search(state, activities, as_of)
