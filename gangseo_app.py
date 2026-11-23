@@ -20,6 +20,7 @@ from services.recommendation_pipeline import prepare_view, restore_local
 from services.voice import transcribe, synthesize, VoiceError
 from services.application_helper import helper_view, move_helper, helper_speech
 from services.continuity import recommended_rows
+from services.guided_flow import INTERESTS,REGIONS,dong_options,open_picker,choose_city,choose_district,choose_area,choose_interest
 from services.discovery import EXAMPLES,discovery_turn,safe_input,visible_activities,select_activity,public_card,return_to_recommendations
 
 DISCOVERY=globals().get('DISCOVERY',False)
@@ -43,12 +44,15 @@ except (OSError, ValueError):
     activities = []
     st.error("공식 자료를 읽지 못했어요. 잠시 후 다시 찾아주세요.")
 for key, value in {"dialog":new_state(), "turns":[], "speech":None, "auto_read":None,
-                   "close_menu":False, "turn_seq":0, "speech_error":None, "voice_error":None, "transcript":None, "upload_seen":None, "edit_voice":False}.items():
+                   "close_menu":False, "turn_seq":0, "navigation_history":[], "font_level":0, "speech_error":None, "voice_error":None, "transcript":None, "upload_seen":None, "edit_voice":False}.items():
     if key not in st.session_state:
         st.session_state[key] = value
 
 
 def remember(text, state, *, voice=False, preserve=False):
+    if DISCOVERY:
+        snapshot={'state':deepcopy(st.session_state.dialog),'detail_first':bool(st.session_state.turns and st.session_state.turns[-1].get('detail_first'))}
+        st.session_state.navigation_history=(st.session_state.navigation_history+[snapshot])[-20:]
     if not preserve:
         st.session_state.dialog = state
     st.session_state.turn_seq += 1
@@ -83,6 +87,74 @@ def send(text, *, voice=False, fixed=False):
             return
         remember(text, state, voice=voice)
 
+
+
+
+def pick_interest(label):
+    remember(label,choose_interest(st.session_state.dialog,label,activities,settings))
+
+
+def pick_step(stage):
+    remember('다시 선택' if stage=='condition' else '지역 선택' if stage=='region_city' else '활동 선택',open_picker(st.session_state.dialog,stage))
+
+
+def pick_city(city):
+    if (st.session_state.dialog.get('picker') or {}).get('stage')!='region_city':return
+    remember(city,choose_city(st.session_state.dialog,city))
+
+
+def pick_district(area):
+    if (st.session_state.dialog.get('picker') or {}).get('stage')!='region_district':return
+    remember(area,choose_district(st.session_state.dialog,area,activities,settings))
+
+
+def pick_dong(dong):
+    picker=st.session_state.dialog.get('picker') or {}
+    if picker.get('stage')!='region_dong':return
+    remember(dong or '구 전체에서 찾기',choose_area(st.session_state.dialog,picker['city'],picker['district'],dong,activities,settings))
+
+
+def direct_region():
+    state=deepcopy(st.session_state.dialog);state.pop('picker',None)
+    state.update(message='아래 입력창에 원하는 시·구·동을 적어 주세요. 예: 서울 강서구 화곡동',pending='region')
+    remember('지역을 직접 적을게요',state)
+
+
+def undo_navigation():
+    if not st.session_state.navigation_history:return
+    snapshot=st.session_state.navigation_history.pop();state=deepcopy(snapshot['state'])
+    st.session_state.dialog=state;st.session_state.turn_seq+=1
+    st.session_state.speech=None;st.session_state.auto_read=None;st.session_state.voice_error=None;st.session_state.transcript=None
+    if state['code']=='start':st.session_state.turns=[]
+    else:
+        st.session_state.turns.append({'user':'이전 단계','state':deepcopy(state),'turn_id':st.session_state.turn_seq,'detail_first':snapshot['detail_first']})
+        st.session_state.turns=st.session_state.turns[-20:]
+
+
+def adjust_font(delta):
+    st.session_state.font_level=max(0,min(2,st.session_state.font_level+delta))
+
+
+def interest_buttons(prefix):
+    for i,label in enumerate(INTERESTS):
+        choice_button(label,key=prefix+str(i),on_click=pick_interest,args=(label,),type='primary' if i==0 else 'secondary')
+
+
+def picker_buttons(state):
+    picker=state.get('picker') or {};stage=picker.get('stage')
+    if stage=='activity':interest_buttons('pick_interest_')
+    elif stage=='condition':
+        choice_button('활동 다시 선택',key='edit_activity',on_click=pick_step,args=('activity',),type='secondary')
+        choice_button('지역 다시 선택',key='edit_region',on_click=pick_step,args=('region_city',),type='secondary')
+        choice_button('시간 다시 선택',key='edit_time',on_click=send,args=('다른 시간',),kwargs={'fixed':True},type='secondary')
+    elif stage=='region_city':
+        for city in REGIONS:choice_button(city,key='city_'+city,on_click=pick_city,args=(city,),type='secondary')
+    elif stage=='region_district':
+        for area in REGIONS[picker['city']]:choice_button(area,key='district_'+area,on_click=pick_district,args=(area,),type='secondary')
+    elif stage=='region_dong':
+        choice_button('구 전체에서 찾기',key='district_all',on_click=pick_dong,args=(None,))
+        for dong in dong_options(activities,picker['city'],picker['district']):choice_button(dong,key='dong_'+dong,on_click=pick_dong,args=(dong,),type='secondary')
+    if stage and stage.startswith('region'):choice_button('지역을 직접 적을게요',key='direct_region',on_click=direct_region,type='secondary')
 
 
 def speaker_label(role):
@@ -138,6 +210,7 @@ def reset():
     st.session_state.close_menu = True
     st.session_state.dialog = new_state()
     st.session_state.turns = []
+    st.session_state.navigation_history = []
     st.session_state.speech = None
     st.session_state.transcript = None
     st.session_state.voice_error = None
@@ -181,7 +254,8 @@ def application_panel(state,index,latest):
         return
     st.subheader(view['name'])
     st.markdown('**접수 상태 · '+card_facts(row)['접수 상태']+'**')
-    st.markdown(f"### {view['index']+1}단계 / {view['total']}단계")
+    if view['mode']=='online':st.markdown(f"### {view['index']+1}단계 / {view['total']}단계")
+    else:st.markdown('### '+('접수 마감 안내' if view['mode']=='closed' else '참여 전 확인'))
     st.markdown('**'+view['step']['title']+'**')
     st.write(view['step']['action'])
     if view['step']['site_labels']:
@@ -190,6 +264,12 @@ def application_panel(state,index,latest):
     if view['mode']=='closed':st.warning('접수 마감 · '+view['next_date'])
     for note in view['condition_notes']:st.warning(note)
     st.info('아직 신청·예약·결제가 완료된 것은 아니에요. 비밀번호·인증번호·개인정보는 이음 AI에 입력하지 마세요.')
+    contact_entry=public_card(row)
+    if contact_entry['contact_phone']:
+        phone=contact_entry['contact_phone'];st.markdown(f"[문의 전화 · {phone}](tel:{phone.replace('-','')})")
+    else:st.caption('문의 전화 · 확인 필요')
+    st.caption('공식 기관 사이트가 새 창으로 열려요. 이음 AI 창을 유지하고 돌아와 안내를 이어가세요.')
+    st.write('신청 방식 · '+' / '.join(label+(' 안내 확인' if view['channels'][key] else ' 확인 필요') for key,label in (('online','온라인'),('phone','전화'),('visit','방문'))))
     st.link_button('공식 신청 페이지 열기 →' if view['mode']=='online' else '공식 안내 페이지 열기 →',view['official_url'],type='primary',use_container_width=True)
     choice_button('이전 단계',key='helper_previous',on_click=navigate_helper,args=('previous',),disabled=view['index']==0)
     choice_button('이 단계를 확인했어요 · 다음 단계 →',key='helper_next',on_click=navigate_helper,args=('next',),disabled=view['index']>=view['total']-1)
@@ -201,7 +281,7 @@ def application_panel(state,index,latest):
         st.write('온라인 신청 · '+('공식 자료에 안내됨' if view['channels']['online'] else '확인 필요'))
         st.write('전화 신청 · '+('공식 자료에 안내됨' if view['channels']['phone'] else '확인 필요 · 문의 전화와 달라요'))
         st.write('방문 신청 · '+('공식 자료에 안내됨' if view['channels']['visit'] else '확인 필요'))
-        contact=view['contact']
+        contact=view['contact'] or ({'organization':contact_entry['organization_name'] or row['facility_name'],'phone':contact_entry['contact_phone'],'role':'inquiry'} if contact_entry['contact_phone'] else None)
         if contact:
             role='신청' if view['channels']['phone'] and contact['role']=='application' else '문의'
             st.write(contact['organization']+' · '+role+' 전화')
@@ -330,6 +410,7 @@ def discovery_card(row,index,position,*,reference=False,latest=False):
             for n,url in enumerate(row.get('additional_source_urls') or [],1):st.link_button('추가 공식 근거 '+str(n),url,use_container_width=True)
             if entry['contact_phone']:st.link_button('문의처 공식 근거',entry['contact_source'],use_container_width=True)
         if detailed:
+            st.caption('공식 기관 사이트가 새 창으로 열려요. 이음 AI 창을 닫지 말고 돌아와 안내를 이어가세요.')
             st.link_button('공식 사이트 이동 →',entry['application_url'] or entry['source_url'],use_container_width=True)
             if not entry['application_url']:st.caption('신청 링크는 확인 필요해요. 버튼은 공식 근거 페이지를 열어요.')
         if latest and row.get('institution_id')=='seongsan_senior' and st.session_state.dialog.get('selected_id')==row['id']:
@@ -339,7 +420,16 @@ def discovery_card(row,index,position,*,reference=False,latest=False):
 
 if DISCOVERY and not st.session_state.turns:
     st.markdown(f'<div id="latest-reply-welcome-{st.session_state.turn_seq}"></div>',unsafe_allow_html=True)
+if DISCOVERY:
+    size=(20,24,28)[st.session_state.font_level]
+    st.markdown(f'<style>.stApp:has(#ieum-discovery-root) {{ --ieum-text-size:{size}px; --ieum-caption-size:{size-2}px; --ieum-heading-size:{size+4}px; }}</style>',unsafe_allow_html=True)
+    st.markdown('<style>'+(ROOT/'ui/accessibility.css').read_text()+'</style>',unsafe_allow_html=True)
 st.title("이음 AI")
+if DISCOVERY:
+    with st.popover('글자 크기',use_container_width=False):
+        st.write(('기본 글자','큰 글자','아주 큰 글자')[st.session_state.font_level])
+        st.button('글자 작게',key='font_smaller',on_click=adjust_font,args=(-1,),disabled=st.session_state.font_level==0,use_container_width=True)
+        st.button('글자 크게',key='font_larger',on_click=adjust_font,args=(1,),disabled=st.session_state.font_level==2,use_container_width=True)
 if not DISCOVERY and st.button('성산복지관 신청 도우미로 돌아가기',key='back_to_seongsan'):
     st.session_state.service_mode='seongsan'
     st.rerun()
@@ -351,8 +441,10 @@ if not st.session_state.turns:
                 speaker_label('assistant')
                 st.header('오늘은 어떤 활동을 해보고 싶으세요?')
                 st.write('운동, 문화, 취미, 배움. 하고 싶은 일을 편하게 말씀해 주세요.')
-            for i,example in enumerate(EXAMPLES):
-                choice_button(example,key=f'example_{i}',on_click=send,args=(example,),type='primary' if i==0 else 'secondary')
+            interest_buttons('start_interest_')
+            with st.expander('예시 문장으로 시작'):
+                for i,example in enumerate(EXAMPLES):
+                    choice_button(example,key=f'example_{i}',on_click=send,args=(example,),type='secondary')
         else:
             st.write("안녕하세요. 어떤 활동을 하고 싶으세요? 글로 적거나 마이크를 눌러 말씀해 주세요.")
         if not settings.gemini_api_key:
@@ -491,6 +583,7 @@ for index, turn in enumerate(st.session_state.turns):
                     if conditions.get('age') is not None:summary.append(f"{conditions['age']}세")
                     if conditions.get('beginner'):summary.append('처음 배우기')
                     if conditions.get('companionship'):summary.append(conditions['companionship']+' 참여 선호 · 참여 방식 확인 필요')
+                    if conditions.get('neighbourhood'):summary.append(conditions['neighbourhood']+' · 공식 주소 기준')
                     if conditions.get('weekdays'):summary.append('·'.join(conditions['weekdays'])+'요일 희망')
                     if summary:st.caption('적용 조건 · '+' · '.join(summary))
             if compact_update and not guide_focus:
@@ -581,7 +674,8 @@ for index, turn in enumerate(st.session_state.turns):
                 choice_button('요일 조건 해제',key='clear_weekdays',on_click=send,args=('요일은 상관없어요',),kwargs={'fixed':True})
             if latest and state['code']=='unsupported_region':
                 choice_button('서울 강서구 자료로 찾기',key='supported_region',on_click=send,args=('서울 강서구요',),kwargs={'fixed':True},use_container_width=True)
-            if latest and not guide_focus and state["code"] not in {"demo","start"} and state.get("flow")!="adjacent":
+            if latest and DISCOVERY and state.get("picker"):picker_buttons(state)
+            if latest and not state.get("picker") and not guide_focus and state["code"] not in {"demo","start"} and state.get("flow")!="adjacent":
                 if DISCOVERY and state['pending']=='activity_type':
                     for label in ('만들기를 배우고 싶어요','운동을 하고 싶어요','문화 체험을 하고 싶어요'):
                         choice_button(label,key='kind_'+label,on_click=send,args=(label,),kwargs={'fixed':True})
@@ -593,6 +687,7 @@ for index, turn in enumerate(st.session_state.turns):
                     choice_button('아니요, 이 지역만 볼게요',key='expand_no',on_click=send,args=('이 지역만 볼게요',),kwargs={'fixed':True},use_container_width=True)
                 elif state["pending"]=="region":
                     choice_button("서울 강서구에서 찾기",key="choose_region",on_click=send,args=("서울 강서구요",),kwargs={"fixed":True},use_container_width=True)
+                    if DISCOVERY:choice_button("다른 지역 선택",key="other_region",on_click=pick_step,args=("region_city",),type="secondary")
                 elif state["pending"]=="time_slot":
                     for name in ("오전","오후","저녁","상관없어요"):
                         choice_button(name,key=f"time_{name}",on_click=send,args=(name,),kwargs={"fixed":True},use_container_width=True)
@@ -623,6 +718,12 @@ for index, turn in enumerate(st.session_state.turns):
                     if st.button("음성 중지",key="stop_speech",use_container_width=True):
                         st.session_state.speech=None
                         st.rerun()
+
+if DISCOVERY and st.session_state.turns:
+    with st.container(key='easy_navigation'):
+        st.button('이전 단계',key='nav_previous',on_click=undo_navigation,disabled=not st.session_state.navigation_history,use_container_width=True)
+        st.button('다시 선택',key='nav_reselect',on_click=pick_step,args=('condition',),use_container_width=True)
+        st.button('처음부터',key='nav_reset',on_click=reset,use_container_width=True)
 
 if st.session_state.voice_error:
     st.warning(st.session_state.voice_error)

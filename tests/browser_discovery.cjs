@@ -4,7 +4,7 @@ const rows=JSON.parse(fs.readFileSync('data/activities.json','utf8'));
 const latest=p=>p.locator('[data-testid=stChatMessage]').last();
 async function idle(p){await p.waitForFunction(()=>document.querySelector('[data-testid=stApp]')?.getAttribute('data-test-script-state')==='notRunning');}
 async function change(p,action){const before=await p.locator('[id^=latest-reply-]').last().getAttribute('id');await action();await p.waitForFunction(old=>[...document.querySelectorAll('[id^=latest-reply-]')].at(-1)?.id!==old,before);await idle(p);}
-async function tap(p,name){await change(p,()=>p.getByRole('button',{name,exact:true}).tap());}
+async function tap(p,name){const target=p.getByRole('button',{name,exact:true});if((!(await target.count())||!(await target.isVisible()))&&await p.getByText('예시 문장으로 시작',{exact:true}).count())await p.getByText('예시 문장으로 시작',{exact:true}).click();await change(p,()=>p.getByRole('button',{name,exact:true}).tap());}
 async function send(p,text){await idle(p);const input=p.getByRole('textbox');await input.fill(text);await change(p,()=>input.press('Enter'));}
 async function layout(p){assert.equal(await p.locator('[data-testid=stException]').count(),0);assert.equal(await p.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);const failures=await p.locator('.stButton button,[data-testid=stLinkButton] a').evaluateAll(es=>es.filter(e=>e.getClientRects().length&&e.getBoundingClientRect().height<48).map(e=>e.innerText));assert.deepEqual(failures,[]);}
 async function newAnswerVisible(p){await p.waitForFunction(()=>{const a=[...document.querySelectorAll('[id^=latest-reply-]')].at(-1)?.getBoundingClientRect();return a&&a.y>=55&&a.y<170;},null,{timeout:6000});}
@@ -23,7 +23,7 @@ async function newAnswerVisible(p){await p.waitForFunction(()=>{const a=[...docu
  assert.equal(await latest(p).locator('del').count(),0);const titles=await latest(p).locator('h3').allTextContents();assert.ok(titles[0].includes('슬로우조깅'));assert.ok(titles.length<=3);
  await send(p,'오후로 찾아줘');assert.ok(!(await latest(p).locator('h3').allTextContents()).some(x=>x.includes('슬로우조깅')));await send(p,'무료로 찾아줘');assert.ok((await latest(p).innerText()).includes('무료'));
  if(mode==='mock'){await send(p,'강서구에서 어르신이 참여할 수 있는 운동을 추천해줘');await latest(p).getByText(/Gemini 연결을 이용하지 못해 기본 규칙/).waitFor();assert.ok(!(await latest(p).innerText()).includes('private-'));}
- await p.getByRole('button',{name:'＋ 보조 메뉴',exact:true}).tap();await tap(p,'처음부터 다시 찾기');await p.getByRole('button',{name:'수영을 배우고 싶어요',exact:true}).waitFor();await newAnswerVisible(p);
+ await p.getByRole('button',{name:'＋ 보조 메뉴',exact:true}).tap();await tap(p,'처음부터 다시 찾기');await p.getByRole('button',{name:'운동',exact:true}).waitFor();await newAnswerVisible(p);
  await send(p,'사람들과 함께하는 활동이 좋아요');await tap(p,'서울 강서구에서 찾기');await layout(p);assert.ok((await latest(p).innerText()).includes('교류')||(await latest(p).innerText()).includes('함께'));
  await p.screenshot({path:`/workspace/work/discovery/results-${width}-${mode}.png`});
  if(mode==='mock'&&width===390){

@@ -93,6 +93,8 @@ def recommend(activities, conditions, *, as_of=None):
     reasons = {"qualification": 0, "budget": 0, "insufficient": 0, "closed": 0, "unknown": 0}
     broad = 0
     for item in activities:
+        from services.guided_flow import verified_dong
+        if conditions.get('neighbourhood') and verified_dong(item)!=conditions['neighbourhood']:continue
         if item['activity_type'] in conditions.get('_excluded_types',[]):continue
         found = search_activities(
             [item], activity_type=conditions.get("activity_type"),

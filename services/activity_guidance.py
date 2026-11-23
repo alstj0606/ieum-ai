@@ -80,6 +80,8 @@ def facility_references(activities, conditions, *, as_of=None):
     kinds={'수영','아쿠아로빅'} if target=='수영' else {target} if target else None
     rows=[];seen=set()
     for item in activities:
+        from services.guided_flow import verified_dong
+        if conditions.get('neighbourhood') and verified_dong(item)!=conditions['neighbourhood']:continue
         if item['is_demo'] or not item['facility_name'] or (kinds and item['activity_type'] not in kinds):
             continue
         if conditions.get('region') and conditions['region'].replace(' ','') not in item['region'].replace(' ',''):
