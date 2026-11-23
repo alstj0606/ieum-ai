@@ -84,6 +84,13 @@ def send(text, *, voice=False, fixed=False):
         remember(text, state, voice=voice)
 
 
+
+def speaker_label(role):
+    # Fixed app-owned roles: alignment never depends on Streamlit avatar internals.
+    name='나' if role=='user' else '이음 AI'
+    st.markdown(f'<strong class="ieum-speaker" data-ieum-role="{role}">{name}</strong>',unsafe_allow_html=True)
+
+
 def choice_button(label, **kwargs):
     kwargs.setdefault('type','primary')
     kwargs.setdefault('use_container_width',True)
@@ -340,8 +347,10 @@ st.caption(('공식 프로그램 자료: '+str(len(activities))+'건 · '+'·'.j
 if not st.session_state.turns:
     with st.chat_message("assistant"):
         if DISCOVERY:
-            st.header('오늘은 어떤 활동을 해보고 싶으세요?')
-            st.write('운동, 문화, 취미, 배움. 하고 싶은 일을 편하게 말씀해 주세요.')
+            with st.container(key='assistant_bubble_welcome'):
+                speaker_label('assistant')
+                st.header('오늘은 어떤 활동을 해보고 싶으세요?')
+                st.write('운동, 문화, 취미, 배움. 하고 싶은 일을 편하게 말씀해 주세요.')
             for i,example in enumerate(EXAMPLES):
                 choice_button(example,key=f'example_{i}',on_click=send,args=(example,),type='primary' if i==0 else 'secondary')
         else:
@@ -438,15 +447,22 @@ for index, turn in enumerate(st.session_state.turns):
         st.session_state.dialog=state
         st.session_state.turns[index]['state']=deepcopy(state)
     with st.chat_message("user"):
+        if DISCOVERY:speaker_label('user')
         st.write(turn["user"])
     with st.chat_message("assistant"):
+        if latest:
+            st.markdown(f'<div id="latest-reply-{st.session_state.turn_seq}"></div>',unsafe_allow_html=True)
+        if DISCOVERY:
+            with st.container(key=f'assistant_bubble_{turn["turn_id"]}'):
+                speaker_label('assistant')
+                if state['error']:st.write('입력을 확인해 주세요. 글로 계속 질문할 수 있어요.')
+                elif state.get('helper_focus'):st.write('선택한 활동의 신청 방법을 안내할게요.')
+                elif turn.get('detail_first'):st.write('선택한 활동의 상세 정보예요.')
+                else:st.write(state['message'])
         if DISCOVERY and not latest:
-            st.write(state['message'])
             previous_names=[row['name'] for row in visible_activities(state)]
             if previous_names:st.caption(' · '.join(previous_names))
             continue
-        if latest:
-            st.markdown(f'<div id="latest-reply-{st.session_state.turn_seq}"></div>',unsafe_allow_html=True)
         if state["error"]:
             st.warning(state["error"])
         else:
@@ -465,7 +481,7 @@ for index, turn in enumerate(st.session_state.turns):
                 st.info(state["notice"])
             if not detail_first and not guide_focus:
                 if not DISCOVERY:st.markdown('**'+('인접 지역 확인 결과' if state.get('flow')=='adjacent' else '활동 추천 안내')+'**')
-                st.write(state["message"])
+                if not DISCOVERY:st.write(state["message"])
                 if state.get('flow') in {'program','adjacent'}:
                     conditions=state['conditions']
                     summary=[str(conditions[key]) for key in ('region','activity_type','time_slot') if conditions.get(key)]

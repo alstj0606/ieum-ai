@@ -17,7 +17,7 @@ class ThemeTests(unittest.TestCase):
         colors=dict(re.findall(r'--ieum-([a-z-]+):(#[0-9a-f]{6});',css))
         self.assertEqual(colors['red'],'#ea002c')
         self.assertEqual(colors['orange'],'#ff7a00')
-        for a,b in [('white','red'),('ink','white'),('muted','white'),('ink','warm'),('link','white')]:
+        for a,b in [('white','red'),('ink','white'),('muted','white'),('ink','warm'),('ink','orange'),('link','white')]:
             self.assertGreaterEqual(ratio(colors[a],colors[b]),4.5,(a,b))
     def test_shared_theme_loaded_and_old_brand_removed(self):
         for file in ['gangseo_app.py','ui/seongsan_app.py']:
