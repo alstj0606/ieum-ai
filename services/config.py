@@ -32,6 +32,7 @@ class Settings:
     api_key: str = field(default="", repr=False)  # OPENAI_API_KEY: voice only
     stt_model: str = "gpt-transcribe"
     tts_model: str = "gpt-4o-mini-tts"
+    search_api_key: str = field(default="", repr=False)  # Brave, server-side only
 
 
 def load_settings(secrets=None):
@@ -50,6 +51,7 @@ def load_settings(secrets=None):
         model_source = source
         break
     return Settings(
+        search_api_key=value("BRAVE_SEARCH_API_KEY"),
         gemini_api_key=value("GEMINI_API_KEY"),
         model=model, model_source=model_source,
         api_key=value("OPENAI_API_KEY"),

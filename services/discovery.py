@@ -125,9 +125,12 @@ def discovery_turn(state,text,activities,settings,**kwargs):
     if blocked:
         state.update(error='개인정보·비밀번호·인증번호는 입력하지 마세요. 공식 사이트에서만 직접 입력해 주세요.')
         return state,safe
-    if re.sub(r'\s+','',safe).rstrip('.!?') in {'처음부터다시','처음부터다시찾기','처음부터','새로시작','초기화','대화초기화'}:
+    if re.sub(r'\s+','',safe).rstrip('.!?') in {'처음부터다시','처음부터다시찾기','처음부터','새로시작','초기화','대화초기화','처음으로돌아가기'}:
         return dict(new_state(),discovery_mode=True),safe
     if caution:state['conditions']['movement_caution']='부담 확인'
+    from services.live_discovery import before_turn
+    live=before_turn(state,safe,settings,activities)
+    if live is not None:return live,safe
     decision=_decision(state,safe,activities,settings,kwargs)
     if decision is not None:return decision,safe
     state['detail_focus']=False
@@ -159,6 +162,8 @@ def discovery_turn(state,text,activities,settings,**kwargs):
         result['notice']='건강 관련 상세 표현은 저장하지 않고 신체 부담 확인 요청만 기억해요. 운동의 안전 여부를 판단하지 않으며 우려가 있으면 의료진과 상담해 주세요.'
     if result.get('history') and result['history'][-1].get('role')=='assistant':
         result['history'][-1]['content']=result['message']
+    from services.live_discovery import after_turn
+    result=after_turn(result,state,safe,settings,activities)
     return result,safe
 
 

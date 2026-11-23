@@ -84,14 +84,14 @@ def basic_extract(text, state):
     if region and region.group(1) not in {"친구","도구","농구","축구","탁구","당구","배구","가구","입구","출구"}:
         value = region.group(1)
         put("region", next((city+" "+value for city in ("부산","창원") if city in text),value))
-    dong=re.search(r'(?:^|\s)([가-힣]{2,10}\d{0,2}동)(?:에서|근처|요|\s|$)',text)
+    dong=re.search(r'(?:^|\s)([가-힣]{2,10}\d{0,2}동)(?:에서|에|근처|요|\s|$)',text)
     if dong and not dong.group(1).endswith(('활동','운동','이동')):put('neighbourhood',dong.group(1))
     if not region:
         city_match=re.search(r'(?:^|\s)([가-힣]{2,8}시)(?:에서|로|요|\s|$)',text)
         if city_match:put('region',{'서울시':'서울','서울특별시':'서울','부산시':'부산','부산광역시':'부산','창원시':'창원'}.get(city_match.group(1),city_match.group(1)))
         else:
-            for city in ('서울','부산','창원','대전','인천','광주','울산','세종'):
-                if re.search(r'(?:^|\s)'+city+r'(?:에서|로|요|\s|$)',text):put('region',city);break
+            for city in ('서울','부산','창원','부천','대구','대전','인천','광주','울산','세종'):
+                if re.search(r'(?:^|\s)'+city+r'(?:에서|에|로|요|\s|$)',text):put('region',city);break
     if re.search(r"살[아고]|거주", text):
         if "강서구" in text:
             put("residence", "서울 강서구" if "부산" not in text else "부산 강서구")

@@ -100,7 +100,7 @@ class Handler(BaseHTTPRequestHandler):
             data = {"candidates":[{"content":{"parts":[{"text":json.dumps(request,ensure_ascii=False)}],
                     "role":"model"}, "finishReason":"STOP", "index":0}]}
         elif self.path == "/v1/audio/transcriptions":
-            data = {"text": "강서구에서 국악 공연을 보고 싶어요"}
+            data = {"text": "서울 강서구에서 국악 공연을 보고 싶어요"}
         elif self.path == "/v1/audio/speech":
             # 모의 음성은 말소리가 아닌 시험용 톤이다. 브라우저 재생만 검사한다.
             content_type = "audio/wav"

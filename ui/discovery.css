@@ -1,61 +1,45 @@
-/* User-discovery light surfaces only; shared large touch targets remain in chat.css. */
-.stApp:has(#ieum-discovery-root) {background:var(--ieum-white);color:var(--ieum-ink);color-scheme:light}
-.stApp:has(#ieum-discovery-root) :is([data-testid=stHeader],[data-testid=stBottom],[data-testid=stBottomBlockContainer]) {background:var(--ieum-white);color:var(--ieum-ink)}
-.stApp:has(#ieum-discovery-root) :is(h1,h2,h3,[data-testid=stMarkdownContainer]) {color:var(--ieum-ink)}
-.stApp:has(#ieum-discovery-root) h2 {font-size:30px;line-height:1.4;overflow-wrap:anywhere}
-.stApp:has(#ieum-discovery-root) [data-testid=stCaptionContainer] {opacity:1}
-.stApp:has(#ieum-discovery-root) [data-testid=stCaptionContainer] p {color:var(--ieum-muted)}
-.stApp:has(#ieum-discovery-root) [data-testid=stChatMessage] {background:var(--ieum-surface);color:var(--ieum-ink)}
-.stApp:has(#ieum-discovery-root) [data-testid=stAlert] {background:var(--ieum-warm);color:var(--ieum-warning-ink);border:1px solid var(--ieum-orange)}
-.stApp:has(#ieum-discovery-root) [data-testid=stAlert] [data-testid=stMarkdownContainer] {color:var(--ieum-warning-ink)}
-.stApp:has(#ieum-discovery-root) .stLinkButton a {background:var(--ieum-red);color:var(--ieum-white);border:2px solid var(--ieum-red)}
-.stApp:has(#ieum-discovery-root) .stLinkButton a p {color:var(--ieum-white)}
-.stApp:has(#ieum-discovery-root) :is(.stChatInput textarea,.stTextArea textarea) {color:var(--ieum-ink);-webkit-text-fill-color:var(--ieum-ink);background:var(--ieum-white)}
-.stApp:has(#ieum-discovery-root) .stChatInput textarea::placeholder {color:var(--ieum-muted);-webkit-text-fill-color:var(--ieum-muted);opacity:1}
-.stApp:has(#ieum-discovery-root) .stExpander {background:var(--ieum-white);color:var(--ieum-ink)}
-.stApp:has(#ieum-discovery-root) .stButton button:disabled {background:var(--ieum-disabled);color:var(--ieum-muted);opacity:1;border:2px solid var(--ieum-border)}
-.stApp:has(#ieum-discovery-root) .stButton button:disabled p {color:var(--ieum-muted)}
-.stApp:has(#ieum-discovery-root) a:not([data-testid^=stBaseLinkButton]) {color:var(--ieum-link)}
-
-/* Conversation layout; native Streamlit controls keep keyboard/audio semantics. */
-.stApp:has(#ieum-discovery-root) .stMainBlockContainer {max-width:780px;padding-top:2rem}
-.stApp:has(#ieum-discovery-root) h1 {font-size:26px;letter-spacing:-.04em;margin-bottom:4px}
-.stApp:has(#ieum-discovery-root) h2 {font-size:clamp(24px,6vw,30px);letter-spacing:-.035em}
-.stApp:has(#ieum-discovery-root) [data-testid=stChatMessage] {border:0;border-radius:20px 20px 20px 5px;padding:18px 16px;background:var(--ieum-surface);margin:8px 0;max-width:96%;box-shadow:none}
-.stApp:has(#ieum-discovery-root) [data-testid=stChatMessageAvatarAssistant] {display:none}
-.stApp:has(#ieum-discovery-root) [data-testid=stChatMessage]:has([data-ieum-role=user]) {margin-left:auto;margin-right:0;max-width:86%;background:var(--ieum-orange);border-radius:20px 20px 5px 20px}
-.stApp:has(#ieum-discovery-root) [data-testid=stChatMessageAvatarUser] {display:none}
-.stApp:has(#ieum-discovery-root) [data-testid=stChatMessage]:has([data-ieum-role=user]) [data-testid=stMarkdownContainer] {color:var(--ieum-ink)}
-.stApp:has(#ieum-discovery-root) [class*=st-key-activity_card_] {padding:16px 0 8px;border-top:1px solid #dedee3}
-.stApp:has(#ieum-discovery-root) [class*=st-key-activity_card_] h3 {font-size:22px;line-height:1.5;letter-spacing:-.025em}
-.stApp:has(#ieum-discovery-root) .stButton button {min-height:52px;border-radius:16px;margin:2px 0 6px;padding:12px 16px}
-.stApp:has(#ieum-discovery-root) .stButton button:not(:disabled) {border:1px solid var(--ieum-red)}
-.stApp:has(#ieum-discovery-root) .stButton button[kind=secondary]:not(:disabled) {background:var(--ieum-white);color:var(--ieum-ink);border-color:#c6c6cd}
-.stApp:has(#ieum-discovery-root) .stButton button[kind=secondary]:not(:disabled) p {color:var(--ieum-ink);font-weight:650}
-.stApp:has(#ieum-discovery-root) .stButton button[kind=secondary]:not(:disabled):hover {background:var(--ieum-warm);border-color:var(--ieum-orange)}
-.stApp:has(#ieum-discovery-root) .stExpander summary {background:transparent;border:0;border-radius:12px;color:var(--ieum-muted);padding:8px 0;min-height:48px}
-.stApp:has(#ieum-discovery-root) .stExpander {background:transparent;border:0}
-.stApp:has(#ieum-discovery-root) .stLinkButton a {border-width:1px;border-radius:16px;min-height:52px;text-decoration:none}
-.stApp:has(#ieum-discovery-root) .stPopover button {border-width:1px;background:var(--ieum-white)}
-.stApp:has(#ieum-discovery-root) [data-testid=stAlert] {border:0;border-left:3px solid var(--ieum-orange);border-radius:12px}
-.stApp:has(#ieum-discovery-root) .stChatInput {border:1px solid #888891;border-radius:26px;padding:6px 8px;box-shadow:none}
+/* Mobile conversation surfaces. All selectors are scoped to the discovery app. */
+.stApp:has(#ieum-discovery-root) {background:#fff;color:#151515;color-scheme:light}
+.stApp:has(#ieum-discovery-root) .stMainBlockContainer {max-width:720px;padding:1.2rem 12px 9rem}
+.stApp:has(#ieum-discovery-root) h1 {font-size:24px;letter-spacing:-.04em;color:#151515;margin:0;padding:.25rem 0}
+.stApp:has(#ieum-discovery-root) :is(h2,h3) {line-height:1.45;letter-spacing:-.025em;overflow-wrap:anywhere}
+.stApp:has(#ieum-discovery-root) [data-testid=stChatMessage] {background:transparent;border:0;padding:0;margin:6px 0;min-width:0;max-width:100%;border-radius:0}
+.stApp:has(#ieum-discovery-root) [data-testid=stChatMessageContent] {min-width:0;width:100%;overflow-wrap:anywhere}
+.stApp:has(#ieum-discovery-root) :is([data-testid=stChatMessageAvatarUser],[data-testid=stChatMessageAvatarAssistant]) {display:none}
+.stApp:has(#ieum-discovery-root) [data-testid=stChatMessage]:has([data-ieum-role=user]) {margin-left:auto;max-width:85%;background:#fff0e2;padding:10px 14px;border-radius:16px 16px 4px 16px}
+.stApp:has(#ieum-discovery-root) [data-testid=stChatMessage]:has([data-ieum-role=assistant]) {margin-left:0;margin-right:auto;max-width:100%}
+.stApp:has(#ieum-discovery-root) [class*=st-key-assistant_bubble_] {background:#f4f5f6;color:#151515;padding:12px 14px;border-radius:16px 16px 16px 4px;min-width:0;max-width:95%}
+.stApp:has(#ieum-discovery-root) [class*=st-key-assistant_bubble_] :is(h1,h2,h3,p,[data-testid=stMarkdownContainer]) {color:#151515}
+.stApp:has(#ieum-discovery-root) .ieum-speaker {font-weight:700;display:block;line-height:1.4;margin-bottom:4px;color:#454545}
+.stApp:has(#ieum-discovery-root) [data-ieum-role=assistant]::before {content:'●';color:#ea002c;margin-right:6px}
+.stApp:has(#ieum-discovery-root) .stButton button,
+.stApp:has(#ieum-discovery-root) .stLinkButton a {min-height:44px;min-width:44px;height:auto;border-radius:12px;margin:0;padding:9px 12px;border:1px solid #c9c9cf;white-space:normal;background:#fff;color:#151515;box-shadow:none}
+.stApp:has(#ieum-discovery-root) .stButton button p,
+.stApp:has(#ieum-discovery-root) .stLinkButton a p {color:inherit;font-weight:650!important;line-height:1.4}
+.stApp:has(#ieum-discovery-root) .stButton button[kind=primary] {background:#ea002c;border-color:#ea002c;color:#fff}
+.stApp:has(#ieum-discovery-root) .stButton button:disabled {background:#ededf0;color:#454545;opacity:1;border-color:#bdbdc4}
+.stApp:has(#ieum-discovery-root) [class*=st-key-interest_grid_] [data-testid=stHorizontalBlock] {gap:10px;flex-wrap:nowrap;align-items:stretch}
+.stApp:has(#ieum-discovery-root) [class*=st-key-interest_grid_] [data-testid=stColumn] {min-width:0;width:calc(50% - 5px);flex:1 1 0}
+.stApp:has(#ieum-discovery-root) [class*=st-key-interest_grid_] .stButton button {min-height:112px;justify-content:flex-start;text-align:left;padding:14px 10px;background:#fff;border:1px solid #d4d4da;display:flex;align-items:flex-start}
+.stApp:has(#ieum-discovery-root) [class*=st-key-interest_grid_] .stButton button strong {display:block;font-size:var(--ieum-text-size);color:#151515}
+.stApp:has(#ieum-discovery-root) [class*=st-key-interest_grid_] .stButton button p {font-size:var(--ieum-caption-size)!important;line-height:1.4;color:#454545}
+.stApp:has(#ieum-discovery-root) :is([class*=st-key-activity_card_],[class*=st-key-web_card_]) {border:1px solid #dfdfe4;border-radius:14px;padding:14px;background:#fff;margin:4px 0 10px}
+.stApp:has(#ieum-discovery-root) :is([class*=st-key-activity_card_],[class*=st-key-web_card_]) [data-testid=stVerticalBlock] {gap:.55rem}
+.stApp:has(#ieum-discovery-root) :is([class*=st-key-activity_card_],[class*=st-key-web_card_]) h3 {padding:0;margin:0}
+.stApp:has(#ieum-discovery-root) :is([class*=st-key-activity_card_],[class*=st-key-web_card_]) p {margin:0}
+.stApp:has(#ieum-discovery-root) [data-testid=stCaptionContainer] p {color:#454545;line-height:1.45}
+.stApp:has(#ieum-discovery-root) .stExpander summary {min-height:44px;padding:8px;border:1px solid #d4d4da;background:#fff}
+.stApp:has(#ieum-discovery-root) [data-testid=stAlert] {border:0;border-left:3px solid #ff7a00;background:#fff3e6;color:#633600;padding:10px;border-radius:10px}
+.stApp:has(#ieum-discovery-root) [data-testid=stAlert] [data-testid=stMarkdownContainer] {color:#633600}
+.stApp:has(#ieum-discovery-root) :is(.stChatInput textarea,.stTextArea textarea) {color:#151515;-webkit-text-fill-color:#151515}
+.stApp:has(#ieum-discovery-root) .stChatInput textarea::placeholder {color:#555;-webkit-text-fill-color:#555;opacity:1}
+.stApp:has(#ieum-discovery-root) .stChatInput {border:1px solid #92929d;border-radius:22px;padding:4px;box-shadow:0 -2px 12px #00000006;background:#fff}
 .stApp:has(#ieum-discovery-root) .stChatInput button[data-testid=stChatInputMicButton],
-.stApp:has(#ieum-discovery-root) .stChatInput button[data-testid=stChatInputSubmitButton] {width:56px;height:56px;min-width:56px;min-height:56px}
-.stApp:has(#ieum-discovery-root) .stChatInput[data-has-text=true] button[data-testid=stChatInputMicButton] {width:44px;height:44px;min-width:44px;min-height:44px}
-@media(max-width:400px) {
- .stApp:has(#ieum-discovery-root) [data-testid=stChatMessage] {padding:16px 12px;max-width:100%}
- .stApp:has(#ieum-discovery-root) [data-testid=stChatMessage]:has([data-ieum-role=user]) {max-width:90%}
-}
-.stApp:has(#ieum-discovery-root) h1 {color:var(--ieum-red)}
-/* Captions remain legible while the main conversation stays at 20px. */
-.stApp:has(#ieum-discovery-root) [data-testid=stCaptionContainer] p {font-size:18px!important;line-height:1.5}
-
-/* App-owned roles override native chat surfaces, not the recommendation widgets. */
-.stApp:has(#ieum-discovery-root) [data-testid=stChatMessage]:has([data-ieum-role=assistant]) {background:transparent;margin-left:0;margin-right:auto;padding:0;max-width:96%}
-.stApp:has(#ieum-discovery-root) [class*=st-key-assistant_bubble_] {background:var(--ieum-red);color:var(--ieum-white);padding:18px 16px;border-radius:20px 20px 20px 5px;min-width:0;overflow-wrap:anywhere}
-.stApp:has(#ieum-discovery-root) [class*=st-key-assistant_bubble_] :is(h1,h2,h3,p,[data-testid=stMarkdownContainer]) {color:var(--ieum-white)}
-.stApp:has(#ieum-discovery-root) .ieum-speaker {display:block;font-size:18px;font-weight:750;line-height:1.4}
-.stApp:has(#ieum-discovery-root) [data-testid=stChatMessageContent] {min-width:0;overflow-wrap:anywhere}
-@media(max-width:400px) {
- .stApp:has(#ieum-discovery-root) [data-testid=stChatMessage]:has([data-ieum-role=assistant]) {max-width:96%}
-}
+.stApp:has(#ieum-discovery-root) .stChatInput button[data-testid=stChatInputSubmitButton] {height:44px;width:44px;min-width:44px;min-height:44px;padding:10px;background:#ea002c;color:#fff}
+.stApp:has(#ieum-discovery-root) .stChatInput[data-has-text=true] button[data-testid=stChatInputMicButton] {background:#fff0e2;color:#151515}
+.stApp:has(#ieum-discovery-root) [data-testid=stBottomBlockContainer] {padding-bottom:max(.4rem,env(safe-area-inset-bottom));background:#fff}
+.stApp:has(#ieum-discovery-root) .st-key-font_menu button {min-height:44px}
+.stApp:has(#ieum-discovery-root) [class*=st-key-font_option_] button[kind=primary] {outline:2px solid #ea002c;outline-offset:2px}
+@media(max-width:430px) {.stApp:has(#ieum-discovery-root) .stMainBlockContainer {padding-left:10px;padding-right:10px}}
+/* Markdown containers set their own colour in the shared legacy theme. */
+.stApp:has(#ieum-discovery-root) .stButton button[kind=primary] :is(p,[data-testid=stMarkdownContainer]) {color:#fff}

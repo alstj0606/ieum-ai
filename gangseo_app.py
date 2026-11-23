@@ -21,17 +21,21 @@ from services.voice import transcribe, synthesize, VoiceError
 from services.application_helper import helper_view, move_helper, helper_speech
 from services.continuity import recommended_rows
 from services.guided_flow import INTERESTS,REGIONS,dong_options,open_picker,choose_city,choose_district,choose_area,choose_interest
+from services.live_discovery import select_web,cache_search
+from ui.live_cards import render as render_live
 from services.discovery import EXAMPLES,discovery_turn,safe_input,visible_activities,select_activity,public_card,return_to_recommendations
 
 DISCOVERY=globals().get('DISCOVERY',False)
 
 ROOT = Path(__file__).parent
-st.set_page_config(page_title="이음 AI · 활동 찾기", page_icon="💬")
-st.markdown('<style>'+(ROOT/'ui/theme.css').read_text()+'</style>',unsafe_allow_html=True)
-st.markdown(f"<style>{(ROOT/'ui/chat.css').read_text()}</style>", unsafe_allow_html=True)
+st.set_page_config(page_title="이음 AI · 활동 찾기", page_icon="💬",menu_items={"Get help":None,"Report a bug":None,"About":None})
+style=(ROOT/'ui/theme.css').read_text()+(ROOT/'ui/chat.css').read_text()
 if DISCOVERY:
-    st.markdown('<div id="ieum-discovery-root"></div>',unsafe_allow_html=True)
-    st.markdown('<style>'+(ROOT/'ui/discovery.css').read_text()+'</style>',unsafe_allow_html=True)
+    size=(18,20,22)[st.session_state.get('font_level',0)]
+    style+=(ROOT/'ui/discovery.css').read_text()+(ROOT/'ui/accessibility.css').read_text()
+    style+=f'.stApp:has(#ieum-discovery-root) {{ --ieum-text-size:{size}px; --ieum-caption-size:{size-2}px; --ieum-heading-size:{size+4}px; }}'
+st.html('<style>'+style+'</style>')
+if DISCOVERY:st.markdown('<div id="ieum-discovery-root"></div>',unsafe_allow_html=True)
 try:
     secrets = dict(st.secrets)
 except Exception:
@@ -47,6 +51,7 @@ for key, value in {"dialog":new_state(), "turns":[], "speech":None, "auto_read":
                    "close_menu":False, "turn_seq":0, "navigation_history":[], "font_level":0, "speech_error":None, "voice_error":None, "transcript":None, "upload_seen":None, "edit_voice":False}.items():
     if key not in st.session_state:
         st.session_state[key] = value
+if DISCOVERY:st.session_state.dialog["web_enabled"]=True
 
 
 def remember(text, state, *, voice=False, preserve=False):
@@ -77,8 +82,9 @@ def send(text, *, voice=False, fixed=False):
         remember(text, state, voice=True)
     else:
         if DISCOVERY:
-            state,text=discovery_turn(state,text,activities,settings,
-                                  extraction=basic_extract(text,state) if fixed else None)
+            with st.spinner('공식 페이지를 확인하고 있어요…' if settings.search_api_key else '조건을 확인하고 있어요…'):
+                state,text=discovery_turn(state,text,activities,settings,
+                                      extraction=basic_extract(text,state) if fixed else None)
         else:
             state = handle_turn(state, text, activities, settings,
                                 extraction=basic_extract(text, state) if fixed else None)
@@ -115,7 +121,7 @@ def pick_dong(dong):
 
 
 def direct_region():
-    state=deepcopy(st.session_state.dialog);state.pop('picker',None)
+    state=deepcopy(st.session_state.dialog);state.pop('picker',None);state.pop('web',None)
     state.update(message='아래 입력창에 원하는 시·구·동을 적어 주세요. 예: 서울 강서구 화곡동',pending='region')
     remember('지역을 직접 적을게요',state)
 
@@ -135,9 +141,46 @@ def adjust_font(delta):
     st.session_state.font_level=max(0,min(2,st.session_state.font_level+delta))
 
 
+def choose_font(level):
+    st.session_state.font_level=level
+    st.session_state.font_menu=False
+
+
+@st.dialog('글자 크기',width='small',dismissible=True)
+def font_dialog():
+    for level,label in enumerate(('보통','크게','아주 크게')):
+        chosen=level==st.session_state.font_level
+        with st.container(key='font_option_'+str(level)):
+            if st.button(('✓ ' if chosen else '')+label+' · '+str((18,20,22)[level])+'px',key='font_choice_'+str(level),type='primary' if chosen else 'secondary',on_click=choose_font,args=(level,),use_container_width=True):
+                st.rerun()
+            st.markdown('<span style="font-size:'+str((18,20,22)[level])+'px">이 크기로 읽어요</span>',unsafe_allow_html=True)
+    if st.button('닫기',key='font_close',use_container_width=True):st.rerun()
+
+
+def focus_cache():
+    remember('저장 자료로 찾아보기',cache_search(st.session_state.dialog,activities))
+
+
+def focus_web(activity_id):
+    remember('선택한 프로그램 자세히 보기',select_web(st.session_state.dialog,activity_id))
+
+
+def direct_activity():
+    state=deepcopy(st.session_state.dialog);state.pop('picker',None);state.pop('web',None)
+    state.update(message='아래 입력창에 하고 싶은 활동을 적어 주세요.',pending='activity_type',code='question')
+    remember('활동을 직접 적을게요',state)
+
+
 def interest_buttons(prefix):
-    for i,label in enumerate(INTERESTS):
-        choice_button(label,key=prefix+str(i),on_click=pick_interest,args=(label,),type='primary' if i==0 else 'secondary')
+    labels=[('🚶','운동하기','가볍게 몸을 움직여요','운동'),('🎨','취미 배우기','새로운 즐거움을 찾아요','취미'),('🎭','문화생활','공연과 문화를 만나요','문화'),('🤝','사람들 만나기','함께하는 시간을 찾아요','사람 만나기')]
+    with st.container(key='interest_grid_'+prefix):
+        for offset in (0,2):
+            columns=st.columns(2,gap='small')
+            for i,col in enumerate(columns,offset):
+                icon,title,description,interest=labels[i]
+                with col:st.button(icon+' **'+title+'**\n\n'+description,key=prefix+str(list(INTERESTS).index(interest)),on_click=pick_interest,args=(interest,),use_container_width=True,wrap=True)
+    choice_button('다른 활동 직접 입력하기',key=prefix+'direct',on_click=direct_activity,type='secondary')
+    if prefix.startswith('pick_'):choice_button('배움',key=prefix+'learning',on_click=pick_interest,args=('배움',))
 
 
 def picker_buttons(state):
@@ -310,6 +353,10 @@ def prepare(index):
     if state["selected_id"]:
         rows = [row for row in rows if row["id"] == state["selected_id"]]
     spoken = speech_text("선택하신 프로그램 정보예요." if turn.get("detail_first") and rows else state["message"], rows)
+    if state.get('web',{}).get('rows'):
+        web=state['web'];webrows=[r for r in web['rows'] if not web.get('selected_id') or r['id']==web['selected_id']]
+        from services.web_search import recruitment_status
+        spoken=state['message']+' '+' '.join(r['name']+'. 장소 '+(r['facility'] or '확인 필요')+'. 시간 '+(r['schedule'] or '확인 필요')+'. '+recruitment_status(r)+'.' for r in webrows)
     if state.get('helper_focus') and state.get('application_helper'):
         official=next((r for r in activities if r['id']==state['application_helper']['program_id']),None)
         if official:spoken=helper_speech(helper_view(official,state['conditions'],state['application_helper']))
@@ -330,6 +377,29 @@ def prepare(index):
     except VoiceError as error:
         st.session_state.speech = None
         st.session_state.speech_error = (index, str(error))
+
+
+def render_listen(index,state):
+    if st.session_state.auto_read==index:
+        st.session_state.auto_read=None
+        prepare(index)
+    if st.session_state.speech_error and st.session_state.speech_error[0]==index:
+        st.warning(st.session_state.speech_error[1])
+    speech=st.session_state.speech
+    if not speech or speech["index"]!=index:
+        if st.button("답변 듣기",key=f"listen_{index}",disabled=not bool(settings.api_key),use_container_width=True):
+            prepare(index)
+            st.rerun()
+    else:
+        with st.expander("음성으로 읽는 내용"):
+            st.text(speech["text"])
+        st.caption("AI가 만든 음성이에요. 소리가 안 나면 답변 듣기를 누르세요.")
+        st.audio(speech["data"],format="audio/mp3",autoplay=speech["autoplay"])
+        speech["autoplay"]=False
+        st.html((ROOT/"ui/player.html").read_text(),unsafe_allow_javascript=True)
+        if st.button("음성 중지",key="stop_speech",use_container_width=True):
+            st.session_state.speech=None
+            st.rerun()
 
 
 def card(row, index, position, *, reference=False, latest=False):
@@ -383,12 +453,13 @@ def discovery_card(row,index,position,*,reference=False,latest=False):
     with st.container(key=f'activity_card_{index}_{position}'):
         st.subheader(row['name'])
         st.caption(row.get('match_label','공식 자료')+' · '+facts['접수 상태'])
-        st.write(row.get('reason') or '말씀하신 조건으로 확인한 공식 자료예요. 참여 자격과 현재 모집 여부는 확인해 주세요.')
-        if reference:st.caption('참고 자료 · 현재 신청 가능하다고 확인된 프로그램이 아니에요.')
+        if detailed and row.get('reason'):st.caption(row['reason'])
+        if reference:st.caption('저장 참고 자료 · 현재 신청 가능 여부 미확인')
         for label,value in [('장소',entry['facility_name']),('시간',facts['일정']),('비용',facts['비용'])]:
             st.markdown('**'+label+'** · '+str(value).replace('~',r'\~'))
-        st.caption('공식 자료 확인일 · '+str(entry['source_checked_at'])+' · 실시간 모집 조회 아님')
+        st.caption('저장 자료 · 확인 '+str(entry['source_checked_at'])+' · 실시간 조회 아님')
         if detailed:
+            st.markdown('#### 장소·일정·참여 조건')
             st.markdown('**모집 상태** · '+facts['접수 상태'])
             for label,value in [('운영 기관',entry['organization_name'] or '확인 필요'),('지역',facts['지역']),('대상',facts['대상']),('주소',facts['주소']),('모집 기간',facts['접수 기간']),('다음 접수 예정일',facts['다음 접수 예정일']),('신청 방법',facts['신청 방법'])]:
                 st.markdown('**'+label+'** · '+str(value).replace('~',r'\~'))
@@ -402,6 +473,7 @@ def discovery_card(row,index,position,*,reference=False,latest=False):
             if latest:choice_button('신청 방법 안내 →',key=f'apply_{row["id"]}',on_click=apply,args=(row['id'],))
         elif latest:
             choice_button('자세히 보기 →',key=f'detail_{row["id"]}',on_click=focus_activity,args=(row['id'],),type='secondary')
+        if not detailed and entry['contact_phone']:st.link_button('전화하기 · '+entry['contact_phone'],'tel:'+entry['contact_phone'].replace('-',''),use_container_width=True)
         with st.expander('상세 정보 · 신청 방법·공식 근거',expanded=False):
             for label in ('주소','대상','신청 방법','준비물','비용 참고','접수 참고','접수 시각','다음 접수 예정일'):st.write('**'+label+'** · '+str(facts[label]).replace('~',r'\~'))
             if row['schedule'].get('notes'):st.write('**일정 참고** · '+display_date_text(row['schedule']['notes']))
@@ -420,27 +492,20 @@ def discovery_card(row,index,position,*,reference=False,latest=False):
 
 if DISCOVERY and not st.session_state.turns:
     st.markdown(f'<div id="latest-reply-welcome-{st.session_state.turn_seq}"></div>',unsafe_allow_html=True)
-if DISCOVERY:
-    size=(20,24,28)[st.session_state.font_level]
-    st.markdown(f'<style>.stApp:has(#ieum-discovery-root) {{ --ieum-text-size:{size}px; --ieum-caption-size:{size-2}px; --ieum-heading-size:{size+4}px; }}</style>',unsafe_allow_html=True)
-    st.markdown('<style>'+(ROOT/'ui/accessibility.css').read_text()+'</style>',unsafe_allow_html=True)
 st.title("이음 AI")
 if DISCOVERY:
-    with st.popover('글자 크기',use_container_width=False):
-        st.write(('기본 글자','큰 글자','아주 큰 글자')[st.session_state.font_level])
-        st.button('글자 작게',key='font_smaller',on_click=adjust_font,args=(-1,),disabled=st.session_state.font_level==0,use_container_width=True)
-        st.button('글자 크게',key='font_larger',on_click=adjust_font,args=(1,),disabled=st.session_state.font_level==2,use_container_width=True)
+    if st.button('글자 크기',key='font_settings',type='secondary'):
+        font_dialog()
 if not DISCOVERY and st.button('성산복지관 신청 도우미로 돌아가기',key='back_to_seongsan'):
     st.session_state.service_mode='seongsan'
     st.rerun()
-st.caption(('공식 프로그램 자료: '+str(len(activities))+'건 · '+'·'.join(sorted({r['region'] for r in activities}))+' · 실시간 모집 조회 아님') if DISCOVERY else '기존 기능 · 서울 강서구 공식 활동 검색')
+st.caption(('공식 웹 검색 · 저장 자료 '+str(len(activities))+'건은 별도 참고' if settings.search_api_key else '인터넷 검색 미설정 · 저장된 강서구 자료 10건 참고') if DISCOVERY else '기존 기능 · 서울 강서구 공식 활동 검색')
 if not st.session_state.turns:
     with st.chat_message("assistant"):
         if DISCOVERY:
             with st.container(key='assistant_bubble_welcome'):
                 speaker_label('assistant')
                 st.header('오늘은 어떤 활동을 해보고 싶으세요?')
-                st.write('운동, 문화, 취미, 배움. 하고 싶은 일을 편하게 말씀해 주세요.')
             interest_buttons('start_interest_')
             with st.expander('예시 문장으로 시작'):
                 for i,example in enumerate(EXAMPLES):
@@ -558,6 +623,12 @@ for index, turn in enumerate(st.session_state.turns):
         if state["error"]:
             st.warning(state["error"])
         else:
+            if DISCOVERY and state.get('web',{}).get('status') not in (None,'not_configured'):
+                if state.get('notice'):st.caption(state['notice'])
+                render_live(state,on_select=focus_web,on_send=send,on_cache=focus_cache)
+                render_listen(index,state)
+                continue
+            if DISCOVERY and state.get('web',{}).get('status')=='not_configured':st.caption('저장 자료 참고 · 인터넷 검색은 수행하지 않았어요. 현재 모집 여부는 기관 확인이 필요해요.')
             guide_focus=bool(state.get('helper_focus') and state.get('application_helper'))
             compact_update=bool((state.get('recommendation_update') or {}).get('hide_repeated_cards'))
             display_cards=not guide_focus and not compact_update
@@ -674,8 +745,11 @@ for index, turn in enumerate(st.session_state.turns):
                 choice_button('요일 조건 해제',key='clear_weekdays',on_click=send,args=('요일은 상관없어요',),kwargs={'fixed':True})
             if latest and state['code']=='unsupported_region':
                 choice_button('서울 강서구 자료로 찾기',key='supported_region',on_click=send,args=('서울 강서구요',),kwargs={'fixed':True},use_container_width=True)
+            if latest and state.get('pending')=='web_location':
+                choice_button('서울 강서구',key='confirm_web_location',on_click=send,args=('서울 강서구요',),kwargs={'fixed':True})
+                choice_button('다른 시·구 선택',key='confirm_web_other',on_click=pick_step,args=('region_city',))
             if latest and DISCOVERY and state.get("picker"):picker_buttons(state)
-            if latest and not state.get("picker") and not guide_focus and state["code"] not in {"demo","start"} and state.get("flow")!="adjacent":
+            if latest and not state.get("picker") and not guide_focus and state["code"] not in {"demo","start"} and state.get("flow")!="adjacent" and state.get('pending') not in {'web_location','web_dong'}:
                 if DISCOVERY and state['pending']=='activity_type':
                     for label in ('만들기를 배우고 싶어요','운동을 하고 싶어요','문화 체험을 하고 싶어요'):
                         choice_button(label,key='kind_'+label,on_click=send,args=(label,),kwargs={'fixed':True})
@@ -698,26 +772,7 @@ for index, turn in enumerate(st.session_state.turns):
                     choice_button("다른 활동 찾기",key="change_activity",on_click=send,args=("다른 활동",),kwargs={"fixed":True})
                     choice_button("다른 시간 찾기",key="change_time",on_click=send,args=("다른 시간",),kwargs={"fixed":True})
             if state["code"] != "demo":
-                if st.session_state.auto_read==index:
-                    st.session_state.auto_read=None
-                    prepare(index)
-                if st.session_state.speech_error and st.session_state.speech_error[0]==index:
-                    st.warning(st.session_state.speech_error[1])
-                speech=st.session_state.speech
-                if not speech or speech["index"]!=index:
-                    if st.button("답변 듣기",key=f"listen_{index}",disabled=not bool(settings.api_key),use_container_width=True):
-                        prepare(index)
-                        st.rerun()
-                else:
-                    with st.expander("음성으로 읽는 내용"):
-                        st.text(speech["text"])
-                    st.caption("AI가 만든 음성이에요. 소리가 안 나면 답변 듣기를 누르세요.")
-                    st.audio(speech["data"],format="audio/mp3",autoplay=speech["autoplay"])
-                    speech["autoplay"]=False
-                    st.html((ROOT/"ui/player.html").read_text(),unsafe_allow_javascript=True)
-                    if st.button("음성 중지",key="stop_speech",use_container_width=True):
-                        st.session_state.speech=None
-                        st.rerun()
+                render_listen(index,state)
 
 if DISCOVERY and st.session_state.turns:
     with st.container(key='easy_navigation'):

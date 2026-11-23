@@ -1,12 +1,22 @@
-/* Font preference changes presentation only, never search state. */
+/* Selected sizes are bounded; labels/cards/inputs share the same preference. */
 .stApp:has(#ieum-discovery-root) .stMain p,
 .stApp:has(#ieum-discovery-root) .stMain .stButton button p,
-.stApp:has(#ieum-discovery-root) .stChatInput textarea,
-.stApp:has(#ieum-discovery-root) .stTextArea textarea {font-size:var(--ieum-text-size)!important;line-height:1.6;overflow-wrap:anywhere}
+.stApp:has(#ieum-discovery-root) .stLinkButton a p,
+.stApp:has(#ieum-discovery-root) :is(.stChatInput textarea,.stTextArea textarea) {font-size:var(--ieum-text-size)!important;line-height:1.5;overflow-wrap:anywhere}
 .stApp:has(#ieum-discovery-root) .stMain [data-testid=stCaptionContainer] p,
 .stApp:has(#ieum-discovery-root) .ieum-speaker {font-size:var(--ieum-caption-size)!important}
-.stApp:has(#ieum-discovery-root) .stMain :is(h2,h3) {font-size:var(--ieum-heading-size);line-height:1.5;overflow-wrap:anywhere}
-.stApp:has(#ieum-discovery-root) .stButton button {min-width:44px;white-space:normal;height:auto}
-.stApp:has(#ieum-discovery-root) .st-key-easy_navigation {border-top:1px solid var(--ieum-border);padding-top:12px;margin-top:12px}
-.stApp:has(#ieum-discovery-root) .st-key-easy_navigation button {background:var(--ieum-white);color:var(--ieum-ink);border:1px solid var(--ieum-border)}
-.stApp:has(#ieum-discovery-root) .st-key-easy_navigation button p {color:var(--ieum-ink)}
+.stApp:has(#ieum-discovery-root) .stMain :is(h2,h3) {font-size:var(--ieum-heading-size);line-height:1.45}
+.stApp:has(#ieum-discovery-root) .st-key-easy_navigation {border-top:1px solid #dedee3;padding-top:10px;margin-top:8px}
+
+.stApp:has(#ieum-discovery-root) .stMain [class*=st-key-interest_grid_] .stButton button p {font-size:var(--ieum-caption-size)!important;font-weight:450!important}
+
+/* Native popover portals sit outside .stApp. Only these app-owned keys are styled. */
+[class*=st-key-font_option_] .stButton button[kind=secondary] {background:#fff;color:#151515;border:1px solid #b8b8c2}
+[class*=st-key-font_option_] .stButton button[kind=secondary] p {color:#151515}
+[class*=st-key-font_option_] .stButton button[kind=primary] {background:#ea002c;color:#fff;outline:2px solid #ea002c;outline-offset:2px}
+[class*=st-key-font_option_] .stButton button {min-height:44px;margin:3px 0;padding:8px 12px}
+[class*=st-key-font_option_] .stButton button[kind=primary] :is(p,[data-testid=stMarkdownContainer]) {color:#fff}
+[data-testid=stDialogDismissButton] {min-height:44px;min-width:44px}
+.st-key-font_close button {background:#fff;color:#151515;border:1px solid #b8b8c2}
+.st-key-font_close button p {color:#151515}
+[data-testid=stDialog] button {min-height:44px;min-width:44px}

@@ -17,13 +17,14 @@ for(const width of [320,390,768])for(const scheme of ['light','dark'])for(const 
  await p.goto('http://127.0.0.1:'+(service==='discovery'?18517:18507));
  await p.getByRole(service==='discovery'?'heading':'button',{name:service==='discovery'?'오늘은 어떤 활동을 해보고 싶으세요?':'온라인 신청 도와주세요',exact:true}).waitFor();await idle(p);
  await p.waitForFunction(()=>getComputedStyle(document.documentElement).getPropertyValue('--ieum-red').trim()==='#ea002c');
- const primary=p.locator('.stButton button:not(:disabled):visible').first();assert.equal(await primary.evaluate(e=>getComputedStyle(e).backgroundColor),'rgb(234, 0, 44)');
+ await p.waitForFunction(expected=>{const e=[...document.querySelectorAll('.stButton button:not(:disabled)')].find(e=>e.getClientRects().length);return e&&getComputedStyle(e).backgroundColor===expected},service==='discovery'?'rgb(255, 255, 255)':'rgb(234, 0, 44)');
+ const primary=p.locator('.stButton button:not(:disabled):visible').first();assert.equal(await primary.evaluate(e=>getComputedStyle(e).backgroundColor),service==='discovery'?'rgb(255, 255, 255)':'rgb(234, 0, 44)');
  if(service==='institution'){await p.getByRole('button',{name:'온라인 신청 도와주세요',exact:true}).click();await p.getByRole('button',{name:'복지관 비회원이에요',exact:true}).waitFor();await idle(p);}
  const r=await measure(p,`${service}-${width}-${scheme}`);reports.push(r);assert.equal(r.overflow,false);assert.equal(r.appBackground,'rgb(255, 255, 255)');assert.deepEqual(r.failures,[]);
  for(const e of await p.locator('.stButton button,.stLinkButton a').all()){const box=await e.boundingBox();if(box){assert.ok(box.height>=44);assert.ok(box.x>=0&&box.x+box.width<=width+1);}}
 
  if(service==='discovery'&&width===390){
-  await p.getByRole('textbox').fill('강서구 걷기 프로그램 찾아줘');await p.getByRole('textbox').press('Enter');
+  await p.getByRole('textbox').fill('서울 강서구 걷기 프로그램 찾아줘');await p.getByRole('textbox').press('Enter');
   const latest=p.locator('[data-testid=stChatMessage]').last();await latest.getByRole('heading',{name:/슬로우조깅/}).waitFor();await idle(p);
   let extra=await measure(p,`recommendations-${scheme}`);reports.push(extra);assert.deepEqual(extra.failures,[]);
   const old=await p.locator('[id^=latest-reply-]').last().getAttribute('id');await latest.getByRole('button',{name:'자세히 보기 →',exact:true}).first().click();await p.waitForFunction(id=>[...document.querySelectorAll('[id^=latest-reply-]')].at(-1)?.id!==id,old);await idle(p);await latest.getByText('상세 정보 · 신청 방법·공식 근거',{exact:true}).waitFor();await idle(p);
