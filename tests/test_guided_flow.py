@@ -62,8 +62,8 @@ class GuidedFlowTest(TestCase):
   self.assertNotIn('neighbourhood',s['conditions'])
  def test_buttons_only_reach_participation_then_back_reset(self):
   with patch('services.config.load_settings',return_value=Settings()):
-   app=self.app();app.button(key='start_interest_0').click().run();app.button(key='other_region').click().run()
-   app.button(key='city_서울').click().run();app.button(key='district_강서구').click().run();app.button(key='district_all').click().run()
+   app=self.app();app.button(key='start_interest_0').click().run();app.button(key='counsel_suggest').click().run();app.button(key='idea_walking').click().run();app.button(key='choose_region').click().run()
+   app.selectbox(key='national_province').select('서울특별시').run();app.selectbox(key='national_district').select('강서구').run();app.button(key='region_all').click().run()
    row=visible_activities(app.session_state['dialog'])[0];app.button(key='detail_'+row['id']).click().run();app.button(key='apply_'+row['id']).click().run()
    self.assertTrue(app.session_state['dialog']['helper_focus']);self.assertEqual(app.session_state['dialog']['selected_id'],row['id'])
    self.assertTrue(any('신청 방식' in m.value for m in app.markdown))
@@ -77,15 +77,15 @@ class GuidedFlowTest(TestCase):
    app.button(key='nav_reset').click().run();self.assertEqual(app.session_state['font_level'],2)
  def test_previous_in_picker_restores_stage_and_selection(self):
   with patch('services.config.load_settings',return_value=Settings()):
-   app=self.app();app.button(key='start_interest_0').click().run();app.button(key='other_region').click().run();app.button(key='city_서울').click().run()
-   self.assertEqual(app.session_state['dialog']['picker']['stage'],'region_district')
-   app.button(key='nav_previous').click().run();self.assertEqual(app.session_state['dialog']['picker']['stage'],'region_city')
-   app.button(key='city_서울').click().run();app.button(key='district_강서구').click().run();app.button(key='dong_공항동').click().run()
-   self.assertEqual(app.session_state['dialog']['conditions']['neighbourhood'],'공항동');self.assertFalse(app.exception)
+   app=self.app();app.chat_input(key='chat').set_value('부산 해운대구 우동 수영').run()
+   before=deepcopy(app.session_state['dialog']['conditions'])
+   app.button(key='region_change').click().run();app.selectbox(key='national_province').select('서울특별시').run()
+   app.button(key='region_close').click().run();self.assertFalse(app.session_state['region_open'])
+   self.assertEqual(app.session_state['dialog']['conditions'],before);self.assertFalse(app.exception)
  def test_condition_reselection_does_not_erase_other_conditions(self):
   with patch('services.config.load_settings',return_value=Settings()):
    app=self.app();app.chat_input(key='chat').set_value('서울 강서구 오후 무료 문화 활동').run();app.button(key='nav_reselect').click().run();app.button(key='edit_activity').click().run();app.button(key='pick_interest_0').click().run()
-   self.assertEqual(app.session_state['dialog']['conditions']['region'],'강서구');self.assertEqual(app.session_state['dialog']['conditions']['time_slot'],'오후');self.assertEqual(app.session_state['dialog']['conditions']['budget_amount'],0)
+   self.assertEqual(app.session_state['dialog']['conditions']['region'],'서울 강서구');self.assertEqual(app.session_state['dialog']['conditions']['time_slot'],'오후');self.assertEqual(app.session_state['dialog']['conditions']['budget_amount'],0)
  def test_free_text_skip_dong_uses_already_chosen_city_and_district(self):
   s=choose_interest(new_state(),'운동',self.rows,self.settings);s=open_picker(s,'region_city');s=choose_city(s,'서울');s=choose_district(s,'강서구',self.rows,self.settings)
   s=self.turn(s,'상관없어요');self.assertEqual(s['conditions']['region'],'강서구');self.assertNotEqual(s['pending'],'region');self.assertNotIn('neighbourhood',s['conditions'])

@@ -6,8 +6,8 @@ from services.activity_catalog import catalog_entry
 from services.ai import AIError,empty_extraction
 
 EXAMPLES=('수영을 배우고 싶어요','문화 행사를 보고 싶어요','새로운 취미를 찾고 싶어요','교육 프로그램을 찾고 싶어요')
-HEALTH=re.compile(r'무릎|허리|관절|통증|질환|진단|당뇨|혈압|심장|수술|건강|아프|불편|휠체어|장애|병원')
-PRIVATE=re.compile(r'(?<!\d)\d{6,}(?!\d)(?!\s*원)|(?:비밀번호|인증번호|주민등록번호)\s*[:=는은]\s*\S+|아이디\s*[:=]\s*\S+')
+HEALTH=re.compile(r'뻐근|찌뿌둥|무릎|허리|관절|통증|질환|진단|당뇨|혈압|심장|수술|건강|아프|불편|휠체어|장애|병원')
+PRIVATE=re.compile(r'(?:01[016789]|0\d{1,2})[- .]?\d{3,4}[- .]?\d{4}|[가-힣0-9]+(?:로|길)\s+\d+(?:-\d+)?(?:번지)?(?=\s|$)|(?<!\d)\d{6,}(?!\d)(?!\s*원)|(?:비밀번호|인증번호|주민등록번호)\s*[:=는은]\s*\S+|아이디\s*[:=]\s*\S+')
 
 
 def available_records(state, activities):

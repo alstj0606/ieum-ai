@@ -184,11 +184,14 @@ def extract_program(url,html,location,activity,checked_at,hosts,transport):
  city=location.get('city');area=location.get('district');dong=location.get('neighbourhood')
  relation='장소 지역 확인 필요'
  if venue:
-  if area and area in venue and (not city or city in venue):relation='요청하신 구의 자료 · 동 일치 확인 필요'
-  if dong and dong in venue and (not city or city in venue) and (not area or area in venue):relation='요청하신 동 이름이 주소에 표시됨 · 거리 미계산'
-  elif city and city in venue and not area:relation='요청하신 시의 자료 · 거리 미계산'
-  elif city and city not in venue:relation='요청 지역과 장소가 다르거나 지역 확인 필요'
-  if area and area not in venue:relation='요청 지역과 장소가 다르거나 지역 확인 필요'
+  verified=place_text(venue)
+  city_match=not city or place_text(city) in verified
+  area_match=not area or all(place_text(part) in verified for part in area.split())
+  if area and area_match and city_match:relation='요청하신 구의 자료 · 동 일치 확인 필요'
+  if dong and place_text(dong) in verified and city_match and area_match:relation='요청하신 동 이름이 주소에 표시됨 · 거리 미계산'
+  elif city and city_match and not area:relation='요청하신 시의 자료 · 거리 미계산'
+  elif city and not city_match:relation='요청 지역과 장소가 다르거나 지역 확인 필요'
+  if area and not area_match:relation='요청 지역과 장소가 다르거나 지역 확인 필요'
  if activity and activity not in name+' '+text:return None
  offer=record.get('offers') or {};offer=offer if isinstance(offer,dict) else {}
  fee=label('비용|수강료|참가비|참가 비용');amount=None;fee_unit=None
@@ -245,6 +248,29 @@ def validate_program(row):
  return row
 
 
+def place_text(value):
+ value=re.sub(r'\s+','',value or '').replace('특별자치','').replace('특별','').replace('광역','')
+ for a,b in (('충청북','충북'),('충청남','충남'),('전라북','전북'),('전라남','전남'),('경상북','경북'),('경상남','경남')):value=value.replace(a,b)
+ return value
+
+
+def same_search_area(row,location,expanded=False):
+ """Named locality evidence, not inferred coordinates or legal↔administrative mapping."""
+ from services.regions import address_province,provinces,short,data
+ province=location.get('province');observed=address_province(row.get('address'))
+ if province and observed and province!=observed:return False
+ if province and not observed and any(r[2]!=province and r[3].startswith(short(province)+'시') for r in data()['regions']):return False
+ norm=place_text
+ venue=norm(' '.join(str(row.get(k) or '') for k in ('address','facility')))
+ city=norm(location.get('city'))
+ if city and city not in venue:return False
+ if not expanded:
+  if any(norm(token) not in venue for token in (location.get('district') or '').split()):return False
+  dong=location.get('neighbourhood')
+  if dong and norm(dong) not in venue:return False
+ return True
+
+
 def search_programs(settings,location,conditions,*,transport=None,hosts=(),excluded=(),expanded=False,control=None):
  transport=transport or Transport();started=time.monotonic()
  activity=conditions.get('activity_type') or {'체육':'운동','문화·취미':'문화 취미','평생학습':'교육'}.get(conditions.get('category'),'활동')
@@ -272,14 +298,16 @@ def search_programs(settings,location,conditions,*,transport=None,hosts=(),exclu
    row=extract_program(final,html,location,conditions.get('activity_type'),checked_at,hosts,transport)
    if row and row['id'] in excluded:continue
    if row:
-    address=row['address'] or '';origin_dong=location.get('neighbourhood');address_dong=re.search(r'([가-힣]{2,10}\d{0,2}동)(?:\s|$|[)])',address)
+    address=row['address'] or '';origin_dong=location.get('neighbourhood');address_dong=re.search(r'([가-힣]{1,10}\d{0,2}동)(?:\s|$|[)])',address)
     known_city=next((c for c in ('서울','부산','인천','대전','대구','광주','울산','창원','부천') if address.startswith(c)),None)
     address_area=re.search(r'([가-힣]{2,8}구)(?:\s|$)',address)
-    if known_city and known_city!=location.get('city'):
+    if known_city and known_city not in ''.join(str(location.get(k) or '') for k in ('city','district','province')):
      ref['note']='공식 자료 · 요청하신 시 밖의 프로그램';references.append(ref);continue
-    mismatch=(address_area and location.get('district') and address_area.group(1)!=location['district']) or (address_dong and origin_dong and address_dong.group(1)!=origin_dong)
+    mismatch=(address_area and location.get('district') and address_area.group(1) not in location['district']) or (address_dong and origin_dong and address_dong.group(1)!=origin_dong)
     if mismatch and not expanded:
      ref['note']='공식 자료 · 요청 지역 밖이거나 행정동·법정동 일치 확인 필요';references.append(ref);continue
+    if not same_search_area(row,location,expanded):
+     ref['note']='공식 자료 · 요청 지역의 장소 확인 필요';references.append(ref);continue
     # Budget/time eligibility are not inferred. Unknowns stay explicit, known mismatch is omitted.
     if conditions.get('budget_amount') is not None and (row['fee_amount'] is None or row['fee_amount']>conditions['budget_amount']):
      ref['note']='공식 자료 · 비용 조건 일치 확인 필요';references.append(ref);continue

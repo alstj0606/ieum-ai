@@ -1,6 +1,7 @@
 """Session conversation policy, independent of search transport and verified facts."""
 from copy import deepcopy
 import logging
+import hashlib
 import re
 from services.ai import AIError, validate_extraction
 from services.dialogue import basic_extract, new_state
@@ -28,6 +29,8 @@ def rule_route(text,state,request):
     if re.fullmatch(r'(안녕(?:하세요|하세용)?|반가워요|고마워(?:요)?|감사(?:해요|합니다)|잘가(?:요)?)',c):return 'chat'
     if any(x in c for x in ('돈많이안','저렴한활동')):return 'explore'
     if '집에서' in c and any(x in c for x in ('취미','활동','알려','할수','하고')):return 'home'
+    if any(w in c for w in ('근처','가까운곳','주변')) and any(w in c for w in ('찾','있','알려')):return 'search'
+    if '잘못' in c and any(w in c for w in ('춤','그림','노래')):return 'howto'
     if any(x in c for x in ('어떻게시작','처음배우려면','시작하는방법','시작방법','그리는방법')):return 'howto'
     if any(x in c for x in ('너무비싸','비싸요','너무멀','멀어요','다른거','다른것','마음에안','별로','아까추천')):return 'followup'
     if request['intent']=='change_activity':return 'explore'
@@ -48,6 +51,16 @@ def grounded_request(text,state,request):
             request['update_fields'].remove(field);request['conditions'][field]=None
         if field in explicit['update_fields']:
             request['update_fields'].append(field);request['conditions'][field]=explicit['conditions'][field]
+    from services.recommendation_pipeline import explicit_activity
+    comparison=bool(re.search(r'이나|또는|혹은|중어떤|중에|/',text.replace(' ',''))) and explicit_activity(text) is None
+    if comparison:
+        if 'activity_type' in request['update_fields']:request['update_fields'].remove('activity_type')
+        request['conditions']['activity_type']=None
+        if state['conditions'].get('activity_type') and 'activity_type' not in request['clear_fields']:request['clear_fields'].append('activity_type')
+    if 'activity_type' in explicit['update_fields'] and not comparison:
+        request['conditions']['activity_type']=explicit['conditions']['activity_type']
+        if 'activity_type' not in request['update_fields']:request['update_fields'].append('activity_type')
+        if 'activity_type' in request['clear_fields']:request['clear_fields'].remove('activity_type')
     return request
 
 
@@ -58,12 +71,24 @@ def merge(state,text,request):
     if 'activity_type' in updates:
         for k in ('category','tags','beginner'):
             if k not in updates:state['conditions'].pop(k,None)
+    if 'category' in updates and 'activity_type' not in updates:
+        for k in ('activity_type','tags','beginner'):
+            state['conditions'].pop(k,None)
+        if old.get('category')!=values['category'] and 'purpose' not in updates:state['conditions'].pop('purpose',None)
     for k in request['clear_fields']:state['conditions'].pop(k,None)
     if 'region' in request['clear_fields']:state['conditions'].pop('neighbourhood',None)
     for k in updates:state['conditions'][k]=values[k]
     state['any_fields']=list((set(state.get('any_fields',[]))|set(request['clear_fields']))-set(updates))
-    state['location']=location_from(state['conditions'],text, None if 'region' in updates or 'region' in request['clear_fields'] else state.get('location'))
+    previous_location=deepcopy(state.get('location'))
+    state['location']=location_from(state['conditions'],text, None if 'region' in updates or 'region' in request['clear_fields'] else previous_location)
     # Keep the explicitly stated city with district; never resolve a dong via the inventory.
+    from services.regions import resolve
+    national=resolve(text,previous_location if 'region' not in updates and 'region' not in request['clear_fields'] else None)
+    if national:
+        state['location']=national
+        if national.get('ambiguous'):
+            state['conditions'].pop('region',None);state['conditions'].pop('neighbourhood',None)
+        if national.get('neighbourhood'):state['conditions']['neighbourhood']=national['neighbourhood']
     loc=state['location']
     if loc.get('city'):
         state['conditions']['region']=' '.join(x for x in (loc['city'],loc['district']) if x)
@@ -77,8 +102,23 @@ def ideas_reply(state,text,route,plan):
     if route=='howto' and state['conditions'].get('activity_type') not in {None,'미술'}:
         answer='처음에는 필요한 도구와 입문 방법부터 살펴보면 좋아요. 근처에서 배울 곳도 찾아드릴까요?'
     if plan and plan.get('reply'):
-        answer=plan['reply']+(' 근처에서 배울 곳도 찾아드릴까요?' if route=='howto' else ' 어떤 활동이 끌리세요?')
+        answer=plan['reply']
+        previous=next((x['content'] for x in reversed(state.get('history',[])) if x['role']=='assistant'),'')
+        old_questions={re.sub(r'\s+','',q) for q in re.findall(r'[^.!?。？]*[?？]',previous)}
+        for question_text in re.findall(r'[^.!?。？]*[?？]',answer):
+            if re.sub(r'\s+','',question_text) in old_questions:answer=answer.replace(question_text,'').strip()
+        if not answer:answer='다른 방향의 취미도 골라볼 수 있어요.'
     result=reply(state,text,answer,route)
+    result['counselling_mode']='gemini' if plan else 'basic'
+    if plan and plan.get('hobbies'):
+        rejected=set(state.get('rejected_hobbies',[]))
+        result['ideas']=[dict(id='hobby-'+hashlib.sha256(x['name'].encode()).hexdigest()[:12],name=x['name'],activity_type=x['name'],reason=x['reason'],start=x['start'],materials=x['materials'],cost_note=x['cost_note'],general=True) for x in plan['hobbies'] if x['name'] not in rejected]
+        result['counselling_mode']='gemini'
+        return result
+    if not plan and state.get('mode')=='fallback':
+        result['counselling_mode']='basic'
+        result['message']='AI와 연결되지 않아 기본 선택으로 안내할게요. 아래에서 활동을 고를 수 있어요.'
+        if route=='howto':result['message']='AI와 연결되지 않아 기본 시작 방법만 안내할게요. '+answer.split('. ')[0]+'.'
     excluded=state.get('declined_idea_ids',[])
     pool=[deepcopy(x) for x in IDEAS if x['id'] not in excluded and (route!='home' or x['near_home'])]
     ids=plan.get('idea_ids',[]) if plan else []
@@ -86,6 +126,7 @@ def ideas_reply(state,text,route,plan):
     if not ids:ids=[x['id'] for x in suggestions(profile_conditions(state),previous=excluded)]
     if any(x in text for x in ('만나','사람','교류')):ids=['walking','golf','learning']
     result['ideas']=[x for i in ids for x in pool if x['id']==i][:3] if route!='howto' else []
+    if result.get('history') and result['history'][-1]['role']=='assistant':result['history'][-1]['content']=result['message']
     return result
 
 
@@ -114,6 +155,7 @@ def present_search(result,state,settings):
     else:result['message']='아직 확인된 프로그램이 없어요. 다른 활동이나 지역으로 찾아볼까요?'
     if not rows and not web:result.update(results=[],references=[],alternatives=[],ideas=[],facilities=[],pending='life_refine')
     if failure:failure['message']='지금은 새로운 정보를 찾기 어려워요. 다시 찾아볼까요?'
+    if result.get('history') and result['history'][-1]['role']=='assistant':result['history'][-1]['content']=result['message']
     LOG.info('activity_search provider=%s outcome=%s cache=%s',settings.search_provider,
              failure['code'] if failure else web.get('status','saved'),bool(web.get('cache_hit')))
     return result
@@ -149,8 +191,11 @@ def turn(state,text,activities,settings,*,extraction=None,client=None,as_of=None
         result['message']='이전에 확인한 인접 지역 프로그램이에요. 신청 전 확인이 필요해요.' if visible_activities(result) else '아직 확인된 인접 지역 프로그램이 없어요.'
         result['life_mode']=True;result['conversation_route']='search'
         return result,safe
-    action=before_turn(state,safe,settings,activities)
+    refusal=bool(re.fullmatch(r'다른(?:거|것)(?:없을까|없어|없어요|없을까요|추천해줘)?|마음에안들어|이건별로야',compact))
+    no_web_options=bool(state.get('web')) and not state['web'].get('rows')
+    action=None if refusal and no_web_options else before_turn(state,'이건 별로예요' if refusal and state.get('web') else safe,settings,activities)
     if action is not None:
+        if refusal and len(action.get('history',[]))>=2:action['history'][-2]['content']=safe
         action['life_mode']=True;action['notice']=None
         return action,safe
     if '신청' in compact and (visible_activities(state) or state.get('web',{}).get('rows')):
@@ -179,30 +224,42 @@ def turn(state,text,activities,settings,*,extraction=None,client=None,as_of=None
         else:raise AIError(code='key_missing')
     except AIError as error:
         request=basic_extract(safe,state);mode='fallback';diagnostic={'code':error.code}
+        state['ai_unavailable']=True
         LOG.info('conversation_fallback code=%s',error.code)
     request=grounded_request(safe,state,request)
     old=deepcopy(state);state=merge(state,safe,request)
     state.update(mode=mode,diagnostic=diagnostic,notice=None,life_mode=True)
     route=rule_route(safe,old,request)
     # Explicit local controls override ambiguous model routing; model handles open language.
-    explicit_search=any(w in compact for w in ('찾아','찾고','어디서','근처','배우고싶','배워보고싶'))
+    explicit_search=any(w in compact for w in ('찾아','찾고','어디서','근처','강좌','강습'))
     waiting=old.get('pending') in {'region','web_location','web_dong','life_budget','time_slot'} and old.get('search_requested')
     if plan and route not in {'chat','followup','home'} and not explicit_search and not waiting:
         route=plan['route']
+    if plan:state.pop('ai_unavailable',None)
     if caution:state['conditions']['movement_caution']='부담 확인'
     if any(w in compact for w in ('시간은상관없','오후','오전','무료로')) and old.get('conversation_route') in {'howto','explore','home'} and route!='search':
         route=old['conversation_route']
     if route=='chat':
         answer='안녕하세요. 해보고 싶은 일이나 요즘 관심사를 편하게 말씀해 주세요.'
         if any(w in compact for w in ('고마','감사')):answer='도움이 되어 기뻐요. 또 궁금한 게 있으면 말씀해 주세요.'
-        elif request['conditions'].get('region'):answer=location_label(state['location'])+'에서 찾는 걸 기억할게요. 어떤 활동이 궁금하세요?'
+        elif request['conditions'].get('region'):
+            answer=(location_label(state['location'])+'에서 찾는 걸 기억할게요.' if state['location'].get('city') else '동네는 프로그램을 찾을 때 함께 확인할게요.')+' 어떤 활동이 궁금하세요?'
+        if plan and plan.get('reply'):answer=plan['reply']
         return reply(state,safe,answer,'chat'),safe
     if route in {'explore','home','howto'}:
         if any(w in compact for w in ('다른취미','다른운동','다른활동')):
             state['declined_idea_ids']=list(set(state.get('declined_idea_ids',[]))|{i['id'] for i in old.get('ideas',[])})
+            state['rejected_hobbies']=list(set(state.get('rejected_hobbies',[]))|{i['name'] for i in old.get('ideas',[]) if i.get('general')})
             for k in ('activity_type','category','tags','beginner','purpose'):
                 if k not in request['update_fields']:state['conditions'].pop(k,None)
         return ideas_reply(state,safe,route,plan),safe
+    if route=='followup' and refusal and not visible_activities(old) and not old.get('web',{}).get('rows'):
+        state['declined_idea_ids']=list(set(state.get('declined_idea_ids',[]))|{x['id'] for x in old.get('ideas',[])})
+        state['rejected_hobbies']=list(set(state.get('rejected_hobbies',[]))|{x['name'] for x in old.get('ideas',[]) if x.get('general')})
+        return ideas_reply(state,safe,'explore',plan),safe
+    if route=='followup' and plan and old.get('conversation_route') in GENERAL and not explicit_search:
+        state['rejected_hobbies']=list(set(state.get('rejected_hobbies',[]))|({x['name'] for x in old.get('ideas',[])} if any(w in compact for w in ('다른','별로','마음에안')) else set()))
+        return ideas_reply(state,safe,'explore',plan),safe
     if route=='followup':
         if any(w in compact for w in ('비싸','돈많이안','저렴')):
             result=reply(state,safe,'비용을 줄여서 찾아볼게요. 무료 활동이 좋으세요, 생각하신 금액이 있으세요?','search','life_budget')
@@ -225,7 +282,7 @@ def turn(state,text,activities,settings,*,extraction=None,client=None,as_of=None
         result=reply(state,safe,'기준으로 삼을 동네 이름을 알려주세요.','search','web_dong');result['search_requested']=True
         return result,safe
     if not loc.get('city'):
-        prompt=question(loc) if loc.get('neighbourhood') or loc.get('district') else '어느 동네에서 찾아볼까요?'
+        prompt=loc.get('question') or (question(loc) if loc.get('neighbourhood') or loc.get('district') else '어느 동네에서 찾아볼까요?')
         result=reply(state,safe,prompt,'search','web_location' if loc.get('neighbourhood') or loc.get('district') else 'region');result['search_requested']=True
         return result,safe
     result=public_search(state,settings,activities,as_of=as_of)

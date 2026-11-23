@@ -7,7 +7,7 @@
   const main=()=>document.querySelector('.stMain')||document.scrollingElement;
   const position=()=>({main:main()?.scrollTop||0,window:scrollY});
   const stop=()=>{if(active){active.resize?.disconnect();clearTimeout(active.end);}active=null;};
-  const popup=()=>document.querySelector('[data-testid=stPopoverButton][aria-expanded=true]');
+  const popup=()=>document.querySelector('[data-testid=stPopoverButton][aria-expanded=true],[data-testid=stDialog]');
   const request=()=>{stop();readingHistory=false;pending={manual:false,position:position(),messages:document.querySelectorAll('[data-testid=stChatMessage]').length,frozen:false};};
   const interact=event=>{
     stop();
@@ -22,6 +22,7 @@
     else if(['PageUp','PageDown','Home','End','ArrowUp','ArrowDown'].includes(event.key)&&!event.target.matches?.('textarea,input'))manual();
   },{capture:true,passive:true});
   const manual=()=>{
+    if(document.querySelector('.st-key-national_picker_content'))return;
     readingHistory=true;stop();
     if(pending){pending.manual=true;pending.position=position();requestAnimationFrame(()=>{if(pending?.manual)pending.position=position();});}
   };
@@ -63,7 +64,8 @@
     if(anchor&&!seen.has(anchor.id)){
       seen.add(anchor.id);if(seen.size>40)seen.delete(seen.values().next().value);
       window.ieumLatest=Number(anchor.id.replace('latest-reply-',''))||0;
-      if(pending){const preserve=pending.manual?pending.position:null;pending=null;follow(anchor.id,preserve);}
+      if(anchor.dataset.ieumScroll==='selection'){pending=null;readingHistory=false;follow(anchor.id);}
+      else if(pending){const preserve=pending.manual?pending.position:null;pending=null;follow(anchor.id,preserve);}
       else if(anchor.id.startsWith('latest-reply-welcome-'))follow(anchor.id);
     }
     if(active)schedule();
