@@ -1,0 +1,12 @@
+/* Font preference changes presentation only, never search state. */
+.stApp:has(#ieum-discovery-root) .stMain p,
+.stApp:has(#ieum-discovery-root) .stMain .stButton button p,
+.stApp:has(#ieum-discovery-root) .stChatInput textarea,
+.stApp:has(#ieum-discovery-root) .stTextArea textarea {font-size:var(--ieum-text-size)!important;line-height:1.6;overflow-wrap:anywhere}
+.stApp:has(#ieum-discovery-root) .stMain [data-testid=stCaptionContainer] p,
+.stApp:has(#ieum-discovery-root) .ieum-speaker {font-size:var(--ieum-caption-size)!important}
+.stApp:has(#ieum-discovery-root) .stMain :is(h2,h3) {font-size:var(--ieum-heading-size);line-height:1.5;overflow-wrap:anywhere}
+.stApp:has(#ieum-discovery-root) .stButton button {min-width:44px;white-space:normal;height:auto}
+.stApp:has(#ieum-discovery-root) .st-key-easy_navigation {border-top:1px solid var(--ieum-border);padding-top:12px;margin-top:12px}
+.stApp:has(#ieum-discovery-root) .st-key-easy_navigation button {background:var(--ieum-white);color:var(--ieum-ink);border:1px solid var(--ieum-border)}
+.stApp:has(#ieum-discovery-root) .st-key-easy_navigation button p {color:var(--ieum-ink)}

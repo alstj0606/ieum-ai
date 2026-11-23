@@ -38,6 +38,8 @@ def basic_extract(text, state):
     pending = state.get("pending")
     if '부담' in compact and any(word in compact for word in ('해제','고려하지','상관없')):
         request['clear_fields']=['movement_caution'];return request
+    if ('동네' in compact or '동은' in compact) and '상관없' in compact:
+        request['clear_fields']=['neighbourhood'];return request
     if "시간" in compact and "상관없" in compact:
         request["clear_fields"] = ["time_slot"]
         return request
@@ -81,9 +83,15 @@ def basic_extract(text, state):
     region = re.search(r"([가-힣]{1,8}구)", text)
     if region and region.group(1) not in {"친구","도구","농구","축구","탁구","당구","배구","가구","입구","출구"}:
         value = region.group(1)
-        put("region", "부산 강서구" if "부산" in text and "강서" in text else value)
-    if "서울" in text and not region:
-        put("region", "서울")
+        put("region", next((city+" "+value for city in ("부산","창원") if city in text),value))
+    dong=re.search(r'(?:^|\s)([가-힣]{2,10}\d{0,2}동)(?:에서|근처|요|\s|$)',text)
+    if dong and not dong.group(1).endswith(('활동','운동','이동')):put('neighbourhood',dong.group(1))
+    if not region:
+        city_match=re.search(r'(?:^|\s)([가-힣]{2,8}시)(?:에서|로|요|\s|$)',text)
+        if city_match:put('region',{'서울시':'서울','서울특별시':'서울','부산시':'부산','부산광역시':'부산','창원시':'창원'}.get(city_match.group(1),city_match.group(1)))
+        else:
+            for city in ('서울','부산','창원','대전','인천','광주','울산','세종'):
+                if re.search(r'(?:^|\s)'+city+r'(?:에서|로|요|\s|$)',text):put('region',city);break
     if re.search(r"살[아고]|거주", text):
         if "강서구" in text:
             put("residence", "서울 강서구" if "부산" not in text else "부산 강서구")
@@ -380,6 +388,8 @@ def _handle_turn(state, text, activities, settings, *, client=None, as_of=None, 
     update_modes(state,text,request)
     if '인접지역' in text.replace(' ','') and any(word in text for word in ('찾','확인','넓')) and state.get('flow')!='adjacent':
         return _reply(state,'인접 지역의 저장된 공식 자료까지 확인할까요? 동의하셔야 범위를 넓혀요.', 'question','expand_region')
+    if 'region' in request['update_fields'] and 'neighbourhood' not in request['update_fields']:
+        state['conditions'].pop('neighbourhood',None)
     for key in request["clear_fields"]:
         state["conditions"].pop(key, None)
         if key not in state["any_fields"]:

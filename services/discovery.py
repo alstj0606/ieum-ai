@@ -107,7 +107,7 @@ def safe_input(text,state):
     try:request=basic_extract(text,state)
     except AIError:request=empty_extraction()
     values=request['conditions']
-    pieces=[str(values[k]) for k in ('region','activity_type','category','time_slot','purpose','companionship','effort_preference','mobility') if values.get(k)]
+    pieces=[str(values[k]) for k in ('region','neighbourhood','activity_type','category','time_slot','purpose','companionship','effort_preference','mobility') if values.get(k)]
     pieces.extend(day+'요일' for day in values.get('weekdays') or [])
     if values.get('age') is not None:pieces.append(str(values['age'])+'세')
     if values.get('budget_amount') is not None:pieces.append(str(values['budget_amount'])+'원')
@@ -117,7 +117,10 @@ def safe_input(text,state):
 
 
 def discovery_turn(state,text,activities,settings,**kwargs):
-    state=deepcopy(state);state['discovery_mode']=True
+    from services.guided_flow import contextual_text
+    draft=deepcopy(state.get('picker') or {})
+    text=contextual_text(state,text)
+    state=deepcopy(state);state.pop('picker',None);state['discovery_mode']=True
     safe,caution,blocked=safe_input(text,state)
     if blocked:
         state.update(error='개인정보·비밀번호·인증번호는 입력하지 마세요. 공식 사이트에서만 직접 입력해 주세요.')
@@ -136,6 +139,13 @@ def discovery_turn(state,text,activities,settings,**kwargs):
         result.pop('recommendation_context',None)
     regions='·'.join(sorted({r['region'] for r in activities if not r['is_demo']})) or '확인된 지역 없음'
     if result.get('pending')=='region':result['message']='어느 지역에서 찾아볼까요? 현재 보유한 프로그램 지역은 '+regions+'예요.'
+    try:explicit_region='region' in basic_extract(safe,state)['update_fields']
+    except AIError:explicit_region=False
+    explicit_region=explicit_region or result['conditions'].get('region')!=state['conditions'].get('region')
+    if draft.get('stage') in {'region_city','region_district'} and not explicit_region and result['code']!='start' and result.get('pending') not in {'activity_type','time_slot'}:
+        result.update(picker=draft,pending='region',code='question',results=[],references=[],alternatives=[],ideas=[],facilities=[],selected_id=None,helper_focus=False)
+        result['message']=(draft['city']+'의 어느 구에서 찾아볼까요?') if draft.get('city') else '어느 시에서 찾아볼까요? 현재 프로그램 자료는 서울 강서구에만 있어요.'
+
     if not result['conditions'].get('activity_type') and not result['conditions'].get('category') and any(w in safe for w in ('새로운','뭔가','새롭게')):
         result.update(results=[],references=[],alternatives=[],ideas=[],pending='activity_type',code='question',message='어떤 활동이 끌리세요? 만들기, 운동, 문화 체험 중 하나를 골라도 좋아요.')
     if result['code']=='unsupported_region':

@@ -10,6 +10,7 @@ from services.activity_guidance import IDEAS
 
 
 FIELDS = {
+    "neighbourhood": {"type": ["string", "null"], "maxLength": 40},
     "weekdays": {"type": ["array", "null"], "items": {"type":"string","enum":["월","화","수","목","금","토","일"]}, "maxItems":7},
     "companionship": {"enum": [None,"혼자","함께"]},
     "movement_caution": {"enum": [None,"부담 확인"]},
@@ -45,7 +46,8 @@ SCHEMA = {
     "required": ["intent", "conditions", "update_fields", "clear_fields", "selection"],
 }
 
-PROMPT = """활동 아이디어 추천은 recommend_activity, 시설 찾기는 find_facility,
+PROMPT = """동 이름을 직접 말한 경우만 neighbourhood에 기록한다. 시·구는 region에 기록한다. 동을 추정하지 마라.
+활동 아이디어 추천은 recommend_activity, 시설 찾기는 find_facility,
 동행 선호는 직접 말한 혼자/함께만 companionship에, 요일은 weekdays에 넣는다.
 신체 부담을 고려해 달라는 요청은 movement_caution='부담 확인'만 기록한다. 진단명·통증 부위·의학적 적합성은 생성하지 마라.
 구체적 강좌/프로그램 찾기는 search_program, 이미 말한 조건 수정은 change_condition으로 구분한다. '근처'만으로 지역/현재 위치를 추정하지 마라.

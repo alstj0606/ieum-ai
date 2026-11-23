@@ -42,6 +42,8 @@ def anchor_request(text, request):
     for field,words in markers.items():
         if field in request['update_fields'] and not any(word in compact for word in words):
             request['update_fields'].remove(field);request['conditions'][field]=None
+    if 'neighbourhood' in request['update_fields'] and request['conditions']['neighbourhood'] not in text:
+        request['update_fields'].remove('neighbourhood');request['conditions']['neighbourhood']=None
     if 'weekdays' in request['update_fields']:
         day_text=compact.rsplit('말고',1)[-1]
         days=[d for d in ('월','화','수','목','금','토','일') if d+'요일' in day_text]

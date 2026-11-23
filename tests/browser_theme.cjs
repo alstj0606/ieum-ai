@@ -17,7 +17,7 @@ for(const width of [320,390,768])for(const scheme of ['light','dark'])for(const 
  await p.goto('http://127.0.0.1:'+(service==='discovery'?18517:18507));
  await p.getByRole(service==='discovery'?'heading':'button',{name:service==='discovery'?'오늘은 어떤 활동을 해보고 싶으세요?':'온라인 신청 도와주세요',exact:true}).waitFor();await idle(p);
  await p.waitForFunction(()=>getComputedStyle(document.documentElement).getPropertyValue('--ieum-red').trim()==='#ea002c');
- const primary=p.locator('.stButton button:not(:disabled)').first();assert.equal(await primary.evaluate(e=>getComputedStyle(e).backgroundColor),'rgb(234, 0, 44)');
+ const primary=p.locator('.stButton button:not(:disabled):visible').first();assert.equal(await primary.evaluate(e=>getComputedStyle(e).backgroundColor),'rgb(234, 0, 44)');
  if(service==='institution'){await p.getByRole('button',{name:'온라인 신청 도와주세요',exact:true}).click();await p.getByRole('button',{name:'복지관 비회원이에요',exact:true}).waitFor();await idle(p);}
  const r=await measure(p,`${service}-${width}-${scheme}`);reports.push(r);assert.equal(r.overflow,false);assert.equal(r.appBackground,'rgb(255, 255, 255)');assert.deepEqual(r.failures,[]);
  for(const e of await p.locator('.stButton button,.stLinkButton a').all()){const box=await e.boundingBox();if(box){assert.ok(box.height>=44);assert.ok(box.x>=0&&box.x+box.width<=width+1);}}
