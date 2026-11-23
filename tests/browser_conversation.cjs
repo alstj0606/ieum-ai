@@ -15,7 +15,7 @@ for(const width of [320,390,768])for(const [mode,port]of [['keyless',18517],['mo
  await tap(p,'수영을 배우고 싶어요');await latest(p).getByText(/어느 지역/).waitFor();
  await tap(p,'서울 강서구에서 찾기');await latest(p).getByRole('heading',{name:'공항동문화체육센터 효도아쿠아',exact:true}).waitFor();assert.ok((await latest(p).innerText()).includes('유사 활동'));
  assert.equal(await latest(p).getByRole('button',{name:'네, 인접 지역도 확인',exact:true}).count(),0);
- const messages=p.locator('[data-testid=stChatMessage]');const user=messages.filter({has:p.locator('[data-testid=stChatMessageAvatarUser]')}).last();const ub=await user.boundingBox(),ab=await latest(p).boundingBox();assert.ok(ub.x>ab.x);assert.equal(await user.evaluate(e=>getComputedStyle(e).backgroundColor),'rgb(234, 0, 44)');
+ const messages=p.locator('[data-testid=stChatMessage]');const user=messages.filter({has:p.locator('[data-ieum-role=user]')}).last();const ub=await user.boundingBox(),ab=await latest(p).boundingBox();assert.ok(ub.x>ab.x);assert.equal(await user.evaluate(e=>getComputedStyle(e).backgroundColor),'rgb(255, 122, 0)');
  await send(p,'좋아요');await latest(p).getByText('문의 전화 · 확인 필요',{exact:true}).waitFor();assert.equal(await latest(p).locator('h3').count(),1);assert.ok((await latest(p).innerText()).includes('주소'));
  const source=JSON.parse(fs.readFileSync('data/activities.json','utf8')).find(r=>r.activity_type==='아쿠아로빅');assert.equal(await latest(p).getByRole('link',{name:'공식 사이트 이동 →',exact:true}).getAttribute('href'),source.official_url);
  await layout(p);await p.screenshot({path:`/workspace/work/conversational/details-${width}-${mode}.png`});

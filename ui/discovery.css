@@ -23,9 +23,9 @@
 .stApp:has(#ieum-discovery-root) h2 {font-size:clamp(24px,6vw,30px);letter-spacing:-.035em}
 .stApp:has(#ieum-discovery-root) [data-testid=stChatMessage] {border:0;border-radius:20px 20px 20px 5px;padding:18px 16px;background:var(--ieum-surface);margin:8px 0;max-width:96%;box-shadow:none}
 .stApp:has(#ieum-discovery-root) [data-testid=stChatMessageAvatarAssistant] {display:none}
-.stApp:has(#ieum-discovery-root) [data-testid=stChatMessage]:has([data-testid=stChatMessageAvatarUser]) {margin-left:auto;max-width:86%;background:var(--ieum-red);border-radius:20px 20px 5px 20px;flex-direction:row-reverse}
+.stApp:has(#ieum-discovery-root) [data-testid=stChatMessage]:has([data-ieum-role=user]) {margin-left:auto;margin-right:0;max-width:86%;background:var(--ieum-orange);border-radius:20px 20px 5px 20px}
 .stApp:has(#ieum-discovery-root) [data-testid=stChatMessageAvatarUser] {display:none}
-.stApp:has(#ieum-discovery-root) [data-testid=stChatMessage]:has([data-testid=stChatMessageAvatarUser]) [data-testid=stMarkdownContainer] {color:var(--ieum-white)}
+.stApp:has(#ieum-discovery-root) [data-testid=stChatMessage]:has([data-ieum-role=user]) [data-testid=stMarkdownContainer] {color:var(--ieum-ink)}
 .stApp:has(#ieum-discovery-root) [class*=st-key-activity_card_] {padding:16px 0 8px;border-top:1px solid #dedee3}
 .stApp:has(#ieum-discovery-root) [class*=st-key-activity_card_] h3 {font-size:22px;line-height:1.5;letter-spacing:-.025em}
 .stApp:has(#ieum-discovery-root) .stButton button {min-height:52px;border-radius:16px;margin:2px 0 6px;padding:12px 16px}
@@ -44,8 +44,18 @@
 .stApp:has(#ieum-discovery-root) .stChatInput[data-has-text=true] button[data-testid=stChatInputMicButton] {width:44px;height:44px;min-width:44px;min-height:44px}
 @media(max-width:400px) {
  .stApp:has(#ieum-discovery-root) [data-testid=stChatMessage] {padding:16px 12px;max-width:100%}
- .stApp:has(#ieum-discovery-root) [data-testid=stChatMessage]:has([data-testid=stChatMessageAvatarUser]) {max-width:90%}
+ .stApp:has(#ieum-discovery-root) [data-testid=stChatMessage]:has([data-ieum-role=user]) {max-width:90%}
 }
 .stApp:has(#ieum-discovery-root) h1 {color:var(--ieum-red)}
 /* Captions remain legible while the main conversation stays at 20px. */
 .stApp:has(#ieum-discovery-root) [data-testid=stCaptionContainer] p {font-size:18px!important;line-height:1.5}
+
+/* App-owned roles override native chat surfaces, not the recommendation widgets. */
+.stApp:has(#ieum-discovery-root) [data-testid=stChatMessage]:has([data-ieum-role=assistant]) {background:transparent;margin-left:0;margin-right:auto;padding:0;max-width:96%}
+.stApp:has(#ieum-discovery-root) [class*=st-key-assistant_bubble_] {background:var(--ieum-red);color:var(--ieum-white);padding:18px 16px;border-radius:20px 20px 20px 5px;min-width:0;overflow-wrap:anywhere}
+.stApp:has(#ieum-discovery-root) [class*=st-key-assistant_bubble_] :is(h1,h2,h3,p,[data-testid=stMarkdownContainer]) {color:var(--ieum-white)}
+.stApp:has(#ieum-discovery-root) .ieum-speaker {display:block;font-size:18px;font-weight:750;line-height:1.4}
+.stApp:has(#ieum-discovery-root) [data-testid=stChatMessageContent] {min-width:0;overflow-wrap:anywhere}
+@media(max-width:400px) {
+ .stApp:has(#ieum-discovery-root) [data-testid=stChatMessage]:has([data-ieum-role=assistant]) {max-width:96%}
+}
