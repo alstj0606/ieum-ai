@@ -91,3 +91,9 @@ def resolve(text,previous=None):
     if province and not named:return dict(province=province,city=short(province),district=None,neighbourhood=dong,code=None,kind='user_text')
     # Unknown city+dong is left to the explicit-text parser; never force it into inventory coverage.
     return None
+
+
+def matching_localities(text):
+    match=re.search(r'(?:^|\s)([가-힣]{1,12}\d{0,2}(?:동|읍|면))(?:에|이|에서|근처|요|\s|$)',text)
+    if not match or match.group(1) in {'운동','활동','이동'}:return []
+    return [selection(*row[2:]) for row in data()['regions'] if row[4]==match.group(1)][:8]

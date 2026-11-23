@@ -1,39 +1,58 @@
-"""Native dismissible Streamlit dialog; only a completed explicit choice is applied."""
+"""Touch-only hierarchy: native buttons never summon a text keyboard."""
 import streamlit as st
-from services.regions import provinces,districts,neighbourhoods,selection,data,label
+from services.regions import provinces,districts,neighbourhoods,selection,short,label
 
 
 def close():st.session_state.region_open=False
 
 def open_picker(location=None):
-    location=location or {};p=location.get('province');d=location.get('district');n=location.get('neighbourhood')
-    if p not in provinces():p=d=n=None
-    elif d not in districts(p):d=n=None
-    elif n not in neighbourhoods(p,d):n=None
-    st.session_state.national_province=p;st.session_state.national_district=d;st.session_state.national_dong=n
-    st.session_state.region_applied=(p,d,n);st.session_state.region_open=True
+    st.session_state.region_draft={'stage':'province'}
+    st.session_state.region_open=True
 
 
-def province_changed():
-    st.session_state.national_district=None;st.session_state.national_dong=None
+def choose(level,value):
+    draft=st.session_state.region_draft
+    if level=='province':draft.update(province=value,district=None,neighbourhood=None,stage='district')
+    elif level=='district':draft.update(district=value,neighbourhood=None,stage='neighbourhood')
+    elif level=='neighbourhood':draft.update(neighbourhood=value,stage='confirm')
+    elif level=='all':draft.update(neighbourhood=None,stage='confirm')
 
-def district_changed():st.session_state.national_dong=None
+
+def previous():
+    draft=st.session_state.region_draft
+    draft['stage']={'district':'province','neighbourhood':'district','confirm':'neighbourhood'}.get(draft['stage'],'province')
 
 
-@st.dialog('지역 선택하기',width='small',dismissible=True,on_dismiss=close)
+def current_selection():
+    draft=st.session_state.region_draft;p=draft['province'];d=draft['district'];n=draft.get('neighbourhood')
+    return selection(p,d,n) if n else dict(province=p,city=short(p),district=d,neighbourhood=None,code=None,kind='district_scope')
+
+
+@st.dialog('우리 동네 선택하기',width='small',dismissible=True,on_dismiss=close)
 def render(on_complete):
     size=(18,20,22)[st.session_state.get('font_level',0)]
-    st.html('<style>.st-key-national_picker_content {font-size:'+str(size)+'px} .st-key-national_picker_content :is(p,label) {font-size:'+str(size)+'px} .st-key-national_picker_content [data-baseweb=select]>div {min-height:44px;font-size:'+str(size)+'px} body:has(.st-key-national_picker_content) [role=option] {min-height:44px}</style>')
+    st.html('<style>.st-key-national_picker_content :is(p,label) {font-size:'+str(size)+'px}.st-key-national_picker_content button {min-height:48px;margin:2px 0;padding:9px 12px}.st-key-national_picker_content .stButton button[kind=secondary] {background:#fff;color:#151515;border:1px solid #b5b5bd}.st-key-national_picker_content .stButton button[kind=secondary]:hover {background:#fff1e7;color:#151515}.st-key-national_picker_content .stButton button[kind=secondary] p {color:#151515}.st-key-national_picker_content .stButton button[kind=primary] p {color:#fff}.st-key-national_picker_content [class*=st-key-region_option_] button {background:#fff;border:1px solid #d4d4da;color:#151515;text-align:left;justify-content:space-between}[role=dialog]:has(.st-key-national_picker_content) {max-height:calc(100vh - 72px);max-height:calc(100dvh - 72px);overflow-y:auto}</style>')
     with st.container(key='national_picker_content'):
-        st.caption('행정동 기준 · '+data()['metadata']['snapshot_at']+' 자료. 법정동 이름은 채팅에 직접 적어도 괜찮아요.')
-        p=st.selectbox('시·도',provinces(),index=None,key='national_province',placeholder='시·도를 골라주세요',on_change=province_changed)
-        d=st.selectbox('시·군·구',districts(p),index=None,key='national_district',placeholder='시·군·구를 골라주세요',on_change=district_changed) if p else None
-        n=st.selectbox('읍·면·동',neighbourhoods(p,d),index=None,key='national_dong',placeholder='읍·면·동을 골라주세요') if d else None
-        if n and (p,d,n)!=st.session_state.get('region_applied'):
-            loc=selection(p,d,n);st.session_state.region_applied=(p,d,n);close();on_complete(loc);st.rerun()
-        if p and d:
-            st.caption('선택 중 · '+p+' '+d)
-            if st.button('이 시·군·구 전체에서 찾기',key='region_all',use_container_width=True):
-                from services.regions import short
-                close();on_complete(dict(province=p,city=short(p),district=d,neighbourhood=None,code=None,kind='district_scope'));st.rerun()
-        if st.button('닫기',key='region_close',on_click=close,use_container_width=True):st.rerun()
+        draft=st.session_state.region_draft;stage=draft['stage'];p=draft.get('province');d=draft.get('district')
+        titles={'province':'어느 시·도에서 찾아볼까요?','district':'어느 시·군·구인가요?','neighbourhood':'어느 읍·면·동인가요?','confirm':'선택한 동네가 맞나요?'}
+        st.write('**'+titles[stage]+'**')
+        if p:st.caption(' › '.join(x for x in (p,d) if x))
+        if stage=='confirm':
+            loc=current_selection();st.write('**'+label(loc)+'**')
+            st.write('선택하신 동네가 맞는지 확인해 주세요.')
+            if st.button('확인',key='region_confirm',type='primary',use_container_width=True):
+                close();on_complete(loc);st.rerun()
+        else:
+            options=provinces() if stage=='province' else districts(p) if stage=='district' else neighbourhoods(p,d)
+            level={'province':'province','district':'district','neighbourhood':'neighbourhood'}[stage]
+            # Bounded native scroll container; no editable controls in this path.
+            with st.container(height=200,border=False,key='region_touch_list'):
+                for i,value in enumerate(options):
+                    st.button(value+' →',key='region_option_'+stage+'_'+str(i),on_click=choose,args=(level,value),use_container_width=True)
+            if stage=='neighbourhood':st.button('이 시·군·구 전체에서 찾기',key='region_all',on_click=choose,args=('all',None),use_container_width=True)
+        left,right=st.columns(2)
+        if stage!='province':left.button('이전',key='region_previous',on_click=previous,use_container_width=True)
+        if right.button('닫기',key='region_close',on_click=close,use_container_width=True):st.rerun()
+        # Free typing is intentionally a separate action, never auto-focused.
+        if st.button('동네 이름은 채팅에 적을게요',key='region_type_in_chat',use_container_width=True):
+            close();st.rerun()

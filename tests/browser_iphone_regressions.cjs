@@ -1,0 +1,30 @@
+// Local Streamlit only. Generated mode uses deterministic SDK/search fixtures.
+const {chromium,webkit}=require('playwright'),assert=require('assert/strict');
+const latest=p=>p.locator('[data-testid=stChatMessage]').last();
+async function idle(p){await p.waitForFunction(()=>document.querySelector('[data-testid=stApp]')?.getAttribute('data-test-script-state')==='notRunning')}
+async function send(p,t){await idle(p);const id=await p.locator('[id^=latest-reply-]').last().getAttribute('id');const box=p.getByRole('textbox',{name:'질문을 적어주세요'});await box.fill(t);await box.press('Enter');await p.waitForFunction(old=>[...document.querySelectorAll('[id^=latest-reply-]')].at(-1)?.id!==old,id);await idle(p)}
+async function tap(p,name){await p.getByRole('button',{name,exact:true}).click();await p.waitForTimeout(150);await idle(p)}
+function luminance(rgb){const c=rgb.match(/[\d.]+/g).slice(0,3).map(Number).map(x=>{x/=255;return x<=.04045?x/12.92:((x+.055)/1.055)**2.4});return c[0]*.2126+c[1]*.7152+c[2]*.0722}
+async function check(p){assert.equal(await p.locator('[data-testid=stException]').count(),0);assert.equal(await p.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);const bad=await p.locator('.stButton button,.stLinkButton a').evaluateAll(es=>es.filter(e=>e.getClientRects().length&&e.getBoundingClientRect().height<47.8).map(e=>e.innerText));assert.deepEqual(bad,[])}
+async function dialogCheck(p){const d=p.getByRole('dialog');await d.waitFor();assert.equal(await d.locator('input,textarea,[contenteditable=true],[role=combobox]').count(),0);assert.equal(await p.evaluate(()=>['INPUT','TEXTAREA'].includes(document.activeElement?.tagName)),false);const b=await d.boundingBox();assert.ok(b.y>=0&&b.y+b.height<=p.viewportSize().height+2);const colors=await d.locator('button').evaluateAll(es=>es.filter(e=>e.innerText.trim()).map(e=>({fg:getComputedStyle(e.querySelector('p')||e).color,bg:getComputedStyle(e).backgroundColor})));for(const c of colors){const a=luminance(c.fg),b=luminance(c.bg==='rgba(0, 0, 0, 0)'?'rgb(255,255,255)':c.bg);assert.ok((Math.max(a,b)+.05)/(Math.min(a,b)+.05)>=4.5,JSON.stringify(c))}}
+async function region(p,province,district,dong){await tap(p,'지역 선택하기');await dialogCheck(p);assert.equal(await p.locator('[class*=st-key-region_option_province_]').count(),17);const scroller=p.locator('.st-key-region_touch_list');assert.ok(await scroller.evaluate(e=>e.scrollHeight>e.clientHeight));await tap(p,province+' →');await dialogCheck(p);await tap(p,district+' →');await dialogCheck(p);const before=await latest(p).innerText();await tap(p,dong+' →');await p.getByRole('button',{name:'확인',exact:true}).waitFor();assert.equal(await latest(p).innerText(),before);await dialogCheck(p);await tap(p,'확인');await p.getByRole('dialog').waitFor({state:'hidden'});await latest(p).getByText(new RegExp('찾는 지역 · '+province+' '+district+' '+dong)).waitFor();assert.doesNotMatch(await latest(p).innerText(),/어느 구|어느 시·구|어느 동네에서 찾아볼까요/)}
+(async()=>{const type=process.env.IEUM_BROWSER==='webkit'?webkit:chromium;const b=await type.launch(type===chromium?{executablePath:'/usr/bin/chromium',args:['--no-sandbox']}:{});try{
+ for(const width of [320,390,430,768])for(const mode of ['basic','generated']){
+  const p=await b.newPage({viewport:{width,height:width===320?568:844},isMobile:true,hasTouch:true,colorScheme:mode==='generated'?'dark':'light'});
+  try{
+   await p.goto('http://127.0.0.1:'+(mode==='basic'?18527:18529));await p.getByRole('button',{name:/취미 배우기/}).waitFor();await idle(p);assert.equal(await p.locator('.st-key-interest_grid_start_interest_ button').count(),4);assert.equal(await p.locator('.st-key-voice_unavailable').count(),0);
+   await send(p,'수영 배우고 싶어요');await latest(p).getByText(/어느 동네/).waitFor();
+   for(const text of ['요즘 취미가 없어서 심심해','사람들이랑 할 수 있는 건 없을까?','처음 배우면 쉬운 건 뭐야?','돈 안 들고 할 수 있는 건?']){await send(p,text);assert.doesNotMatch(await latest(p).innerText(),/어느 시·구|어느 동네에서 찾아볼까요|어느 구/);if(mode==='basic')assert.match(await latest(p).innerText(),/AI와 연결되지 않아|AI 답변을 확인하지 못해/)}
+   await send(p,'우리 동네에서 찾아줘');await latest(p).getByText(/어느 동네/).waitFor();
+   await region(p,'강원특별자치도','강릉시','강남동');await check(p);
+   await send(p,'수영 배우고 싶어요');assert.doesNotMatch(await latest(p).innerText(),/어느 동네에서 찾아볼까요|어느 구/);
+   // Opening a new draft must not mutate the confirmed location. Back changes stage only.
+   await tap(p,'지역 바꾸기');await tap(p,'인천광역시 →');await tap(p,'서구 →');await tap(p,'이전');await tap(p,'동구 →');await tap(p,'이전');await tap(p,'서구 →');await tap(p,'가정1동 →');await tap(p,'확인');await p.getByRole('dialog').waitFor({state:'hidden'});await latest(p).getByText(/찾는 지역 · 인천광역시 서구 가정1동/).waitFor();
+   await tap(p,'지역 바꾸기');await tap(p,'서울특별시 →');await tap(p,'강서구 →');await tap(p,'화곡1동 →');await tap(p,'확인');await p.getByRole('dialog').waitFor({state:'hidden'});await latest(p).getByText(/찾는 지역 · 서울특별시 강서구 화곡1동/).waitFor();
+   await send(p,'응');const user=p.locator('[data-testid=stChatMessage]').filter({has:p.locator('[data-ieum-role=user]')}).last();assert.doesNotMatch(await user.innerText(),/^나\s/);const hidden=user.locator('[data-ieum-role=user]');assert.equal(await hidden.textContent(),'사용자 메시지');assert.ok((await hidden.boundingBox()).width<=1.1);const box=await user.boundingBox();assert.ok(box.width<150&&box.height<70,JSON.stringify(box));
+   const outline=await p.locator('.stChatInput textarea').evaluate(e=>getComputedStyle(e).outlineStyle);assert.equal(outline,'none');
+   await tap(p,'메뉴');await tap(p,'대화 지우기');await p.getByRole('dialog',{name:'대화를 지울까요?'}).waitFor();await tap(p,'취소');await p.getByRole('dialog').waitFor({state:'hidden'});assert.ok(await p.locator('[data-testid=stChatMessage]').count()>0);
+   await check(p);await p.screenshot({path:`/workspace/work/iphone-browser/${width}-${mode}.png`});console.log('PASS pending interruption/touch hierarchy/confirmation/short bubble/contrast',width,mode);
+  }catch(e){await p.screenshot({path:`/workspace/work/iphone-browser/failure-${width}-${mode}.png`,fullPage:true});throw e}finally{await p.close()}
+ }
+}finally{await b.close()}})().catch(e=>{console.error(e);process.exit(1)});

@@ -22,7 +22,7 @@
 .stChatInput button[data-testid=stChatInputApproveButton] {min-width:132px;min-height:64px;border-radius:16px;background:var(--ieum-warm);display:flex;align-items:center;gap:4px;padding:8px}
 .stChatInput button[data-testid=stChatInputApproveButton]::after {content:'말하기 끝내기';font-size:18px}
 .stChatInput button[data-testid=stChatInputCancelButton] {min-width:48px;min-height:48px;border-radius:50%;background:transparent}
-button:focus-visible,a:focus-visible,textarea:focus-visible {outline:3px solid var(--ieum-link)!important;outline-offset:2px}
+button:focus-visible,a:focus-visible,.stTextArea textarea:focus-visible {outline:3px solid var(--ieum-link)!important;outline-offset:2px}
 .stExpander summary {min-height:56px}
 .stMain [data-testid=stCaptionContainer] p {color:var(--ieum-muted)}
 [id^=latest-reply-] {scroll-margin-top:70px}

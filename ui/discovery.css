@@ -60,3 +60,18 @@
 .stApp:has(#ieum-discovery-root) [class*=st-key-idea_choices_] button {min-height:44px;padding:8px;border-radius:16px;margin:4px 0}
 .stApp:has(#ieum-discovery-root) [data-testid=stChatMessage] [data-testid=stMarkdownContainer] p {line-height:1.55}
 @media(max-width:430px) {.stApp:has(#ieum-discovery-root) .stMainBlockContainer {padding-top:.5rem}}
+/* Speaker identity remains in the accessibility tree without a visual user title. */
+.stApp:has(#ieum-discovery-root) .ieum-user-speaker {position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap;border:0}
+.stApp:has(#ieum-discovery-root) [class*=st-key-assistant_bubble_] {width:fit-content;max-width:92%;padding:10px 12px}
+.stApp:has(#ieum-discovery-root) [data-testid=stChatMessage] {margin:4px 0}
+.stApp:has(#ieum-discovery-root) [data-testid=stChatMessageContent] {word-break:keep-all;overflow-wrap:anywhere;gap:4px}
+.stApp:has(#ieum-discovery-root) [class*=st-key-assistant_bubble_] p {word-break:keep-all;overflow-wrap:anywhere}
+.stApp:has(#ieum-discovery-root) .ieum-speaker {margin-bottom:2px}
+.stApp:has(#ieum-discovery-root) .ieum-speaker::before {content:none}
+.stApp:has(#ieum-discovery-root) .ieum-ai-icon {display:inline-flex;align-items:center;justify-content:center;background:#ea002c;color:#fff;border-radius:50%;width:24px;height:24px;font-size:14px;vertical-align:middle}
+.stApp:has(#ieum-discovery-root) .stChatInput:focus-within {outline:2px solid #ea002c;outline-offset:1px}
+.stApp:has(#ieum-discovery-root) :is(.stButton button,.stLinkButton a) {min-height:48px}
+.stApp:has(#ieum-discovery-root) [data-testid=stChatMessage]:has([data-ieum-role=user]) {width:fit-content;flex:0 1 auto;padding:8px 12px}
+.stApp:has(#ieum-discovery-root) [data-testid=stChatMessage]:has([data-ieum-role=user]) [data-testid=stChatMessageContent] {width:auto}
+.stApp:has(#ieum-discovery-root) [data-testid=stChatMessage]:has([data-ieum-role=user]) [data-testid=stVerticalBlock] {gap:0}
+.stApp:has(#ieum-discovery-root) .ieum-user-text {font-size:var(--ieum-text-size,18px);line-height:1.5;white-space:pre-wrap;word-break:keep-all;overflow-wrap:anywhere}

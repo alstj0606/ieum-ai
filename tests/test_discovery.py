@@ -121,7 +121,7 @@ class DiscoveryTest(TestCase):
   with patch('services.config.load_settings',return_value=Settings()):
    app=AppTest.from_file(str(ROOT/'app.py'),default_timeout=15).run()
    self.assertFalse(app.exception);self.assertEqual(app.header[0].value,'오늘은 어떤 활동을 해보고 싶으세요?')
-   self.assertNotIn('inst_start',[b.key for b in app.button]);self.assertTrue(app.button(key='voice_unavailable').disabled)
+   self.assertNotIn('inst_start',[b.key for b in app.button]);self.assertNotIn('voice_unavailable',[b.key for b in app.button])
    app.button(key='example_0').click().run();self.assertEqual(app.session_state['dialog']['pending'],'region')
    app.chat_input(key='chat').set_value('서울 강서구요').run();self.assertFalse(app.exception)
    ids=[r['id'] for r in visible_activities(app.session_state['dialog'])]

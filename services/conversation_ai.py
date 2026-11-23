@@ -26,6 +26,7 @@ INSTRUCTION = """너는 어르신과 대화하는 한국어 취미·생활 활�
 explore=막연한 관심/고민/취미 탐색, howto=시작 방법 상담, home=집에서 할 취미,
 search=사용자가 실제 배울 곳/시설/강좌를 찾기를 원함, chat=인사/감사, followup=조건 수정/거절.
 프로그램을 못 찾은 뒤 다른 것을 원하면 같은 검색을 반복하지 말고 일반 취미 제안으로 이어간다.
+pending은 이전 미완료 질문일 뿐 현재 사용자 질문을 제한하지 않는다. 지역 입력 대기 중에도 새 취미/시작 방법 질문을 먼저 답한다.
 일반 상담에는 지역을 요구하지 않는다. 이미 답한 질문을 반복하지 않는다.
 사용자가 사람을 만나고 싶으면 사회적 활동을, 못한다고 하면 입문 방법을 유연하게 제안한다.
 건강/나이/능력/성별/경제상황/위치를 추정하지 않는다. 모든 어르신에게 안전하거나 효과 있다고 단정하지 않는다.
@@ -44,8 +45,11 @@ extraction은 이번 발화에서 명시된 조건만 기록한다. 나머지는
 
 def safe_advice(text, *, limit=260):
     if not isinstance(text,str) or not text.strip() or len(text)>limit:raise AIError(code='response_format')
-    # No model-written actionable facts are accepted, even in hobby descriptions.
-    if re.search(r'https?|www\.|[<>\[\]{}]|\d{2,}[- .]\d{2,}|\d+\s*(?:원|만원|시|요일|월|일)|(?:센터|복지관|체육관|문화원|수영장|회관|교실|강습|강좌|주소|전화번호|모집중|접수중|예약가능|신청완료|결제완료|(?:신청|예약|결제).{0,4}완료|[가-힣]+에서매일)|(?:치료|완치|예방|누구나안전|모두에게안전|(?:모든|누구나|모두).{0,10}안전)',re.sub(r'\s+','',text),re.I):raise AIError(code='response_format')
+    # Generic activity types are not invented facility facts. The old blanket
+    # ban on 교실/강습 rejected ordinary hobby counselling before it reached UI.
+    generic=r'(?:그림|수영|댄스|합창|체조|미술|노래)\s*(?:교실|강습|강좌)|(?:입문|초보자?)\s*(?:강습|강좌)|문화센터|주민센터|복지관|수영장|박물관'
+    prose=re.sub(r'(?<![가-힣0-9])(?:'+generic+r')(?=$|[\s.,?!]|에서|을|를|은|는|도|에|부터|로|과|와|이나|같은)','일반활동',text)
+    if re.search(r'https?|www\.|[<>\[\]{}]|\d{2,}[- .]\d{2,}|\d+\s*(?:원|만원|시|요일|월|일)|(?:센터|복지관|체육관|문화원|수영장|회관|교실|강습|강좌|박물관|주소|전화번호|모집중|접수중|예약가능|신청완료|결제완료|(?:신청|예약|결제).{0,4}완료|[가-힣]+에서매일)|(?:치료|완치|예방|누구나안전|모두에게안전|(?:모든|누구나|모두).{0,10}안전)',re.sub(r'\s+','',prose),re.I):raise AIError(code='response_format')
     if text.count('?')+text.count('？')>1 or len(re.findall(r'[.!?。？]',text))>3:raise AIError(code='response_format')
     return text
 
@@ -72,8 +76,13 @@ def validate_plan(payload):
 def understand(text,state,activities,settings,*,client=None):
     if not text.strip() or len(text)>1500:raise AIError(code='response_format')
     try:model=normalize_model(settings.model)
-    except ModelSettingError:raise AIError(code='model_config') from None
-    owned=client is None;client=client or make_client(settings)
+    except ModelSettingError:
+        error=AIError(code='model_config');error.stage='configuration';error.request_sent=False;raise error from None
+    owned=client is None
+    try:client=client or make_client(settings)
+    except AIError as error:
+        error.stage='configuration';error.request_sent=False;raise
+    stage='request'
     try:
         from google.genai import types
         context={'utterance':text,'conditions':state.get('conditions',{}),'pending':state.get('pending'),
@@ -86,9 +95,14 @@ def understand(text,state,activities,settings,*,client=None):
                 response_json_schema=SCHEMA_TURN,max_output_tokens=3500,temperature=0.4,
                 thinking_config=types.ThinkingConfig(thinking_budget=0) if model=='gemini-2.5-flash' else None,
                 automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True)))
-        return validate_plan(json.loads(generation_text(response)))
-    except AIError:raise
-    except (ValueError,TypeError):raise AIError(code='response_format') from None
+        stage='parse'
+        payload=json.loads(generation_text(response))
+        stage='validation'
+        return validate_plan(payload)
+    except AIError as error:
+        error.stage=stage;error.request_sent=True;raise
+    except (ValueError,TypeError):
+        error=AIError(code='response_format');error.stage=stage;error.request_sent=True;raise error from None
     except Exception as error:raise AIError(code=classify_error(error)) from None
     finally:
         if owned:
