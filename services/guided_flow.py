@@ -10,7 +10,7 @@ INTERESTS={
  '사람 만나기':'사람들과 함께하는 프로그램을 찾아주세요',
 }
 # Administrative choices only, not a claim that programme data exists there.
-REGIONS={'서울':('강서구','양천구','마포구'),'창원':('성산구','의창구'),'부산':('강서구','북구')}
+REGIONS={'서울':('강서구','양천구','마포구'),'창원':('성산구','의창구'),'부산':('강서구','북구'),'부천':('원미구','소사구','오정구')}
 
 def verified_dong(row):
     match=re.search(r'(?:^|[\s(])([가-힣]{2,10}\d{0,2}동)(?=[\s)\d]|$)',row.get('address') or '')
@@ -23,12 +23,12 @@ def _step(state,label,message,picker):
     result=deepcopy(state)
     result.update(picker=picker,message=message,code='question',pending='region' if picker['stage'].startswith('region') else 'activity_type',
                   results=[],references=[],alternatives=[],ideas=[],facilities=[],selected_id=None,detail_focus=False,helper_focus=False,error=None)
-    result.pop('recommendation_context',None);result.pop('application_helper',None)
+    result.pop('recommendation_context',None);result.pop('application_helper',None);result.pop('web',None)
     result['history']=(result.get('history',[])+[{'role':'user','content':label},{'role':'assistant','content':message}])[-20:]
     return result
 
 def open_picker(state,stage):
-    prompts={'activity':'어떤 활동을 해보고 싶으세요?', 'condition':'무엇을 다시 선택할까요?', 'region_city':'어느 시에서 찾아볼까요? 현재 프로그램 자료는 서울 강서구에만 있어요.'}
+    prompts={'activity':'어떤 활동을 해보고 싶으세요?', 'condition':'무엇을 다시 선택할까요?', 'region_city':'어느 시에서 찾아볼까요? 다른 시는 직접 입력할 수 있어요. 저장 자료와 인터넷 검색은 구분해요.'}
     if stage not in prompts:raise ValueError('unknown navigation stage')
     return _step(state,'다시 선택' if stage=='condition' else '지역 다시 선택' if stage=='region_city' else '활동 다시 선택',prompts[stage],{'stage':stage})
 

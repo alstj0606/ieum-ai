@@ -98,7 +98,7 @@ class ConversationTest(TestCase):
  def test_schedule_ranges_are_not_interpreted_as_markdown_deletion(self):
   with patch('services.config.load_settings',return_value=Settings()):
    app=AppTest.from_file(str(Path(__file__).resolve().parents[1]/'app.py'),default_timeout=15).run()
-   app.chat_input(key='chat').set_value('강서구 슬로우 러닝 프로그램').run()
+   app.chat_input(key='chat').set_value('서울 강서구 슬로우 러닝 프로그램').run()
    schedule=next(x.value for x in app.chat_message[-1].markdown if x.value.startswith('**시간**'))
    self.assertIn('\\~',schedule);self.assertNotIn('~',schedule.replace('\\~',''))
  def test_return_after_condition_change_never_restores_stale_conditions(self):
@@ -107,7 +107,7 @@ class ConversationTest(TestCase):
   self.assertEqual(s['conditions'],current);self.assertEqual(s['conditions']['time_slot'],'오후')
   with patch('services.config.load_settings',return_value=Settings()):
    app=AppTest.from_file(str(Path(__file__).resolve().parents[1]/'app.py'),default_timeout=15).run()
-   for text in ('강서구 수영 프로그램','좋아요','오후가 좋아요'):
+   for text in ('서울 강서구 수영 프로그램','좋아요','오후가 좋아요'):
     app.chat_input(key='chat').set_value(text).run()
    before=deepcopy(app.session_state['dialog']['conditions'])
    app.button(key='reopen_recommendations').click().run()
