@@ -123,7 +123,7 @@ class DiscoveryTest(TestCase):
    self.assertFalse(app.exception);self.assertEqual(app.header[0].value,'오늘은 어떤 활동을 해보고 싶으세요?')
    self.assertNotIn('inst_start',[b.key for b in app.button]);self.assertTrue(app.button(key='voice_unavailable').disabled)
    app.button(key='example_0').click().run();self.assertEqual(app.session_state['dialog']['pending'],'region')
-   app.button(key='choose_region').click().run();self.assertFalse(app.exception)
+   app.chat_input(key='chat').set_value('서울 강서구요').run();self.assertFalse(app.exception)
    ids=[r['id'] for r in visible_activities(app.session_state['dialog'])]
    self.assertTrue(ids);app.button(key='detail_'+ids[0]).click().run();self.assertEqual(app.session_state['dialog']['selected_id'],ids[0])
    app.button(key='apply_'+ids[0]).click().run();self.assertTrue(app.session_state['dialog']['application_helper'])
@@ -144,7 +144,7 @@ class DiscoveryTest(TestCase):
   with patch('services.config.load_settings',return_value=Settings()),patch('services.activities.load_activities',side_effect=ValueError('invalid-data')):
    app=AppTest.from_file(str(ROOT/'app.py'),default_timeout=15).run()
    self.assertFalse(app.exception);self.assertTrue(app.error)
-   self.assertTrue(any('0건' in c.value for c in app.caption))
+   self.assertFalse(app.session_state['dialog']['conditions']);self.assertFalse(visible_activities(app.session_state['dialog']))
    app.button(key='example_0').click().run();self.assertFalse(app.exception)
    self.assertFalse(visible_activities(app.session_state['dialog']))
  def test_region_question_uses_dataset_coverage_without_fabricating_records(self):

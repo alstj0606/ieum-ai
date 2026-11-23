@@ -26,6 +26,7 @@ class AppFlowTest(TestCase):
     def test_manual_search_and_official_values_with_no_key(self):
         with patch('services.config.load_settings',return_value=Settings()):
             app=AppTest.from_file(APP).run()
+            app.text_input(key='manual_region').input('서울 강서구')
             app.selectbox(key='manual_category').select('문화·취미')
             app.selectbox(key='manual_time').select('오전')
             app.button(key='manual_submit').click().run()
@@ -76,7 +77,7 @@ class AppFlowTest(TestCase):
             self.assertTrue(app.session_state['dialog']['results'])
 
     def seed(self,app):
-        state=manual_search(new_state(),load_activities(),as_of=DAY)
+        state=manual_search(dict(new_state(),conditions={"region":"강서구"}),load_activities(),as_of=DAY)
         app.session_state['dialog']=state
         app.session_state['turns']=[{'user':'공식 활동 찾아줘','state':state}]
         app.session_state['turn_seq']=1
@@ -130,7 +131,7 @@ class AppFlowTest(TestCase):
             app=AppTest.from_file(APP).run()
             app.chat_input(key='chat').set_value('국악 공연').run()
             self.assertEqual(app.session_state['dialog']['pending'],'region')
-            app.button(key='choose_region').click().run()
+            app.chat_input(key='chat').set_value('서울 강서구요').run()
             self.assertTrue(app.session_state['dialog']['results'])
             app.chat_input(key='chat').set_value('신청 방법 알려줘').run()
             self.assertEqual(app.session_state['dialog']['code'],'apply')
@@ -259,7 +260,7 @@ class AppFlowTest(TestCase):
             app.button(key='idea_water').click().run()
             self.assertEqual(app.session_state['dialog']['conditions']['activity_type'],'아쿠아로빅')
             self.assertEqual(app.session_state['dialog']['pending'],'region')
-            app.button(key='choose_region').click().run()
+            app.chat_input(key='chat').set_value('서울 강서구요').run()
             self.assertFalse(app.exception)
             self.assertEqual(app.session_state['dialog']['code'],'unknown')
             self.assertTrue(app.session_state['dialog']['ideas'])
@@ -269,7 +270,7 @@ class AppFlowTest(TestCase):
         with patch('services.config.load_settings',return_value=Settings()):
             app=AppTest.from_file(APP).run()
             app.chat_input(key='chat').set_value('근처 수영장 찾아줘').run()
-            app.button(key='choose_region').click().run()
+            app.chat_input(key='chat').set_value('서울 강서구요').run()
             state=app.session_state['dialog']
             self.assertEqual(state['code'],'facilities')
             self.assertTrue(any('현재 이용 가능 여부 미확인' in x.value for x in app.chat_message[-1].markdown))
@@ -280,7 +281,7 @@ class AppFlowTest(TestCase):
         with patch('services.config.load_settings',return_value=Settings()):
             app=AppTest.from_file(APP).run()
             app.chat_input(key='chat').set_value('가벼운 걷기 프로그램을 찾아주세요').run()
-            app.button(key='choose_region').click().run()
+            app.chat_input(key='chat').set_value('서울 강서구요').run()
             self.assertFalse(app.exception)
             self.assertTrue(app.session_state['dialog']['alternatives'])
             app.button(key='expand_no').click().run()

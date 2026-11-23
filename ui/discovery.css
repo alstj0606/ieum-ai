@@ -43,3 +43,7 @@
 @media(max-width:430px) {.stApp:has(#ieum-discovery-root) .stMainBlockContainer {padding-left:10px;padding-right:10px}}
 /* Markdown containers set their own colour in the shared legacy theme. */
 .stApp:has(#ieum-discovery-root) .stButton button[kind=primary] :is(p,[data-testid=stMarkdownContainer]) {color:#fff}
+
+/* Current conversational suggestions remain a compact two-column choice group. */
+.stApp:has(#ieum-discovery-root) [class*=st-key-idea_choices_] [data-testid=stHorizontalBlock] {gap:10px;flex-wrap:nowrap}
+.stApp:has(#ieum-discovery-root) [class*=st-key-idea_choices_] [data-testid=stColumn] {min-width:0;width:calc(50% - 5px);flex:1 1 0}

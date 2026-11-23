@@ -16,6 +16,13 @@ html=HTML.replace('2099','2020') if case=='past' else HTML
 # before rerunning this file. A temporary patch context would leak real requests.
 config.load_settings=lambda *args,**kwargs:Settings(tavily_api_key='local-test-only-'+mode,gemini_api_key='local-mock-only')
 web_search.Transport=lambda:TavilyTransport(mode,html)
+# Browser scenarios intentionally exceed production caps; no real HTTP is possible.
+import services.search_providers as providers
+if not hasattr(providers,'_browser_control'):
+    providers._browser_control=providers.SearchControl(minute_limit=1000,day_limit=1000,month_limit=1000)
+providers.CONTROL=providers._browser_control
 def unavailable(*args,**kwargs):raise AIError(code='timeout')
 dialogue.extract_conditions=unavailable
+import services.conversation_ai as conversation_ai
+conversation_ai.understand=unavailable
 runpy.run_path(str(Path(__file__).resolve().parents[1]/'app.py'),run_name='__main__')

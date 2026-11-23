@@ -69,7 +69,7 @@ class ConversationTest(TestCase):
  def test_ui_accept_back_refuse_rerun_and_reset(self):
   with patch('services.config.load_settings',return_value=Settings()):
    app=AppTest.from_file(str(Path(__file__).resolve().parents[1]/'app.py'),default_timeout=15).run()
-   app.button(key='example_0').click().run();app.button(key='choose_region').click().run()
+   app.button(key='example_0').click().run();app.chat_input(key='chat').set_value('서울 강서구요').run()
    row=visible_activities(app.session_state['dialog'])[0]
    app.chat_input(key='chat').set_value('좋아요').run();self.assertEqual(app.session_state['dialog']['selected_id'],row['id'])
    self.assertTrue(any('문의 전화' in m.value for m in app.markdown));app.run()

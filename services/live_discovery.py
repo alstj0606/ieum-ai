@@ -25,17 +25,25 @@ def select_web(state,activity_id):
 
 def search(state,settings,activities,*,expanded=False,transport=None):
  state=deepcopy(state);state.pop('cache_only',None);state.pop('search_failure',None);previous=state.get('web') or {}
- try:outcome=search_programs(settings,state['location'],state['conditions'],hosts=official_hosts(activities),excluded=previous.get('excluded',[]),expanded=expanded,transport=transport)
+ excluded=previous.get('excluded',state.get('declined_web_ids',[]));state['declined_web_ids']=list(excluded)
+ try:outcome=search_programs(settings,state['location'],state['conditions'],hosts=official_hosts(activities),excluded=excluded,expanded=expanded,transport=transport)
  except SearchError as error:
   result=cache_search(state,activities)
   result['search_failure']={'code':error.code,'message':ERRORS[error.code]}
   result['message']=ERRORS[error.code]+' '+result['message']
+  if state.get('life_mode'):
+   from services.life_assistant import present_search
+   result=present_search(result,state,settings)
   return result
- outcome.update(selected_id=None,excluded=previous.get('excluded',[]));state['web']=outcome
+ outcome.update(selected_id=None,excluded=excluded);state['web']=outcome
  count=len(outcome['rows'])
  answer=f'공식 페이지에서 프로그램 {count}개를 확인했어요. 현재 신청 여부는 각 카드에서 확인해 주세요.' if count else ERRORS.get(outcome['status'],ERRORS['unverified'])
  if expanded:answer+=' 동의하신 확대 검색 결과예요. 장소가 요청 동네와 다르면 따로 표시해요.'
- return message(state,'인터넷에서 찾기',answer,'web',None if count else 'web_expand')
+ result=message(state,'인터넷에서 찾기',answer,'web',None if count else 'web_expand')
+ if state.get('life_mode'):
+  from services.life_assistant import present_search
+  result=present_search(result,state,settings)
+ return result
 
 def before_turn(state,text,settings,activities,**kwargs):
  if not state.get('web') or state['web']['status']=='not_configured':return None
@@ -101,6 +109,7 @@ def cache_search(state,activities):
  from services.config import Settings
  result=deepcopy(state);result.pop('web',None);result.pop('recommendation_context',None)
  result.update(selected_id=None,helper_focus=False,detail_focus=False,cache_only=True)
+ activities=[row for row in activities if row['id'] not in set(state.get('declined_ids',[]))]
  result=handle_turn(result,'같은 조건으로 저장 자료를 찾아줘',activities,Settings(),extraction=empty_extraction('search_program'))
  result.pop('recommendation_update',None)
  from services.discovery import visible_activities
