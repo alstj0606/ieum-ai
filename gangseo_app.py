@@ -23,6 +23,8 @@ from services.continuity import recommended_rows
 from services.guided_flow import INTERESTS,REGIONS,dong_options,open_picker,choose_city,choose_district,choose_area,choose_interest
 from services.live_discovery import select_web,cache_search
 from ui.live_cards import render as render_live
+from ui import national_picker
+from services.regions import label as region_label
 from services.discovery import EXAMPLES,discovery_turn,safe_input,visible_activities,select_activity,public_card,return_to_recommendations
 
 DISCOVERY=globals().get('DISCOVERY',False)
@@ -57,6 +59,7 @@ if DISCOVERY:
 
 
 def remember(text, state, *, voice=False, preserve=False):
+    scroll_after_picker=state.pop('_scroll_after_picker',False)
     if DISCOVERY:
         snapshot={'state':deepcopy(st.session_state.dialog),'detail_first':bool(st.session_state.turns and st.session_state.turns[-1].get('detail_first'))}
         st.session_state.navigation_history=(st.session_state.navigation_history+[snapshot])[-20:]
@@ -65,7 +68,7 @@ def remember(text, state, *, voice=False, preserve=False):
     st.session_state.turn_seq += 1
     st.session_state.speech = None
     st.session_state.speech_error = None
-    st.session_state.turns.append({"user":text,"state":deepcopy(state),"turn_id":st.session_state.turn_seq})
+    st.session_state.turns.append({"user":text,"state":deepcopy(state),"turn_id":st.session_state.turn_seq,"scroll_after_picker":scroll_after_picker})
     if DISCOVERY and state.get("detail_focus"):st.session_state.turns[-1]["detail_first"]=True
     st.session_state.turns = st.session_state.turns[-20:]
     st.session_state.auto_read = len(st.session_state.turns)-1 if voice and not state["error"] else None
@@ -99,11 +102,31 @@ def send(text, *, voice=False, fixed=False):
 
 
 def pick_interest(label):
-    remember(label,choose_interest(st.session_state.dialog,label,activities,settings))
+    if DISCOVERY:
+        from services.life_assistant import reply
+        state=deepcopy(st.session_state.dialog)
+        for field in ('activity_type','category','tags','beginner','purpose'):state['conditions'].pop(field,None)
+        category={'운동':'체육','취미':'문화·취미','문화':'문화·취미','배움':'평생학습'}.get(label)
+        if category:state['conditions']['category']=category
+        if label=='사람 만나기':state['conditions']['purpose']='교류'
+        state['interest']=label;state['mode']='basic';state['counselling_mode']='navigation'
+        state=reply(state,label,'어떤 활동이 궁금하세요? 추천받거나 편하게 말씀해 주세요.','explore','interest_choice')
+        remember(label,state)
+    else:remember(label,choose_interest(st.session_state.dialog,label,activities,settings))
 
 
 def pick_step(stage):
+    if DISCOVERY and stage=='region_city':
+        national_picker.open_picker(st.session_state.dialog.get('location'));return
     remember('다시 선택' if stage=='condition' else '지역 선택' if stage=='region_city' else '활동 선택',open_picker(st.session_state.dialog,stage))
+
+
+def apply_national_location(location):
+    text=region_label(location)+'에서 찾아주세요'
+    state=deepcopy(st.session_state.dialog)
+    updated,_=discovery_turn(state,text,activities,settings,extraction=basic_extract(text,state))
+    updated['location']=location;updated['_scroll_after_picker']=True
+    remember(region_label(location),updated)
 
 
 def pick_city(city):
@@ -227,7 +250,14 @@ def select_idea(idea_id):
     state=st.session_state.dialog
     idea=next(row for row in state['ideas'] if row['id']==idea_id)
     if DISCOVERY:
-        send(idea['activity_type']+(' 처음 배우려면?' if state.get('conversation_route')=='home' else ' 프로그램을 찾아주세요'),fixed=True)
+        if state.get('conversation_route')=='home':
+            send(idea['activity_type']+'를 처음 시작하는 방법을 알려주세요')
+        else:
+            from services.ai import empty_extraction
+            text=idea['activity_type']+' 프로그램을 찾아주세요'
+            extraction=empty_extraction('search_program');extraction['conditions']['activity_type']=idea['activity_type'];extraction['update_fields']=['activity_type']
+            updated,_=discovery_turn(state,text,activities,settings,extraction=extraction)
+            remember(text,updated)
     else:
         remember(idea['name']+' 프로그램을 찾아주세요',choose_idea(state,idea_id,activities,settings))
 
@@ -498,12 +528,62 @@ def discovery_card(row,index,position,*,reference=False,latest=False):
     if latest and detailed:choice_button('추천으로 돌아가기',key='detail_back',on_click=show_recommendations,type='secondary')
 
 
+def compact_chat_actions(state):
+    pending=state.get('pending')
+    with st.container(key='chat_actions'):
+        if state.get('ai_unavailable'):st.caption('기본 탐색 · AI 상담 연결 안 됨')
+        picker=state.get('picker') or {}
+        if picker.get('stage')=='condition':
+            left,right=st.columns(2,gap='small')
+            left.button('활동 다시 선택',key='edit_activity',on_click=pick_step,args=('activity',),use_container_width=True)
+            right.button('지역 다시 선택',key='edit_region',on_click=pick_step,args=('region_city',),use_container_width=True)
+        elif picker.get('stage')=='activity':
+            cols=st.columns(2,gap='small')
+            for i,interest in enumerate(INTERESTS):
+                cols[i%2].button(interest,key='pick_interest_'+str(i),on_click=pick_interest,args=(interest,),use_container_width=True)
+        elif pending=='interest_choice':
+            left,right=st.columns(2,gap='small')
+            left.button('추천받기',key='counsel_suggest',on_click=send,args=(state.get('interest','취미')+' 추천을 받고 싶어요',),use_container_width=True,type='primary')
+            right.button('직접 말하기',key='counsel_direct',on_click=direct_activity,use_container_width=True)
+        elif pending in {'region','web_location','web_dong'}:
+            st.button('지역 선택하기',key='choose_region',on_click=pick_step,args=('region_city',),use_container_width=True,type='primary')
+            st.caption('동네 이름을 아래에 직접 적어도 괜찮아요.')
+        elif pending=='life_budget':
+            st.button('무료로 찾아주세요',key='life_free',on_click=send,args=('무료로 찾아줘',),kwargs={'fixed':True},use_container_width=True)
+        elif pending=='expand_region':
+            left,right=st.columns(2,gap='small')
+            left.button('네, 넓혀주세요',key='expand_yes',on_click=send,args=('네',),kwargs={'fixed':True},use_container_width=True)
+            right.button('이 지역만',key='expand_no',on_click=send,args=('아니요',),kwargs={'fixed':True},use_container_width=True)
+        elif pending=='time_slot':
+            cols=st.columns(2,gap='small')
+            for i,name in enumerate(('오전','오후','저녁','상관없어요')):
+                cols[i%2].button(name,key='time_'+name,on_click=send,args=(name,),kwargs={'fixed':True},use_container_width=True)
+        elif pending in {'refine','life_refine'}:
+            left,right=st.columns(2,gap='small')
+            left.button('다른 활동',key='change_activity',on_click=send,args=('다른 활동',),kwargs={'fixed':True},use_container_width=True)
+            right.button('인접 지역도 찾아보기',key='request_adjacent',on_click=send,args=('인접 지역도 찾아줘',),kwargs={'fixed':True},use_container_width=True)
+        elif state.get('conversation_route')=='howto':
+            st.button('근처에서 배울 곳 찾기',key='howto_search',on_click=send,args=('근처에서 배울 곳도 찾아줘',),use_container_width=True)
+        elif state.get('ideas'):
+            st.button('다른 취미도 추천받기',key='more_hobbies',on_click=send,args=('다른 취미도 추천해줘',),use_container_width=True)
+        loc=state.get('location') or {}
+        if loc.get('city'):
+            summary=region_label(loc) if loc.get('province') else ' '.join(str(loc[k]) for k in ('city','district','neighbourhood') if loc.get(k))
+            st.caption('찾는 지역 · '+summary)
+            if pending not in {'region','web_location','web_dong'}:st.button('지역 바꾸기',key='region_change',on_click=pick_step,args=('region_city',))
+
+
 if DISCOVERY and not st.session_state.turns:
     st.markdown(f'<div id="latest-reply-welcome-{st.session_state.turn_seq}"></div>',unsafe_allow_html=True)
-st.title("이음 AI")
 if DISCOVERY:
-    if st.button('글자 크기',key='font_settings',type='secondary'):
-        font_dialog()
+    with st.container(key='messenger_header'):
+        brand,font,restart=st.columns([1.2,1,1],gap='small')
+        with brand:st.title('이음 AI')
+        with font:
+            if st.button('글자 크기',key='font_settings',type='secondary',use_container_width=True):font_dialog()
+        with restart:st.button('처음부터',key='header_reset',on_click=reset,type='secondary',use_container_width=True)
+    if st.session_state.get('region_open'):national_picker.render(apply_national_location)
+else:st.title('이음 AI')
 if not DISCOVERY and st.button('성산복지관 신청 도우미로 돌아가기',key='back_to_seongsan'):
     st.session_state.service_mode='seongsan'
     st.rerun()
@@ -625,7 +705,7 @@ for index, turn in enumerate(st.session_state.turns):
         st.write(turn["user"])
     with st.chat_message("assistant"):
         if latest:
-            st.markdown(f'<div id="latest-reply-{st.session_state.turn_seq}"></div>',unsafe_allow_html=True)
+            st.markdown(f'<div id="latest-reply-{st.session_state.turn_seq}" data-ieum-scroll="'+('selection' if turn.get('scroll_after_picker') else 'turn')+'"></div>',unsafe_allow_html=True)
         if DISCOVERY:
             with st.container(key=f'assistant_bubble_{turn["turn_id"]}'):
                 speaker_label('assistant')
@@ -643,7 +723,8 @@ for index, turn in enumerate(st.session_state.turns):
             if DISCOVERY and state.get('web',{}).get('status') not in (None,'not_configured'):
                 if state.get('notice') and not state.get('life_mode'):st.caption(state['notice'])
                 render_live(state,on_select=focus_web,on_send=send,on_cache=focus_cache)
-                render_listen(index,state)
+                if state.get('life_mode'):compact_chat_actions(state)
+                if settings.api_key or not state.get('life_mode'):render_listen(index,state)
                 continue
             if DISCOVERY and state.get('web',{}).get('status')=='not_configured':st.caption('저장 자료 참고 · 인터넷 검색은 수행하지 않았어요. 현재 모집 여부는 기관 확인이 필요해요.')
             if DISCOVERY and state.get('search_failure'):
@@ -743,7 +824,11 @@ for index, turn in enumerate(st.session_state.turns):
                         with columns[i%len(columns)]:
                             st.write('**'+idea['name']+'**')
                             if not state.get('life_mode'):st.write(idea['reason'])
-                            if latest:choice_button(idea['name']+' 알아보기',key='idea_'+idea['id'],on_click=select_idea,args=(idea['id'],),use_container_width=True)
+                            if idea.get('general'):
+                                st.write(idea['reason'])
+                                with st.expander('시작하는 방법'):
+                                    st.write(idea['start']);st.write('준비물 · '+idea['materials']);st.write('비용 · '+idea['cost_note'])
+                            if latest:choice_button(idea['name']+(' 방법 더 알아보기' if state.get('conversation_route')=='home' else ' 근처에서 찾기') if idea.get('general') else idea['name']+' 알아보기',key='idea_'+idea['id'],on_click=select_idea,args=(idea['id'],),use_container_width=True)
             if latest and state.get('ideas') and not state['results'] and not detail_first and not state.get('life_mode'):
                 with st.expander('공식 페이지에서 직접 더 찾아보기'):
                     st.write('실시간 검색 결과가 아니에요. 보유 자료의 공식 페이지를 열어 기관의 다른 공고를 직접 확인해 주세요.')
@@ -759,6 +844,10 @@ for index, turn in enumerate(st.session_state.turns):
                 choice_button('시간 조건 풀기',key='relax_time',on_click=send,args=('시간은 상관없어요',),kwargs={'fixed':True},use_container_width=True)
             if latest and DISCOVERY and visible_activities(state) and not detail_first and not guide_focus:
                 choice_button('다른 추천 보기',key='reject_recommendations',on_click=send,args=('다른 거 추천해 줘',),kwargs={'fixed':True},type='secondary')
+            if latest and state.get('life_mode'):
+                compact_chat_actions(state)
+                if settings.api_key:render_listen(index,state)
+                continue
             if latest and DISCOVERY and state.get('pending') in {'refine','life_refine'}:
                 choice_button('인접 지역도 찾아보기',key='request_adjacent',on_click=send,args=('인접 지역도 찾아줘',),kwargs={'fixed':True},type='secondary')
             if latest and state.get('conversation_route')=='howto':
@@ -802,9 +891,10 @@ for index, turn in enumerate(st.session_state.turns):
 
 if DISCOVERY and st.session_state.turns:
     with st.container(key='easy_navigation'):
-        st.button('이전 단계',key='nav_previous',on_click=undo_navigation,disabled=not st.session_state.navigation_history,use_container_width=True)
-        st.button('다시 선택',key='nav_reselect',on_click=pick_step,args=('condition',),use_container_width=True)
-        st.button('처음부터',key='nav_reset',on_click=reset,use_container_width=True)
+        left,middle,right=st.columns(3,gap='small')
+        left.button('이전 단계',key='nav_previous',on_click=undo_navigation,disabled=not st.session_state.navigation_history,use_container_width=True)
+        middle.button('다시 선택',key='nav_reselect',on_click=pick_step,args=('condition',),use_container_width=True)
+        right.button('대화 지우기',key='nav_reset',on_click=reset,use_container_width=True)
 
 if st.session_state.voice_error:
     st.warning(st.session_state.voice_error)

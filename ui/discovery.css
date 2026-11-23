@@ -47,3 +47,16 @@
 /* Current conversational suggestions remain a compact two-column choice group. */
 .stApp:has(#ieum-discovery-root) [class*=st-key-idea_choices_] [data-testid=stHorizontalBlock] {gap:10px;flex-wrap:nowrap}
 .stApp:has(#ieum-discovery-root) [class*=st-key-idea_choices_] [data-testid=stColumn] {min-width:0;width:calc(50% - 5px);flex:1 1 0}
+
+/* Compact messenger toolbar and contextual choices; no parent DOM mutation. */
+.stApp:has(#ieum-discovery-root) :is(.st-key-messenger_header,.st-key-chat_actions,.st-key-easy_navigation) [data-testid=stHorizontalBlock] {flex-wrap:nowrap;gap:8px}
+.stApp:has(#ieum-discovery-root) :is(.st-key-messenger_header,.st-key-chat_actions,.st-key-easy_navigation) [data-testid=stColumn] {min-width:0;flex:1 1 0;width:auto}
+.stApp:has(#ieum-discovery-root) :is(.st-key-messenger_header,.st-key-chat_actions,.st-key-easy_navigation) button {min-height:44px;margin:2px 0 4px;padding:8px;border-radius:14px}
+.stApp:has(#ieum-discovery-root) .st-key-messenger_header {padding:0 0 8px;border-bottom:1px solid #ececef}
+.stApp:has(#ieum-discovery-root) .st-key-messenger_header h1 {white-space:nowrap}
+.stApp:has(#ieum-discovery-root) :is(.st-key-chat_actions,[class*=st-key-idea_choices_]) button[kind=secondary] {background:#fff1e7;border:1px solid #dc9c70;color:#703600}
+.stApp:has(#ieum-discovery-root) :is(.st-key-chat_actions,[class*=st-key-idea_choices_]) button[kind=secondary] p {color:#703600}
+.stApp:has(#ieum-discovery-root) .st-key-easy_navigation {padding:8px 0;border-top:1px solid #ececef;margin-top:10px}
+.stApp:has(#ieum-discovery-root) [class*=st-key-idea_choices_] button {min-height:44px;padding:8px;border-radius:16px;margin:4px 0}
+.stApp:has(#ieum-discovery-root) [data-testid=stChatMessage] [data-testid=stMarkdownContainer] p {line-height:1.55}
+@media(max-width:430px) {.stApp:has(#ieum-discovery-root) .stMainBlockContainer {padding-top:.5rem}}
