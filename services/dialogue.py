@@ -60,7 +60,7 @@ def basic_extract(text, state):
     if compact in {"아니요", "아니", "싫어요"}:
         request["intent"] = "no"
         return request
-    if "처음부터" in compact or "새로시작" in compact:
+    if "처음부터" in compact or "새로시작" in compact or compact in {"초기화","대화초기화"}:
         request["intent"] = "reset"
         return request
     if "다른시간" in compact:

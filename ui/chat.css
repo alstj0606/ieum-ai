@@ -28,11 +28,11 @@ button:focus-visible,a:focus-visible,textarea:focus-visible {outline:3px solid v
 [id^=latest-reply-] {scroll-margin-top:70px}
 @media(max-width:400px) {.stMainBlockContainer {padding-left:8px;padding-right:8px}.stChatMessage [data-testid=stChatMessageAvatarUser],.stChatMessage [data-testid=stChatMessageAvatarAssistant] {display:none}}
 /* Common native action-button style; expanders remain an outlined disclosure. */
-.stButton button,.stFormSubmitButton button {min-height:64px!important;border-radius:var(--ieum-radius);margin:6px 0 12px;padding:14px 16px;white-space:normal;width:100%}
-.stButton button:not(:disabled),.stFormSubmitButton button:not(:disabled) {background:var(--ieum-red)!important;color:var(--ieum-white)!important;border:2px solid var(--ieum-red)!important}
+.stButton button,.stFormSubmitButton button {min-height:64px;border-radius:var(--ieum-radius);margin:6px 0 12px;padding:14px 16px;white-space:normal;width:100%}
+.stButton button:not(:disabled),.stFormSubmitButton button:not(:disabled) {background:var(--ieum-red);color:var(--ieum-white);border:2px solid var(--ieum-red)}
 .stButton button p,.stFormSubmitButton button p {font-weight:750!important;line-height:1.5}
-.stButton button:not(:disabled) p,.stFormSubmitButton button:not(:disabled) p {color:var(--ieum-white)!important}
-.stButton button:not(:disabled):hover,.stFormSubmitButton button:not(:disabled):hover {background:var(--ieum-red-hover)!important;border-color:var(--ieum-red-hover)!important}
+.stButton button:not(:disabled) p,.stFormSubmitButton button:not(:disabled) p {color:var(--ieum-white)}
+.stButton button:not(:disabled):hover,.stFormSubmitButton button:not(:disabled):hover {background:var(--ieum-red-hover);border-color:var(--ieum-red-hover)}
 .stExpander summary {border:2px solid var(--ieum-border);border-radius:10px;background:var(--ieum-surface);color:var(--ieum-ink);padding:10px;cursor:pointer}
 .stExpander summary p {font-weight:700!important}
 

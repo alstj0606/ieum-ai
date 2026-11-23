@@ -10,7 +10,7 @@ async function layout(p){assert.equal(await p.locator('[data-testid=stException]
 async function newAnswerVisible(p){await p.waitForFunction(()=>{const a=[...document.querySelectorAll('[id^=latest-reply-]')].at(-1)?.getBoundingClientRect();return a&&a.y>=55&&a.y<170;},null,{timeout:6000});}
 (async()=>{const b=await chromium.launch({executablePath:'/usr/bin/chromium',headless:true,args:['--no-sandbox','--use-fake-device-for-media-stream','--use-fake-ui-for-media-stream']});try{for(const width of [320,390,768])for(const[mode,port]of[['keyless',18517],['mock',18518]]){
  const p=await b.newPage({viewport:{width,height:900},isMobile:true,hasTouch:true,colorScheme:mode==='mock'?'dark':'light'});
- try{await p.goto(`http://127.0.0.1:${port}`);await p.getByRole('heading',{name:'오늘은 무엇을 해보고 싶으세요?',exact:true}).waitFor();await idle(p);await p.waitForFunction(()=>getComputedStyle(document.querySelector('[data-testid=stApp]')).backgroundColor==='rgb(255, 255, 255)');await newAnswerVisible(p);await layout(p);
+ try{await p.goto(`http://127.0.0.1:${port}`);await p.getByRole('heading',{name:'오늘은 어떤 활동을 해보고 싶으세요?',exact:true}).waitFor();await idle(p);await p.waitForFunction(()=>getComputedStyle(document.querySelector('[data-testid=stApp]')).backgroundColor==='rgb(255, 255, 255)');await newAnswerVisible(p);await layout(p);
  assert.equal(await p.getByRole('button',{name:'온라인 신청 도와주세요',exact:true}).count(),0);if(mode==='keyless')assert.ok(await p.getByRole('button',{name:'음성 입력 · 현재 설정되지 않았어요',exact:true}).isDisabled());
  await p.screenshot({path:`/workspace/work/discovery/landing-${width}-${mode}.png`});
  await tap(p,'수영을 배우고 싶어요');await latest(p).getByText(/어느 지역/).waitFor();await tap(p,'서울 강서구에서 찾기');await latest(p).getByRole('heading',{name:'공항동문화체육센터 효도아쿠아',exact:true}).waitFor();assert.ok((await latest(p).innerText()).includes('유사 활동'));
@@ -20,11 +20,11 @@ async function newAnswerVisible(p){await p.waitForFunction(()=>{const a=[...docu
  await change(p,()=>latest(p).getByRole('button',{name:'신청 방법 안내 →',exact:true}).tap());await latest(p).getByText(/아직 신청·예약·결제가 완료된 것은 아니에요/).waitFor();await newAnswerVisible(p);
  await send(p,'창원 성산구요');assert.ok((await latest(p).innerText()).includes('지역의 프로그램 자료는 아직 없어요'));assert.equal(await latest(p).getByRole('button',{name:'자세히 보기 →',exact:true}).count(),0);
  await send(p,'서울 강서구 슬로우 러닝 프로그램');await latest(p).getByRole('heading',{name:'2026년 하반기 생활체육교실 슬로우조깅 (40세 이상)',exact:true}).waitFor();assert.ok((await latest(p).innerText()).includes('접수 마감'));
- const titles=await latest(p).locator('h3').allTextContents();assert.ok(titles[0].includes('슬로우조깅'));assert.ok(titles.length<=3);
+ assert.equal(await latest(p).locator('del').count(),0);const titles=await latest(p).locator('h3').allTextContents();assert.ok(titles[0].includes('슬로우조깅'));assert.ok(titles.length<=3);
  await send(p,'오후로 찾아줘');assert.ok(!(await latest(p).locator('h3').allTextContents()).some(x=>x.includes('슬로우조깅')));await send(p,'무료로 찾아줘');assert.ok((await latest(p).innerText()).includes('무료'));
  if(mode==='mock'){await send(p,'강서구에서 어르신이 참여할 수 있는 운동을 추천해줘');await latest(p).getByText(/Gemini 연결을 이용하지 못해 기본 규칙/).waitFor();assert.ok(!(await latest(p).innerText()).includes('private-'));}
  await p.getByRole('button',{name:'＋ 보조 메뉴',exact:true}).tap();await tap(p,'처음부터 다시 찾기');await p.getByRole('button',{name:'수영을 배우고 싶어요',exact:true}).waitFor();await newAnswerVisible(p);
- await tap(p,'사람들과 함께하는 활동이 좋아요');await tap(p,'서울 강서구에서 찾기');await layout(p);assert.ok((await latest(p).innerText()).includes('교류')||(await latest(p).innerText()).includes('함께'));
+ await send(p,'사람들과 함께하는 활동이 좋아요');await tap(p,'서울 강서구에서 찾기');await layout(p);assert.ok((await latest(p).innerText()).includes('교류')||(await latest(p).innerText()).includes('함께'));
  await p.screenshot({path:`/workspace/work/discovery/results-${width}-${mode}.png`});
  if(mode==='mock'&&width===390){
   await p.getByRole('button',{name:'＋ 보조 메뉴',exact:true}).tap();await tap(p,'처음부터 다시 찾기');await idle(p);const cdp=await p.context().newCDPSession(p);

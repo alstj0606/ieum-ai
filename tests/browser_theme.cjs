@@ -15,7 +15,7 @@ async function measure(p,label){await idle(p);return p.evaluate(label=>{
 for(const width of [320,390,768])for(const scheme of ['light','dark'])for(const service of ['discovery','institution']){
  const p=await b.newPage({viewport:{width,height:900},colorScheme:scheme});
  await p.goto('http://127.0.0.1:'+(service==='discovery'?18517:18507));
- await p.getByRole(service==='discovery'?'heading':'button',{name:service==='discovery'?'오늘은 무엇을 해보고 싶으세요?':'온라인 신청 도와주세요',exact:true}).waitFor();await idle(p);
+ await p.getByRole(service==='discovery'?'heading':'button',{name:service==='discovery'?'오늘은 어떤 활동을 해보고 싶으세요?':'온라인 신청 도와주세요',exact:true}).waitFor();await idle(p);
  await p.waitForFunction(()=>getComputedStyle(document.documentElement).getPropertyValue('--ieum-red').trim()==='#ea002c');
  const primary=p.locator('.stButton button:not(:disabled)').first();assert.equal(await primary.evaluate(e=>getComputedStyle(e).backgroundColor),'rgb(234, 0, 44)');
  if(service==='institution'){await p.getByRole('button',{name:'온라인 신청 도와주세요',exact:true}).click();await p.getByRole('button',{name:'복지관 비회원이에요',exact:true}).waitFor();await idle(p);}

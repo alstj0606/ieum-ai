@@ -20,7 +20,7 @@ from services.recommendation_pipeline import prepare_view, restore_local
 from services.voice import transcribe, synthesize, VoiceError
 from services.application_helper import helper_view, move_helper, helper_speech
 from services.continuity import recommended_rows
-from services.discovery import EXAMPLES,discovery_turn,safe_input,visible_activities,select_activity,public_card
+from services.discovery import EXAMPLES,discovery_turn,safe_input,visible_activities,select_activity,public_card,return_to_recommendations
 
 DISCOVERY=globals().get('DISCOVERY',False)
 
@@ -55,6 +55,7 @@ def remember(text, state, *, voice=False, preserve=False):
     st.session_state.speech = None
     st.session_state.speech_error = None
     st.session_state.turns.append({"user":text,"state":deepcopy(state),"turn_id":st.session_state.turn_seq})
+    if DISCOVERY and state.get("detail_focus"):st.session_state.turns[-1]["detail_first"]=True
     st.session_state.turns = st.session_state.turns[-20:]
     st.session_state.auto_read = len(st.session_state.turns)-1 if voice and not state["error"] else None
 
@@ -77,6 +78,9 @@ def send(text, *, voice=False, fixed=False):
         else:
             state = handle_turn(state, text, activities, settings,
                                 extraction=basic_extract(text, state) if fixed else None)
+        if DISCOVERY and state.get('code')=='start' and any(word in compact for word in ('처음부터','새로시작','초기화')):
+            reset()
+            return
         remember(text, state, voice=voice)
 
 
@@ -131,6 +135,10 @@ def reset():
     st.session_state.transcript = None
     st.session_state.voice_error = None
     st.session_state.upload_seen = None
+    st.session_state.auto_read = None
+    st.session_state.edit_voice = False
+    st.session_state.speech_error = None
+    st.session_state.pop('corrected',None)
 
 
 def apply(activity_id):
@@ -147,7 +155,7 @@ def navigate_helper(direction):
 
 
 def show_recommendations():
-    state=deepcopy(st.session_state.dialog)
+    state=return_to_recommendations(st.session_state.dialog) if DISCOVERY else deepcopy(st.session_state.dialog)
     state.pop('recommendation_update',None)
     state['helper_focus']=False
     state['message']='현재 조건에서 확인한 추천을 다시 보여드릴게요. 접수 상태를 확인해 주세요.'
@@ -284,58 +292,63 @@ def open_institution():
 
 def discovery_card(row,index,position,*,reference=False,latest=False):
     facts=card_facts(row);entry=public_card(row)
-    with st.container(border=True):
+    detailed=bool(st.session_state.turns[index].get('detail_first'))
+    with st.container(key=f'activity_card_{index}_{position}'):
         st.subheader(row['name'])
-        st.caption(row.get('match_label','공식 자료')+' · '+(entry['organization_name'] or '운영 기관 확인 필요')+' · '+entry['facility_name'])
+        st.caption(row.get('match_label','공식 자료')+' · '+facts['접수 상태'])
         st.write(row.get('reason') or '말씀하신 조건으로 확인한 공식 자료예요. 참여 자격과 현재 모집 여부는 확인해 주세요.')
-        st.markdown('**모집 상태 · '+facts['접수 상태']+'**')
-        if reference:st.warning('참고 자료 · 현재 신청 가능하다고 확인된 프로그램이 아니에요.')
-        for label,key in (('지역·장소','지역'),('시간','일정'),('대상','대상'),('비용','비용'),('모집 기간','접수 기간')):
-            st.markdown(f"**{label}** · {facts[key]}")
-        for note in row.get('condition_notes',[]):st.write(note)
-        phone=entry['contact_phone']
-        if phone:
-            st.markdown(f"[문의 전화 · {phone}](tel:{phone.replace('-','')})")
-            st.caption('문의처 확인일 · '+str(entry['contact_checked_at'])+' · 신청 전화 여부는 별도 확인')
-        else:st.write('문의 전화 · 확인 필요')
+        if reference:st.caption('참고 자료 · 현재 신청 가능하다고 확인된 프로그램이 아니에요.')
+        for label,value in [('장소',entry['facility_name']),('시간',facts['일정']),('비용',facts['비용'])]:
+            st.markdown('**'+label+'** · '+str(value).replace('~',r'\~'))
         st.caption('공식 자료 확인일 · '+str(entry['source_checked_at'])+' · 실시간 모집 조회 아님')
-        if latest:
-            choice_button('자세히 보기 →',key=f'detail_{row["id"]}',on_click=focus_activity,args=(row['id'],))
-            choice_button('신청 방법 안내 →',key=f'apply_{row["id"]}',on_click=apply,args=(row['id'],))
-        with st.expander('상세 정보 · 신청 방법·공식 근거',expanded=bool(st.session_state.turns[index].get('detail_first'))):
-            for label in ('주소','신청 방법','준비물','비용 참고','접수 참고','접수 시각','다음 접수 예정일'):st.write('**'+label+'** · '+facts[label])
+        if detailed:
+            st.markdown('**모집 상태** · '+facts['접수 상태'])
+            for label,value in [('운영 기관',entry['organization_name'] or '확인 필요'),('지역',facts['지역']),('대상',facts['대상']),('주소',facts['주소']),('모집 기간',facts['접수 기간']),('다음 접수 예정일',facts['다음 접수 예정일']),('신청 방법',facts['신청 방법'])]:
+                st.markdown('**'+label+'** · '+str(value).replace('~',r'\~'))
+            phone=entry['contact_phone']
+            if phone:
+                st.markdown(f"[문의 전화 · {phone}](tel:{phone.replace('-','')})")
+                st.caption('문의처 확인일 · '+str(entry['contact_checked_at'])+' · 신청 전화 여부는 별도 확인')
+            else:st.write('문의 전화 · 확인 필요')
+            for note in row.get('condition_notes',[]):st.write(note)
+            st.caption('신청·예약이 완료된 것이 아니에요. 공식 사이트에서 직접 확인하고 진행해 주세요.')
+            if latest:choice_button('신청 방법 안내 →',key=f'apply_{row["id"]}',on_click=apply,args=(row['id'],))
+        elif latest:
+            choice_button('자세히 보기 →',key=f'detail_{row["id"]}',on_click=focus_activity,args=(row['id'],),type='secondary')
+        with st.expander('상세 정보 · 신청 방법·공식 근거',expanded=False):
+            for label in ('주소','대상','신청 방법','준비물','비용 참고','접수 참고','접수 시각','다음 접수 예정일'):st.write('**'+label+'** · '+str(facts[label]).replace('~',r'\~'))
             if row['schedule'].get('notes'):st.write('**일정 참고** · '+display_date_text(row['schedule']['notes']))
             for note in row.get('verification_notes',[]):st.write(display_date_text(note))
             st.link_button('공식 출처 확인',entry['source_url'],use_container_width=True)
             for n,url in enumerate(row.get('additional_source_urls') or [],1):st.link_button('추가 공식 근거 '+str(n),url,use_container_width=True)
-            if phone:st.link_button('문의처 공식 근거',entry['contact_source'],use_container_width=True)
-        st.link_button('공식 사이트 이동 →',entry['application_url'] or entry['source_url'],use_container_width=True)
-        if not entry['application_url']:st.caption('신청 링크는 확인 필요해요. 버튼은 공식 근거 페이지를 열어요.')
-        if latest:choice_button('다른 활동 찾아보기',key=f'different_{row["id"]}',on_click=send,args=('다른 활동',),kwargs={'fixed':True})
+            if entry['contact_phone']:st.link_button('문의처 공식 근거',entry['contact_source'],use_container_width=True)
+        if detailed:
+            st.link_button('공식 사이트 이동 →',entry['application_url'] or entry['source_url'],use_container_width=True)
+            if not entry['application_url']:st.caption('신청 링크는 확인 필요해요. 버튼은 공식 근거 페이지를 열어요.')
         if latest and row.get('institution_id')=='seongsan_senior' and st.session_state.dialog.get('selected_id')==row['id']:
             choice_button('이 기관의 상세 신청 길잡이',key='institution_guide',on_click=open_institution)
+    if latest and detailed:choice_button('추천으로 돌아가기',key='detail_back',on_click=show_recommendations,type='secondary')
 
 
 if DISCOVERY and not st.session_state.turns:
     st.markdown(f'<div id="latest-reply-welcome-{st.session_state.turn_seq}"></div>',unsafe_allow_html=True)
 st.title("이음 AI")
-if DISCOVERY:
-    st.header('오늘은 무엇을 해보고 싶으세요?')
-    st.write('하고 싶은 활동을 말하거나 글로 적어 주세요. 이음 AI가 함께 찾아드릴게요.')
-    st.caption('하고 싶은 마음이, 참여로 이어지도록.')
 if not DISCOVERY and st.button('성산복지관 신청 도우미로 돌아가기',key='back_to_seongsan'):
     st.session_state.service_mode='seongsan'
     st.rerun()
 st.caption(('공식 프로그램 자료: '+str(len(activities))+'건 · '+'·'.join(sorted({r['region'] for r in activities}))+' · 실시간 모집 조회 아님') if DISCOVERY else '기존 기능 · 서울 강서구 공식 활동 검색')
 if not st.session_state.turns:
-    if DISCOVERY:
-        for i,example in enumerate(EXAMPLES):
-            choice_button(example,key=f'example_{i}',on_click=send,args=(example,))
     with st.chat_message("assistant"):
-        st.write("안녕하세요. 어떤 활동을 하고 싶으세요? 글로 적거나 마이크를 눌러 말씀해 주세요.")
+        if DISCOVERY:
+            st.header('오늘은 어떤 활동을 해보고 싶으세요?')
+            st.write('운동, 문화, 취미, 배움. 하고 싶은 일을 편하게 말씀해 주세요.')
+            for i,example in enumerate(EXAMPLES):
+                choice_button(example,key=f'example_{i}',on_click=send,args=(example,),type='primary' if i==0 else 'secondary')
+        else:
+            st.write("안녕하세요. 어떤 활동을 하고 싶으세요? 글로 적거나 마이크를 눌러 말씀해 주세요.")
         if not settings.gemini_api_key:
             st.caption("Gemini 질문 이해가 미설정되어 기본 규칙으로 안내해요.")
-        st.caption("질문 이해: Gemini · 음성 입력·안내: OpenAI(별도 키와 사용량 필요).")
+        if not DISCOVERY:st.caption("질문 이해: Gemini · 음성 입력·안내: OpenAI(별도 키와 사용량 필요).")
 
 with st.popover("＋ 보조 메뉴", use_container_width=False):
     with st.expander("AI 도움 없이 찾아보기"):
@@ -427,6 +440,11 @@ for index, turn in enumerate(st.session_state.turns):
     with st.chat_message("user"):
         st.write(turn["user"])
     with st.chat_message("assistant"):
+        if DISCOVERY and not latest:
+            st.write(state['message'])
+            previous_names=[row['name'] for row in visible_activities(state)]
+            if previous_names:st.caption(' · '.join(previous_names))
+            continue
         if latest:
             st.markdown(f'<div id="latest-reply-{st.session_state.turn_seq}"></div>',unsafe_allow_html=True)
         if state["error"]:
@@ -446,7 +464,7 @@ for index, turn in enumerate(st.session_state.turns):
             if state.get("notice"):
                 st.info(state["notice"])
             if not detail_first and not guide_focus:
-                st.markdown('**'+('인접 지역 확인 결과' if state.get('flow')=='adjacent' else '활동 추천 안내')+'**')
+                if not DISCOVERY:st.markdown('**'+('인접 지역 확인 결과' if state.get('flow')=='adjacent' else '활동 추천 안내')+'**')
                 st.write(state["message"])
                 if state.get('flow') in {'program','adjacent'}:
                     conditions=state['conditions']
@@ -456,6 +474,8 @@ for index, turn in enumerate(st.session_state.turns):
                         summary.append('무료' if conditions['budget_amount']==0 else f"예산 {conditions['budget_amount']:,}원 ({conditions.get('budget_unit') or '과금 단위 확인 필요'})")
                     if conditions.get('age') is not None:summary.append(f"{conditions['age']}세")
                     if conditions.get('beginner'):summary.append('처음 배우기')
+                    if conditions.get('companionship'):summary.append(conditions['companionship']+' 참여 선호 · 참여 방식 확인 필요')
+                    if conditions.get('weekdays'):summary.append('·'.join(conditions['weekdays'])+'요일 희망')
                     if summary:st.caption('적용 조건 · '+' · '.join(summary))
             if compact_update and not guide_focus:
                 st.caption('같은 추천 카드는 위 대화에 있어요. 앞선 추천 다시 보기로 펼칠 수 있어요.')
@@ -535,6 +555,10 @@ for index, turn in enumerate(st.session_state.turns):
                         if len(seen)==3:break
             if latest and state.get('ideas') and state['conditions'].get('time_slot'):
                 choice_button('시간 조건 풀기',key='relax_time',on_click=send,args=('시간은 상관없어요',),kwargs={'fixed':True},use_container_width=True)
+            if latest and DISCOVERY and visible_activities(state) and not detail_first and not guide_focus:
+                choice_button('다른 추천 보기',key='reject_recommendations',on_click=send,args=('다른 거 추천해 줘',),kwargs={'fixed':True},type='secondary')
+            if latest and DISCOVERY and state.get('pending')=='refine':
+                choice_button('인접 지역도 찾아보기',key='request_adjacent',on_click=send,args=('인접 지역도 찾아줘',),kwargs={'fixed':True},type='secondary')
             if latest and DISCOVERY and state['conditions'].get('movement_caution'):
                 choice_button('신체 부담 조건 해제',key='clear_caution',on_click=send,args=('신체 부담 조건 해제',),kwargs={'fixed':True})
             if latest and DISCOVERY and state['conditions'].get('weekdays'):
@@ -589,8 +613,8 @@ if st.session_state.voice_error:
     st.write("아래 입력창에서 글로 질문하거나 마이크로 다시 말씀해 주세요.")
 if st.session_state.transcript or st.session_state.voice_error:
     st.html("""<button id="ieum-retry-voice" type="button" aria-label="다시 말하기"
-      style="width:100%;min-height:64px;font-size:20px;border:2px solid #1671c5;
-      border-radius:12px;background:#eaf4ff;color:#102f50">🎤 다시 말하기</button>
+      style="width:100%;min-height:64px;font-size:20px;border:1px solid var(--ieum-border);
+      border-radius:12px;background:var(--ieum-warm);color:var(--ieum-ink)">🎤 다시 말하기</button>
       <p id="ieum-retry-status" role="status" aria-live="polite" style="font-size:20px;color:#384454"></p>""")
 if st.session_state.transcript:
     with st.expander("음성인식이 다르게 되었나요?"):
@@ -615,7 +639,8 @@ if request:
     if getattr(request,"audio",None) is not None:
         submit_voice(request.audio)
     else:
-        send(request if isinstance(request,str) else request.text)
+        with st.spinner("조건에 맞는 공식 자료를 확인하고 있어요…"):
+            send(request if isinstance(request,str) else request.text)
     st.rerun()
 st.html(f'<script>{(ROOT/"ui/reply_scroll.js").read_text()}</script>',unsafe_allow_javascript=True)
 st.html(f'<script>{(ROOT/"ui/chat.js").read_text()}</script>',unsafe_allow_javascript=True)
