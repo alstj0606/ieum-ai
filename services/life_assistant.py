@@ -36,8 +36,6 @@ def rule_route(text,state,request):
     if request['intent']=='change_activity':return 'explore'
     if request['conditions'].get('activity_type') or any(x in c for x in ('다시검색','검색다시','다시찾아','찾아','찾고','강습','강좌','배우고싶','배워보고싶','수영장','문화센터')):return 'search'
     if any(x in c for x in ('심심','뭘해야','모르겠','사람들','사람을','만나','취미','추천','뻐근','운동하고','무리하지','할만한')):return 'explore'
-    if state.get('pending') in {'region','web_location','web_dong','life_budget'} and state.get('search_requested'):return 'search'
-    if state.get('conversation_route') in {'search','followup'} and (request['update_fields'] or request['clear_fields']):return 'search'
     if request['conditions'].get('region') or request['conditions'].get('neighbourhood'):return 'chat'
     return state.get('conversation_route') if state.get('conversation_route') in GENERAL else 'explore'
 
@@ -232,7 +230,9 @@ def _turn(state,text,activities,settings,*,extraction=None,client=None,as_of=Non
             state['ai_call']={'attempted':True,'status':'calling'}
             from services.conversation_policy import counselling_request
             model_state=deepcopy(state)
-            if counselling_request(safe):model_state.update(pending=None,search_requested=False)
+            # The model interprets the current utterance against conversation
+            # history, never a form's pending slot as a mandatory next action.
+            model_state.update(pending=None,search_requested=False)
             plan=conversation_ai.understand(safe,model_state,activities,settings,client=client)
             if counselling_request(safe) and re.search(r'어느.{0,15}(?:동네|지역|시·구|시군구)',plan['reply']):
                 error=AIError(code='response_format');error.stage='policy';error.request_sent=True;raise error
@@ -336,6 +336,8 @@ def turn(state,text,activities,settings,**kwargs):
     result,safe=_turn(base,text,activities,settings,**kwargs)
     result.update(life_mode=True,web_enabled=True,engine_contract=2)
     result['phase']=phase(result)
+    result['last_handler']='services.life_assistant.turn'
+    result['engine_revision']='conversation-20261124'
     result.setdefault('ai_call',{'attempted':False,'status':'not_attempted'})
     if result['ai_call'].get('status')!='not_attempted':result['last_ai_call']=deepcopy(result['ai_call'])
     return result,safe

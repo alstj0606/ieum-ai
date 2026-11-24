@@ -34,7 +34,8 @@ def choose_route(text,previous,request,plan,rule):
     # Only actual slot answers continue a previous search. An unrelated question
     # doesn't become a search merely because pending='region'.
     slot_fields=set(request['update_fields'])|set(request['clear_fields'])
-    if previous.get('search_requested') and slot_fields and not ('?' in text or '？' in text):return 'search'
+    search_slots={'region','neighbourhood','activity_type','category','time_slot','weekdays','budget_amount','budget_unit'}
+    if previous.get('search_requested') and slot_fields & search_slots and not ('?' in text or '？' in text):return 'search'
     if plan:return plan['route']
     return rule
 
