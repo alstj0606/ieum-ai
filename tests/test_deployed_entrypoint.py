@@ -40,6 +40,8 @@ class DeployedEntrypointTest(TestCase):
   with patch('services.config.load_settings',return_value=Settings()):
    for entry,enabled in (('app.py',True),('gangseo_app.py',False)):
     app=AppTest.from_file(str(ROOT/entry)).run();self.assertFalse(app.exception)
+    self.assertFalse(app.json)
+    app.button(key='run_connection_diagnostics').click().run();self.assertFalse(app.exception)
     records=[json.loads(item.value) for item in app.json]
     evidence=next(item for item in records if 'diagnostics_revision' in item)
     self.assertEqual(evidence['entrypoint'],entry);self.assertEqual(evidence['discovery_enabled'],enabled)
