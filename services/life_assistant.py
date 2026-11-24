@@ -223,6 +223,9 @@ def _turn(state,text,activities,settings,*,extraction=None,client=None,as_of=Non
     if compact in {'다른시간','다른시간찾기','다른시간에요'}:
         result=reply(state,safe,'오전, 오후, 저녁 중 언제가 편하세요?','search','time_slot');result['search_requested']=True
         return result,safe
+    from services.gemini_trace import HTTPTrace,ACTIVE_TRACE
+    trace=HTTPTrace()
+    trace_token=ACTIVE_TRACE.set(trace)
     plan=None
     try:
         if extraction is not None:request=extraction;mode='basic';diagnostic=None
@@ -246,6 +249,8 @@ def _turn(state,text,activities,settings,*,extraction=None,client=None,as_of=Non
         stage=state['ai_call']['stage'];state['ai_call'].update(response_received=stage in {'parse','validation','policy'},parsed=stage in {'validation','policy'})
         state['ai_unavailable']=True
         LOG.info('conversation_fallback code=%s',error.code)
+    finally:ACTIVE_TRACE.reset(trace_token)
+    state['ai_call'].update(trace.public())
     request=grounded_request(safe,state,request)
     old=deepcopy(state);state=merge(state,safe,request)
     state.update(mode=mode,diagnostic=diagnostic,notice=None,life_mode=True)

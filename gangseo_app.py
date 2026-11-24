@@ -23,7 +23,7 @@ from services.recommendation_pipeline import prepare_view, restore_local
 from services.voice import transcribe, synthesize, VoiceError
 from services.application_helper import helper_view, move_helper, helper_speech
 from services.continuity import recommended_rows
-from services.guided_flow import INTERESTS,REGIONS,dong_options,open_picker,choose_city,choose_district,choose_area,choose_interest
+from services.guided_flow import INTERESTS,open_picker,choose_interest
 from services.live_discovery import select_web,cache_search
 from ui.live_cards import render as render_live
 from ui import national_picker
@@ -44,8 +44,10 @@ st.html('<style>'+style+'</style>')
 if DISCOVERY:st.markdown('<div id="ieum-discovery-root"></div>',unsafe_allow_html=True)
 try:
     secrets = dict(st.secrets)
+    secrets_read_status="loaded"
 except Exception:
     secrets = {}  # Never display secret parser errors.
+    secrets_read_status="unavailable"
 settings = load_settings(secrets)
 del secrets
 try:
@@ -64,14 +66,25 @@ if DISCOVERY:
 
 def render_connection_diagnostics():
     # Expander contents run even when collapsed. No imports/probes before consent.
-    if not st.button("연결 진단 실행",key="run_connection_diagnostics"):
-        return
-    stage='snapshot'
+    run_snapshot=st.button("연결 진단 실행",key="run_connection_diagnostics")
+    st.caption("실제 상담 테스트는 고정 문장 2개만 보내며 Gemini 사용량을 사용해요. 입력하신 대화는 보내지 않아요.")
+    run_generation=st.button("Gemini 실제 상담 연결 테스트",key="run_gemini_conversation_test")
+    if not (run_snapshot or run_generation):return
+    stage='conversation_test' if run_generation else 'snapshot'
     try:
-        from services.runtime_diagnostics import snapshot
-        report=snapshot(st.session_state.dialog,settings,discovery=DISCOVERY,renderer=__file__)
+        if run_generation:
+            from services.conversation_probe import inspect_conversation
+            with st.spinner("Gemini의 실제 상담 응답을 확인하고 있어요…"):
+                report=inspect_conversation(settings)
+        else:
+            from services.runtime_diagnostics import snapshot
+            report=snapshot(st.session_state.dialog,settings,discovery=DISCOVERY,renderer=__file__)
+        report['streamlit_secrets_read']=secrets_read_status
         stage='display'
         st.json(report)
+        if run_generation:
+            if report.get('connection_verified'):st.success("고정 문장 두 번의 상담·응답 검증을 통과했어요. 실제 질문의 결과나 남은 무료 한도는 별도 확인이 필요해요.")
+            else:st.warning("실제 상담 테스트를 통과하지 못했어요. 위 오류 유형과 HTTP 상태를 확인해 주세요.")
     except Exception as error:
         # Keep code locations, not exception messages, source lines, locals or
         # absolute paths: errors may contain credentials or private user input.
@@ -150,33 +163,28 @@ def pick_interest(label):
     else:remember(label,choose_interest(st.session_state.dialog,label,activities,settings))
 
 
-def pick_step(stage):
-    if DISCOVERY and stage=='region_city':
-        national_picker.open_picker(st.session_state.dialog.get('location'));return
-    remember('다시 선택' if stage=='condition' else '지역 선택' if stage=='region_city' else '활동 선택',open_picker(st.session_state.dialog,stage))
+def pick_step(stage, *, manual=False):
+    if stage.startswith('region'):
+        st.session_state.region_intent='manual' if manual else 'conversation'
+        st.session_state.dialog.pop('picker',None)
+        st.session_state.auxiliary_menu=False
+        national_picker.open_picker();return
+    remember('다시 선택' if stage=='condition' else '활동 선택',open_picker(st.session_state.dialog,stage))
+
+
+def pick_candidate(location):
+    st.session_state.region_intent='conversation'
+    national_picker.open_picker(location)
 
 
 def apply_national_location(location):
     from services.location_events import confirm_location
     state=deepcopy(st.session_state.dialog);state.update(life_mode=True,web_enabled=True)
+    manual=st.session_state.pop('region_intent','conversation')=='manual'
+    if manual:state['search_requested']=False
     updated=confirm_location(state,location,activities,settings)
+    if manual:updated['message']='찾을 동네를 선택했어요. 보조 메뉴에서 활동과 시간을 고르면 검색할 수 있어요.'
     remember(region_label(updated['location']),updated)
-
-
-def pick_city(city):
-    if (st.session_state.dialog.get('picker') or {}).get('stage')!='region_city':return
-    remember(city,choose_city(st.session_state.dialog,city))
-
-
-def pick_district(area):
-    if (st.session_state.dialog.get('picker') or {}).get('stage')!='region_district':return
-    remember(area,choose_district(st.session_state.dialog,area,activities,settings))
-
-
-def pick_dong(dong):
-    picker=st.session_state.dialog.get('picker') or {}
-    if picker.get('stage')!='region_dong':return
-    remember(dong or '구 전체에서 찾기',choose_area(st.session_state.dialog,picker['city'],picker['district'],dong,activities,settings))
 
 
 def direct_region():
@@ -253,14 +261,8 @@ def picker_buttons(state):
         choice_button('활동 다시 선택',key='edit_activity',on_click=pick_step,args=('activity',),type='secondary')
         choice_button('지역 다시 선택',key='edit_region',on_click=pick_step,args=('region_city',),type='secondary')
         choice_button('시간 다시 선택',key='edit_time',on_click=send,args=('다른 시간',),kwargs={'fixed':True},type='secondary')
-    elif stage=='region_city':
-        for city in REGIONS:choice_button(city,key='city_'+city,on_click=pick_city,args=(city,),type='secondary')
-    elif stage=='region_district':
-        for area in REGIONS[picker['city']]:choice_button(area,key='district_'+area,on_click=pick_district,args=(area,),type='secondary')
-    elif stage=='region_dong':
-        choice_button('구 전체에서 찾기',key='district_all',on_click=pick_dong,args=(None,))
-        for dong in dong_options(activities,picker['city'],picker['district']):choice_button(dong,key='dong_'+dong,on_click=pick_dong,args=(dong,),type='secondary')
-    if stage and stage.startswith('region'):choice_button('지역을 직접 적을게요',key='direct_region',on_click=direct_region,type='secondary')
+    elif stage and stage.startswith('region') and not state.get('life_mode'):
+        choice_button('지역 선택하기',key='resume_region_picker',on_click=pick_step,args=('region_city',),type='primary')
 
 
 def speaker_label(role):
@@ -615,7 +617,7 @@ def compact_chat_actions(state):
             right.button('직접 말하기',key='counsel_direct',on_click=direct_activity,use_container_width=True)
         elif pending=='location_confirmation':
             for i,loc in enumerate(state.get('location_candidates',[])[:4]):
-                st.button(region_label(loc),key='location_candidate_'+str(i),on_click=apply_national_location,args=(loc,),use_container_width=True)
+                st.button(region_label(loc),key='location_candidate_'+str(i),on_click=pick_candidate,args=(loc,),use_container_width=True)
             st.button('다른 지역 선택',key='candidate_other_region',on_click=pick_step,args=('region_city',),use_container_width=True)
         elif pending in {'region','web_location','web_dong'}:
             st.button('지역 선택하기',key='choose_region',on_click=pick_step,args=('region_city',),use_container_width=True,type='primary')
@@ -656,8 +658,12 @@ if DISCOVERY:
         with restart:st.button('메뉴',key='header_menu',on_click=open_header_menu,use_container_width=True)
     if st.session_state.get('confirm_reset'):reset_dialog()
     elif st.session_state.get('show_header_menu'):header_menu_dialog()
-    if st.session_state.get('region_open'):national_picker.render(apply_national_location)
 else:st.title('이음 AI')
+if st.session_state.get('region_open'):
+    if getattr(national_picker,'PICKER_VERSION','').startswith('touch-confirm-'):
+        national_picker.render(apply_national_location)
+    else:
+        st.warning('지역 선택 화면의 실행 버전을 확인해야 해요. 동네 이름은 채팅에 적을 수 있어요.')
 if not DISCOVERY and st.button('성산복지관 신청 도우미로 돌아가기',key='back_to_seongsan'):
     st.session_state.service_mode='seongsan'
     st.rerun()
@@ -678,16 +684,16 @@ if not st.session_state.turns:
             st.caption("Gemini 질문 이해가 미설정되어 기본 규칙으로 안내해요.")
         if not DISCOVERY:st.caption("질문 이해: Gemini · 음성 입력·안내: OpenAI(별도 키와 사용량 필요).")
 
-with st.popover("＋ 보조 메뉴", use_container_width=False):
+with st.popover("＋ 보조 메뉴", key="auxiliary_menu",on_change="rerun",use_container_width=False):
     with st.expander("AI 도움 없이 찾아보기"):
+        st.button("찾을 지역 선택",key="manual_region_picker",on_click=pick_step,args=('region_city',),kwargs={'manual':True},use_container_width=True)
+        st.caption("찾을 지역 · "+(st.session_state.dialog['conditions'].get('region') or '아직 선택하지 않았어요'))
         with st.form("manual_form"):
-            manual_region=st.text_input("찾을 지역",value=st.session_state.dialog["conditions"].get("region", ""),key="manual_region")
             category=st.selectbox("활동 분류",["전체","체육","문화·취미","평생학습"],key="manual_category")
             slot=st.selectbox("편한 시간",["상관없음","오전","오후","저녁"],key="manual_time")
             if st.form_submit_button("선택한 조건으로 찾기",key="manual_submit"):
                 st.session_state.close_menu = True
                 manual_state=deepcopy(st.session_state.dialog)
-                if manual_region.strip():manual_state["conditions"]["region"]=manual_region.strip()
                 state=manual_search(manual_state,activities,category=None if category=="전체" else category,
                                     time_slot=None if slot=="상관없음" else slot)
                 remember("선택한 조건으로 찾아주세요",state)

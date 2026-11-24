@@ -46,6 +46,6 @@ class DeployedEntrypointTest(TestCase):
     evidence=next(item for item in records if 'diagnostics_revision' in item)
     self.assertEqual(evidence['entrypoint'],entry);self.assertEqual(evidence['discovery_enabled'],enabled)
     self.assertEqual(evidence['renderer'],'gangseo_app.py')
-    self.assertEqual(evidence['picker_version'],'touch-confirm-v2')
+    self.assertEqual(evidence['picker_version'],'touch-confirm-v3')
     self.assertTrue(all(evidence['loaded_modules_match_disk'].values()))
     self.assertEqual(evidence['engine'],'not_observed') # No fabricated API/engine success before a turn.

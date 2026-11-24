@@ -6,6 +6,7 @@ from services.ai import (SCHEMA, PROMPT, AIError, make_client, generation_text,
                          validate_extraction)
 from services.config import normalize_model, ModelSettingError
 from services.diagnostics import classify_error
+from services.gemini_trace import HTTPTrace,error_http_status,ACTIVE_TRACE
 from services.activity_guidance import IDEAS
 
 ROUTES = ('explore', 'howto', 'home', 'search', 'chat', 'followup')
@@ -78,6 +79,7 @@ def understand(text,state,activities,settings,*,client=None):
     try:model=normalize_model(settings.model)
     except ModelSettingError:
         error=AIError(code='model_config');error.stage='configuration';error.request_sent=False;raise error from None
+    trace=ACTIVE_TRACE.get() or HTTPTrace()
     owned=client is None
     try:client=client or make_client(settings)
     except AIError as error:
@@ -96,14 +98,20 @@ def understand(text,state,activities,settings,*,client=None):
                 thinking_config=types.ThinkingConfig(thinking_budget=0) if model=='gemini-2.5-flash' else None,
                 automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True)))
         stage='parse'
-        payload=json.loads(generation_text(response))
+        text_response=generation_text(response);trace.generation_succeeded=True
+        payload=json.loads(text_response);trace.json_parsed=True
         stage='validation'
-        return validate_plan(payload)
+        plan=validate_plan(payload);trace.validated=True
+        return plan
     except AIError as error:
         error.stage=stage;error.request_sent=True;raise
     except (ValueError,TypeError):
         error=AIError(code='response_format');error.stage=stage;error.request_sent=True;raise error from None
-    except Exception as error:raise AIError(code=classify_error(error)) from None
+    except Exception as error:
+        status=error_http_status(error)
+        if status is not None:trace.http_status=status;trace.http_response_received=True
+        safe=AIError(code=classify_error(error));safe.stage=stage;safe.request_sent=trace.http_request_attempted
+        raise safe from None
     finally:
         if owned:
             try:client.close()

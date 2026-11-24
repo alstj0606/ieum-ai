@@ -29,9 +29,13 @@ DIAGNOSTICS = {
 def classify_error(error, *, operation="generate"):
     from google.genai import errors
     import httpx2
-    if isinstance(error, (TimeoutError, httpx2.TimeoutException)):
+    try:import httpx
+    except ImportError:httpx=None
+    timeout_types=(TimeoutError,httpx2.TimeoutException)+((httpx.TimeoutException,) if httpx else ())
+    transport_types=(httpx2.TransportError,)+((httpx.TransportError,) if httpx else ())
+    if isinstance(error, timeout_types):
         return 'timeout'
-    if isinstance(error, httpx2.TransportError):
+    if isinstance(error, transport_types):
         return 'connection'
     if isinstance(error, errors.APIError):
         # Never parse message text; only known structured reason symbols may inform auth.
