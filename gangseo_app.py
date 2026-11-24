@@ -2,6 +2,8 @@
 import hashlib
 import html
 import json
+import logging
+import traceback
 from copy import deepcopy
 from pathlib import Path
 import re
@@ -58,6 +60,34 @@ for key, value in {"dialog":new_state(), "turns":[], "speech":None, "auto_read":
 if DISCOVERY:
     st.session_state.dialog["web_enabled"]=True
     st.session_state.dialog["life_mode"]=True
+
+
+def render_connection_diagnostics():
+    # Expander contents run even when collapsed. No imports/probes before consent.
+    if not st.button("연결 진단 실행",key="run_connection_diagnostics"):
+        return
+    stage='snapshot'
+    try:
+        from services.runtime_diagnostics import snapshot
+        report=snapshot(st.session_state.dialog,settings,discovery=DISCOVERY,renderer=__file__)
+        stage='display'
+        st.json(report)
+    except Exception as error:
+        # Keep code locations, not exception messages, source lines, locals or
+        # absolute paths: errors may contain credentials or private user input.
+        frames=[]
+        for frame,line in traceback.walk_tb(error.__traceback__):
+            try:source=Path(frame.f_code.co_filename).resolve().relative_to(ROOT.resolve()).as_posix()
+            except ValueError:source='external'
+            frames.append(f'{source}:{line}')
+        kind=type(error).__name__ if type(error).__module__=='builtins' else 'Exception'
+        reason='unclassified'
+        if type(error) is TypeError and error.args and isinstance(error.args[0],str):
+            mismatch=re.search(r"got an unexpected keyword argument '(discovery|renderer)'$",error.args[0])
+            if mismatch:reason='unexpected_keyword_'+mismatch.group(1)
+        logging.getLogger('ieum.diagnostics').error(
+            'connection_diagnostics_failed stage=%s error_type=%s reason=%s frames=%s',stage,kind,reason,frames)
+        st.warning("연결 진단을 표시하지 못했어요. 연결 상태는 확인되지 않았어요. 채팅과 지역 선택은 계속 이용할 수 있어요.")
 
 
 def remember(text, state, *, voice=False, preserve=False, model_turn=False):
@@ -685,20 +715,7 @@ with st.popover("＋ 보조 메뉴", use_container_width=False):
         st.write("Gemini는 대화 목적과 관심사·조건을 이해해요. 음성 입력·안내는 기존 OpenAI API이며 Gemini 무료 한도와 별개예요. 실제 신청·예약·결제는 하지 않아요.")
         st.write("마이크 권한을 허용하고 HTTPS 주소를 직접 열어주세요. 마이크가 안 되면 글로 계속 질문할 수 있어요.")
     with st.expander("연결 상태 확인"):
-        if DISCOVERY:
-            state=st.session_state.dialog
-            st.json({'search_provider':settings.search_provider,'search_key_configured':settings.search_configured,
-                     'search_diagnostic':(state.get('search_failure') or {}).get('code'),
-                     'search_cache_hit':bool(state.get('web',{}).get('cache_hit')),
-                     'ai_mode':state.get('mode'),'paid_search_enabled':settings.allow_paid_search})
-        from services.runtime_diagnostics import snapshot
-        st.json(snapshot(st.session_state.dialog,settings,discovery=DISCOVERY,renderer=__file__))
-        diagnostic=st.session_state.dialog.get('diagnostic')
-        if diagnostic:
-            code=diagnostic['code']
-            st.write(f"진단 코드: {code}")
-            st.write(DIAGNOSTICS.get(code,DIAGNOSTICS['unknown']))
-        else:st.write("현재 대화에 기록된 연결 오류가 없어요.")
+        render_connection_diagnostics()
     with st.expander("Gemini 모델 연결 점검"):
         st.write("읽기 전용 모델 정보·목록을 조회해요. 질문·음성은 전송하지 않으며 생성 요청은 하지 않아요. 목록에 있어도 무료 이용이나 생성 성공을 보장하지 않아요.")
         if st.button("모델 정보 확인",key="inspect_models",disabled=not bool(settings.gemini_api_key)):
