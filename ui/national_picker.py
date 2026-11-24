@@ -3,6 +3,9 @@ import streamlit as st
 from services.regions import provinces,districts,neighbourhoods,selection,short,label
 
 
+PICKER_VERSION='touch-confirm-v2'
+
+
 def close():st.session_state.region_open=False
 
 def open_picker(location=None):

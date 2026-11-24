@@ -14,7 +14,7 @@ async function region(p,province,district,dong){await tap(p,'지역 선택하기
   try{
    await p.goto('http://127.0.0.1:'+(mode==='basic'?18527:18529));await p.getByRole('button',{name:/취미 배우기/}).waitFor();await idle(p);assert.equal(await p.locator('.st-key-interest_grid_start_interest_ button').count(),4);assert.equal(await p.locator('.st-key-voice_unavailable').count(),0);
    await send(p,'수영 배우고 싶어요');await latest(p).getByText(/어느 동네/).waitFor();
-   for(const text of ['요즘 취미가 없어서 심심해','사람들이랑 할 수 있는 건 없을까?','처음 배우면 쉬운 건 뭐야?','돈 안 들고 할 수 있는 건?']){await send(p,text);assert.doesNotMatch(await latest(p).innerText(),/어느 시·구|어느 동네에서 찾아볼까요|어느 구/);if(mode==='basic')assert.match(await latest(p).innerText(),/AI와 연결되지 않아|AI 답변을 확인하지 못해/)}
+   for(const text of ['요즘 집에만 있어서 심심해.','사람들이랑 어울리고 싶어.','처음 배우면 쉬운 건 뭐야?','돈 안 들고 할 수 있는 건?']){await send(p,text);assert.doesNotMatch(await latest(p).innerText(),/현재 보유한 프로그램|어느 지역에서 찾아볼까요|어느 시·구|어느 동네에서 찾아볼까요|어느 구/);if(mode==='basic')assert.match(await latest(p).innerText(),/AI와 연결되지 않아|AI 답변을 확인하지 못해/)}
    await send(p,'우리 동네에서 찾아줘');await latest(p).getByText(/어느 동네/).waitFor();
    await region(p,'강원특별자치도','강릉시','강남동');await check(p);
    await send(p,'수영 배우고 싶어요');assert.doesNotMatch(await latest(p).innerText(),/어느 동네에서 찾아볼까요|어느 구/);
@@ -22,6 +22,7 @@ async function region(p,province,district,dong){await tap(p,'지역 선택하기
    await tap(p,'지역 바꾸기');await tap(p,'인천광역시 →');await tap(p,'서구 →');await tap(p,'이전');await tap(p,'동구 →');await tap(p,'이전');await tap(p,'서구 →');await tap(p,'가정1동 →');await tap(p,'확인');await p.getByRole('dialog').waitFor({state:'hidden'});await latest(p).getByText(/찾는 지역 · 인천광역시 서구 가정1동/).waitFor();
    await tap(p,'지역 바꾸기');await tap(p,'서울특별시 →');await tap(p,'강서구 →');await tap(p,'화곡1동 →');await tap(p,'확인');await p.getByRole('dialog').waitFor({state:'hidden'});await latest(p).getByText(/찾는 지역 · 서울특별시 강서구 화곡1동/).waitFor();
    await send(p,'응');const user=p.locator('[data-testid=stChatMessage]').filter({has:p.locator('[data-ieum-role=user]')}).last();assert.doesNotMatch(await user.innerText(),/^나\s/);const hidden=user.locator('[data-ieum-role=user]');assert.equal(await hidden.textContent(),'사용자 메시지');assert.ok((await hidden.boundingBox()).width<=1.1);const box=await user.boundingBox();assert.ok(box.width<150&&box.height<70,JSON.stringify(box));
+   for(const bubble of await p.locator('[data-testid=stChatMessage]:has(.ieum-user-text)').all()){const geometry=await bubble.evaluate(e=>{const b=e.getBoundingClientRect(),t=e.querySelector('.ieum-user-text').getBoundingClientRect();return {paddingTop:t.top-b.top,paddingBottom:b.bottom-t.bottom}});assert.ok(geometry.paddingTop>=7.5&&geometry.paddingBottom>=7.5,JSON.stringify(geometry))}
    const outline=await p.locator('.stChatInput textarea').evaluate(e=>getComputedStyle(e).outlineStyle);assert.equal(outline,'none');
    await tap(p,'메뉴');await tap(p,'대화 지우기');await p.getByRole('dialog',{name:'대화를 지울까요?'}).waitFor();await tap(p,'취소');await p.getByRole('dialog').waitFor({state:'hidden'});assert.ok(await p.locator('[data-testid=stChatMessage]').count()>0);
    await check(p);await p.screenshot({path:`/workspace/work/iphone-browser/${width}-${mode}.png`});console.log('PASS pending interruption/touch hierarchy/confirmation/short bubble/contrast',width,mode);

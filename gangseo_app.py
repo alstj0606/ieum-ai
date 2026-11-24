@@ -26,6 +26,7 @@ from services.live_discovery import select_web,cache_search
 from ui.live_cards import render as render_live
 from ui import national_picker
 from services.regions import label as region_label
+from services.life_assistant import turn as conversation_turn
 from services.discovery import EXAMPLES,discovery_turn,safe_input,visible_activities,select_activity,public_card,return_to_recommendations
 
 DISCOVERY=globals().get('DISCOVERY',False)
@@ -92,7 +93,7 @@ def send(text, *, voice=False, fixed=False):
     else:
         if DISCOVERY:
             with st.spinner('말씀을 살펴보고 있어요…'):
-                state,text=discovery_turn(state,text,activities,settings,
+                state,text=conversation_turn(state,text,activities,settings,
                                       extraction=basic_extract(text,state) if fixed else None)
         else:
             state = handle_turn(state, text, activities, settings,
@@ -690,9 +691,8 @@ with st.popover("＋ 보조 메뉴", use_container_width=False):
                      'search_diagnostic':(state.get('search_failure') or {}).get('code'),
                      'search_cache_hit':bool(state.get('web',{}).get('cache_hit')),
                      'ai_mode':state.get('mode'),'paid_search_enabled':settings.allow_paid_search})
-        if DISCOVERY:
-            from services.runtime_diagnostics import snapshot
-            st.json(snapshot(st.session_state.dialog,settings))
+        from services.runtime_diagnostics import snapshot
+        st.json(snapshot(st.session_state.dialog,settings,discovery=DISCOVERY,renderer=__file__))
         diagnostic=st.session_state.dialog.get('diagnostic')
         if diagnostic:
             code=diagnostic['code']

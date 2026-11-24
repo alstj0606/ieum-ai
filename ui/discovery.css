@@ -75,3 +75,7 @@
 .stApp:has(#ieum-discovery-root) [data-testid=stChatMessage]:has([data-ieum-role=user]) [data-testid=stChatMessageContent] {width:auto}
 .stApp:has(#ieum-discovery-root) [data-testid=stChatMessage]:has([data-ieum-role=user]) [data-testid=stVerticalBlock] {gap:0}
 .stApp:has(#ieum-discovery-root) .ieum-user-text {font-size:var(--ieum-text-size,18px);line-height:1.5;white-space:pre-wrap;word-break:keep-all;overflow-wrap:anywhere}
+
+/* Streamlit Markdown compensates a final paragraph with -1rem. Our HTML
+   bubble has no paragraph margin, so that compensation truncated its height. */
+.stApp:has(#ieum-discovery-root) [data-testid=stMarkdownContainer]:has(> .ieum-user-text) {margin-bottom:0}
