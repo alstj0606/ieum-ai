@@ -3,13 +3,16 @@ import streamlit as st
 from services.regions import provinces,districts,neighbourhoods,selection,short,label
 
 
-PICKER_VERSION='touch-confirm-v2'
+PICKER_VERSION='touch-confirm-v3'
 
 
 def close():st.session_state.region_open=False
 
 def open_picker(location=None):
-    st.session_state.region_draft={'stage':'province'}
+    if location and location.get('province') and location.get('district'):
+        st.session_state.region_draft={key:location.get(key) for key in ('province','district','neighbourhood')}
+        st.session_state.region_draft['stage']='confirm'
+    else:st.session_state.region_draft={'stage':'province'}
     st.session_state.region_open=True
 
 
@@ -31,12 +34,25 @@ def current_selection():
     return selection(p,d,n) if n else dict(province=p,city=short(p),district=d,neighbourhood=None,code=None,kind='district_scope')
 
 
+def restore_draft():
+    draft=st.session_state.get('region_draft')
+    if not isinstance(draft,dict) or draft.get('stage') not in {'province','district','neighbourhood','confirm'}:
+        draft={'stage':'province'}
+    if draft['stage']!='province' and draft.get('province') not in provinces():draft={'stage':'province'}
+    if draft['stage'] in {'neighbourhood','confirm'} and draft.get('district') not in districts(draft['province']):
+        draft=dict(stage='district',province=draft['province'])
+    if draft['stage']=='confirm' and draft.get('neighbourhood') and draft['neighbourhood'] not in neighbourhoods(draft['province'],draft['district']):
+        draft=dict(stage='neighbourhood',province=draft['province'],district=draft['district'])
+    st.session_state.region_draft=draft
+    return draft
+
+
 @st.dialog('우리 동네 선택하기',width='small',dismissible=True,on_dismiss=close)
 def render(on_complete):
     size=(18,20,22)[st.session_state.get('font_level',0)]
     st.html('<style>.st-key-national_picker_content :is(p,label) {font-size:'+str(size)+'px}.st-key-national_picker_content button {min-height:48px;margin:2px 0;padding:9px 12px}.st-key-national_picker_content .stButton button[kind=secondary] {background:#fff;color:#151515;border:1px solid #b5b5bd}.st-key-national_picker_content .stButton button[kind=secondary]:hover {background:#fff1e7;color:#151515}.st-key-national_picker_content .stButton button[kind=secondary] p {color:#151515}.st-key-national_picker_content .stButton button[kind=primary] p {color:#fff}.st-key-national_picker_content [class*=st-key-region_option_] button {background:#fff;border:1px solid #d4d4da;color:#151515;text-align:left;justify-content:space-between}[role=dialog]:has(.st-key-national_picker_content) {max-height:calc(100vh - 72px);max-height:calc(100dvh - 72px);overflow-y:auto}</style>')
     with st.container(key='national_picker_content'):
-        draft=st.session_state.region_draft;stage=draft['stage'];p=draft.get('province');d=draft.get('district')
+        draft=restore_draft();stage=draft['stage'];p=draft.get('province');d=draft.get('district')
         titles={'province':'어느 시·도에서 찾아볼까요?','district':'어느 시·군·구인가요?','neighbourhood':'어느 읍·면·동인가요?','confirm':'선택한 동네가 맞나요?'}
         st.write('**'+titles[stage]+'**')
         if p:st.caption(' › '.join(x for x in (p,d) if x))

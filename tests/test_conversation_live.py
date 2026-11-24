@@ -12,3 +12,7 @@ class LiveConversationTest(TestCase):
   self.assertTrue(payload['route'] in {'home','explore','howto'})
   self.assertTrue(0<len(payload['reply'])<=260)
   self.assertTrue(len(payload.get('hobbies',[]))<=3)
+ def test_production_conversation_probe(self):
+  from services.conversation_probe import inspect_conversation
+  report=inspect_conversation(load_settings())
+  self.assertTrue(report['connection_verified'],{k:report[k] for k in ('http_status','error_type','conversation_success')})

@@ -80,13 +80,16 @@ def make_client(settings: Settings):
         raise AIError(code="key_missing")
     try:
         from google import genai
+        from services.gemini_trace import ACTIVE_TRACE
+        trace=ACTIVE_TRACE.get()
         from google.genai import types
         for name in ("google.genai", "google.auth", "httpx", "httpx2", "httpcore", "httpcore2"):
             logging.getLogger(name).setLevel(logging.CRITICAL)
         return genai.Client(
             api_key=settings.gemini_api_key, vertexai=False, enterprise=False,
             http_options=types.HttpOptions(base_url=GEMINI_API_BASE, api_version=GEMINI_API_VERSION, timeout=30000,
-                                          retry_options=types.HttpRetryOptions(attempts=1)),
+                                          retry_options=types.HttpRetryOptions(attempts=1),
+                                          client_args={"event_hooks":{"request":[trace.request],"response":[trace.response]}} if trace is not None else None),
         )
     except Exception:
         raise AIError(code="configuration") from None

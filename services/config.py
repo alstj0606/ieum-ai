@@ -36,6 +36,11 @@ class Settings:
     tavily_api_key: str = field(default="", repr=False)
     search_provider: str = "tavily"
     allow_paid_search: bool = False
+    gemini_key_source: str = "unspecified"
+    gemini_key_environment_present: bool = False
+    gemini_key_secrets_present: bool = False
+    gemini_key_conflict: bool = False
+    model_setting_conflict: bool = False
 
     @property
     def search_configured(self):
@@ -57,6 +62,14 @@ def load_settings(secrets=None):
         model = candidate.strip() if isinstance(candidate, str) else "__invalid_model_setting__"
         model_source = source
         break
+    env_key=os.environ.get('GEMINI_API_KEY');secret_key=(secrets or {}).get('GEMINI_API_KEY')
+    env_present=isinstance(env_key,str) and bool(env_key.strip())
+    secret_present=isinstance(secret_key,str) and bool(secret_key.strip())
+    conflict=env_present and secret_present and env_key.strip()!=secret_key.strip()
+    key_source=('environment' if conflict or env_present and not secret_present else
+                'environment_and_secrets' if env_present and secret_present else 'secrets' if secret_present else 'missing')
+    env_model=os.environ.get('GEMINI_MODEL');secret_model=(secrets or {}).get('GEMINI_MODEL')
+    model_conflict=bool(isinstance(env_model,str) and env_model.strip() and isinstance(secret_model,str) and secret_model.strip() and env_model.strip().removeprefix('models/')!=secret_model.strip().removeprefix('models/'))
     paid_setting=os.environ.get("ALLOW_PAID_SEARCH",(secrets or {}).get("ALLOW_PAID_SEARCH",False))
     return Settings(
         search_api_key=value("BRAVE_SEARCH_API_KEY"),
@@ -65,6 +78,8 @@ def load_settings(secrets=None):
         allow_paid_search=paid_setting is True or (isinstance(paid_setting,str) and paid_setting.strip().lower()=="true"),
         gemini_api_key=value("GEMINI_API_KEY"),
         model=model, model_source=model_source,
+        gemini_key_source=key_source,gemini_key_environment_present=env_present,
+        gemini_key_secrets_present=secret_present,gemini_key_conflict=bool(conflict),model_setting_conflict=model_conflict,
         api_key=value("OPENAI_API_KEY"),
         stt_model=value("OPENAI_STT_MODEL", Settings.stt_model),
         tts_model=value("OPENAI_TTS_MODEL", Settings.tts_model),

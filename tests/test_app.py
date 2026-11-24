@@ -26,7 +26,10 @@ class AppFlowTest(TestCase):
     def test_manual_search_and_official_values_with_no_key(self):
         with patch('services.config.load_settings',return_value=Settings()):
             app=AppTest.from_file(APP).run()
-            app.text_input(key='manual_region').input('서울 강서구')
+            app.button(key='manual_region_picker').click().run()
+            next(b for b in app.button if b.label=='서울특별시 →').click().run()
+            next(b for b in app.button if b.label=='강서구 →').click().run()
+            app.button(key='region_all').click().run();app.button(key='region_confirm').click().run()
             app.selectbox(key='manual_category').select('문화·취미')
             app.selectbox(key='manual_time').select('오전')
             app.button(key='manual_submit').click().run()
